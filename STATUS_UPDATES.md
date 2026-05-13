@@ -277,3 +277,129 @@ spec test run — gitignored, not staged.
 **Cost incurred:** $0. No LLM calls. HN Firebase is free.
 
 ---
+
+## 2026-05-13 09:29 — Phase 2 finish: trends, cohort sweep, clean.py, balance report
+
+**What I did:**
+- Closed out the rest of Phase 2 (tasks 2.4, 2.5, 2.9, 2.10) in one
+  session. Five new modules + 14 new tests:
+  - `ingestion/trends_collect.py` — Google Trends via pytrends. Topic
+    time-series (not SignalEvents). 5 tests.
+  - `ingestion/cohort.py` — parses the verified-cohort markdown table
+    once; `CohortMember` dataclass with per-platform handle defaults
+    and override-file support. 4 tests.
+  - `ingestion/sweep.py` — orchestrator that walks the cohort and calls
+    each available platform collector. Skips platforms with missing
+    credentials; tolerates per-(founder, platform) failures.
+  - `ingestion/clean.py` — consolidates raw parquets into
+    `data/interim/signal_events.parquet` (and `topic_momentum.parquet`
+    for trends). De-dups on signal_id (newest collected_at wins), drops
+    null-key rows. 5 tests.
+  - `analysis/cohort_balance.py` — generates
+    `04_RETROSPECTIVE_CASES/cohort_balance.md`.
+- Ran a real cohort-wide HN sweep + real `clean` + real balance report.
+  45/45 tests pass; ruff clean.
+- 5 focused commits, all on `main`, conventional-commit prefixes.
+
+**Real data on disk (gitignored):**
+- `data/raw/hackernews/*.parquet` — 21 founder files from the cohort
+  sweep (one is a duplicate `pg` from earlier smoke test)
+- `data/raw/youtube/ucx6oq3dkcsbyne6h8uqquva_2024-01-01_2024-02-01.parquet`
+  — MrBeast smoke from earlier session
+- `data/raw/trends/indie-hacker_2023-01-01_2024-01-01.parquet` — 53 weekly rows
+- `data/interim/signal_events.parquet` — **601 unified events** (599 HN
+  + 2 YouTube); 370 of those belong to the verified cohort, the rest is
+  non-cohort smoke-test residue (`pg`, MrBeast channel id).
+- `data/interim/topic_momentum.parquet` — 53 weekly rows.
+
+**Did the cohort sweep work?**
+Yes for HackerNews. **6/20 cohort founders** have HN history findable
+under the X-handle-as-username default, totalling 370 events:
+- Anne-Laure Le Cunff (`anthilemoon`): 157
+- Arvid Kahl (`arvidkahl`): 103
+- Marc Lou (`marclou`): 70
+- Dickie Bush (`dickiebush`): 24
+- Lenny Rachitsky (`lennysan`): 15
+- Justin Welsh (`thejustinwelsh`): 1
+
+The other 14 returned 0 — either no HN account or different handle on
+HN vs X. Likely candidates for gap-fill: Tony Dinh (`tdinh_me` is
+unusual on HN; he may use `tdinh`), Pieter Levels (likely no HN at all,
+he's X-primary), Damon Chen, Roy Lee.
+
+YouTube/Reddit/ProductHunt all show 0/20 in the balance report:
+- **Reddit / PH**: credentials still missing in `.env` (you have
+  Anthropic + YouTube set; the rest is pending).
+- **YouTube**: needs channel ID per founder. The sweep doesn't burn
+  search.list quota to resolve handle→channel; that requires the
+  override file `cohort_handles_override.json` to be populated.
+- **Twitter**: snscrape dead. Wayback sweep deliberately skipped
+  (`--skip-twitter` default for time reasons; Wayback CDX is slow and
+  gives sparse coverage anyway).
+
+**Decisions made:**
+- **Default sweep window: 2020-01-01 → 2025-01-01.** Per-founder windows
+  derived from `emergence_quarter` would be ideal but `emergence_quarter`
+  is free-form text in the cohort file ("2018–2019", "Apr 2023 (acq.)").
+  Parsing all formats is brittle. Future improvement: add
+  `emergence_date_iso` to the override file. For now the 5-year window
+  covers most cohort emergence dates plus pre-emergence activity.
+- **Default non-X handle: X handle, lowercased, underscores stripped.**
+  Many founders use the same handle cross-platform; this is a workable
+  first cut. Misses produce empty parquets that the balance report
+  surfaces honestly — not a hack, real data.
+- **Trends rate-limited despite tenacity retries on first try.** Google
+  returned 429 immediately. The second call (different window, same
+  retry config) succeeded. pytrends/Trends is flaky; we'll need to
+  pause longer between cohort-topic sweeps, but for our 10-topic
+  universe it's tractable.
+- **`emergence_quarter`-driven topic universe is not built yet.** Task
+  2.6 ("Run topic-trend ingestion across the 10 shortlisted topics")
+  needs Kris to choose the 10 topics first. Surfacing for Cowork.
+
+**Per-roadmap decision gate (end of Tue May 20):**
+The roadmap said if cohort has <40 usable persons, scope-cut to n=30 and
+document. Verified cohort is **n=20** to begin with, already below 40.
+The gate becomes data quality per founder, not headcount. With current
+data (HN only): 6/20 founders have non-trivial data. With Reddit + PH
++ YT once credentials/IDs land: probably 12-15/20. With Twitter
+Wayback: probably 18-19/20 (everyone has a Twitter presence by
+definition — the question is how much Wayback archived).
+
+**Blockers:**
+- **Reddit + PH credentials still missing.** When you have a few
+  minutes, paste them and I'll re-run the cohort sweep across those
+  platforms. Expected to roughly double the per-founder data coverage.
+- **YouTube channel ID overrides missing.** Need to either (a) accept
+  the 100u/founder quota burn to resolve, or (b) eyeball the 20
+  founders' YouTube presence manually and drop a JSON file. Most of
+  the cohort is not primarily YouTube — likely only Tori Dunlap and
+  maybe 1-2 others have YouTube channels worth scraping.
+- **snscrape carryover.** No change since Phase 1.2.
+- **Two non-cohort person_ids in `signal_events.parquet`** (`pg`,
+  MrBeast channel id) from smoke tests. Flagged in the balance report
+  for cleanup before the Phase 3 scoring pass — `rm -rf data/raw/` and
+  re-run the sweep will do it.
+
+**Next steps:**
+- **You**: paste Reddit + PH creds; identify the 10 trend topics for
+  task 2.6 (or punt on 2.6 entirely — it's a Tier-1 enhancement, not a
+  blocker for Phase 3).
+- **CC (next session, Phase 3 — May 21 onwards)**: LLM scoring prompts
+  + `scoring/score_signals.py`. Default Claude Haiku 4.5. Budget cap
+  $30/mo.
+
+**Files changed (this session):**
+`ingestion/trends_collect.py`, `ingestion/cohort.py`,
+`ingestion/sweep.py`, `ingestion/clean.py`, `analysis/cohort_balance.py`,
+`tests/test_trends_collect.py`, `tests/test_cohort.py`,
+`tests/test_clean.py`, `STATUS_UPDATES.md`. Wrote
+`04_RETROSPECTIVE_CASES/cohort_balance.md` (in the thesis workspace,
+not the repo). No changes to `schema.py`, `pyproject.toml`, or any
+existing module.
+
+**Cost incurred:** $0. (45 tests pass on free deps; the cohort sweep
+used HN Firebase = free, YouTube Data API ~3 units (10k/day cap),
+pytrends = free, Wayback = skipped.)
+
+---
