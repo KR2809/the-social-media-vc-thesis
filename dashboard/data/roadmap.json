@@ -1,0 +1,109 @@
+{
+  "_meta": {
+    "source": "00_PLANNING/EXECUTION_ROADMAP.md (amended 2026-05-12)",
+    "submission_deadline": "2026-06-30",
+    "defence_date": "2026-07-18",
+    "prediction_lock_date": "2026-05-31"
+  },
+  "phases": [
+    {
+      "phase_id": "0",
+      "phase_name": "Phase 0 — Unlock",
+      "date_range": "May 10–11, 2026",
+      "start_date": "2026-05-10",
+      "end_date": "2026-05-11",
+      "status": "done",
+      "deliverable": "Repo scaffold, dependencies, status protocol"
+    },
+    {
+      "phase_id": "1",
+      "phase_name": "Phase 1 — Cohort + Sources Lock + Tovstiga Reset",
+      "date_range": "May 12–16, 2026",
+      "start_date": "2026-05-12",
+      "end_date": "2026-05-16",
+      "status": "in_progress",
+      "deliverable": "Verified cohort, signal taxonomy v1, supervisor email + dashboard URL"
+    },
+    {
+      "phase_id": "2",
+      "phase_name": "Phase 2 — Data Ingestion",
+      "date_range": "May 11–20, 2026",
+      "start_date": "2026-05-11",
+      "end_date": "2026-05-20",
+      "status": "in_progress",
+      "deliverable": "Ingestion pipeline across X (Wayback), YouTube, Reddit, HN, PH, GH, GTrends"
+    },
+    {
+      "phase_id": "3",
+      "phase_name": "Phase 3 — LLM Scoring + Topic Momentum + KG Build",
+      "date_range": "May 21–28, 2026",
+      "start_date": "2026-05-21",
+      "end_date": "2026-05-28",
+      "status": "upcoming",
+      "deliverable": "Signal scoring prompts v1, topic-momentum series, KG v1"
+    },
+    {
+      "phase_id": "4",
+      "phase_name": "Phase 4 — Allocation Framework + LOCKED Predictions",
+      "date_range": "May 28–31, 2026",
+      "start_date": "2026-05-28",
+      "end_date": "2026-05-31",
+      "status": "upcoming",
+      "deliverable": "Baseline vs KG-augmented model + locked prospective prediction commit (May 31)"
+    },
+    {
+      "phase_id": "5",
+      "phase_name": "Phase 5 — Dashboard + Writing",
+      "date_range": "Jun 1–7, 2026",
+      "start_date": "2026-06-01",
+      "end_date": "2026-06-07",
+      "status": "upcoming",
+      "deliverable": "Full dashboard with model results + thesis chapter drafts"
+    },
+    {
+      "phase_id": "6",
+      "phase_name": "Phase 6 — Supervisor Touchpoint + Revisions",
+      "date_range": "Jun 8–14, 2026",
+      "start_date": "2026-06-08",
+      "end_date": "2026-06-14",
+      "status": "upcoming",
+      "deliverable": "Tovstiga review meeting; revisions applied"
+    },
+    {
+      "phase_id": "7",
+      "phase_name": "Phase 7 — Polish, Format, Urkund",
+      "date_range": "Jun 15–21, 2026",
+      "start_date": "2026-06-15",
+      "end_date": "2026-06-21",
+      "status": "upcoming",
+      "deliverable": "EDHEC-formatted docx, Urkund-clean"
+    },
+    {
+      "phase_id": "8",
+      "phase_name": "Phase 8 — Submit + Defence Build",
+      "date_range": "Jun 22–30, 2026",
+      "start_date": "2026-06-22",
+      "end_date": "2026-06-30",
+      "status": "upcoming",
+      "deliverable": "Thesis submitted; defence deck v1"
+    },
+    {
+      "phase_id": "9",
+      "phase_name": "Phase 9 — Defence Rehearsals",
+      "date_range": "Jul 1–11, 2026",
+      "start_date": "2026-07-01",
+      "end_date": "2026-07-11",
+      "status": "upcoming",
+      "deliverable": "Rehearsal rounds with adversarial jury; slides finalised"
+    },
+    {
+      "phase_id": "10",
+      "phase_name": "Phase 10 — Final Polish + Defence",
+      "date_range": "Jul 12–18, 2026",
+      "start_date": "2026-07-12",
+      "end_date": "2026-07-18",
+      "status": "upcoming",
+      "deliverable": "Defence delivered (Jul 18)"
+    }
+  ]
+}
