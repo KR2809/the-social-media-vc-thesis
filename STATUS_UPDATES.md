@@ -184,3 +184,96 @@ spec test run — gitignored, not staged.
 **Cost incurred:** $0 (no LLM calls in this module).
 
 ---
+
+## 2026-05-13 08:57 — Phase 2.3: Multi-platform ingestion (YouTube + Reddit + HN + PH)
+
+**What I did:**
+- Built four ingestion modules conforming to the existing `SignalEvent`
+  schema (no schema changes needed):
+  - `ingestion/hackernews_collect.py` — HN Firebase API, no auth,
+    parallel fetch via `ThreadPoolExecutor(max_workers=10)`.
+  - `ingestion/youtube_collect.py` — YouTube Data API v3, REST only
+    (no SDK). Quota-cheap pattern (1u/page playlistItems, 1u/batch
+    videos). `handle_to_channel_id` with disk cache at
+    `data/interim/youtube_channel_id_cache.json`.
+  - `ingestion/reddit_collect.py` — PRAW read-only. Client-side date
+    filter (PRAW has no server-side `createdAt` predicate on user
+    listings). Logs a warning at the ~1000-item ceiling.
+  - `ingestion/producthunt_collect.py` — PH v2 GraphQL via
+    `requests.post`. Pagination via `pageInfo.hasNextPage` +
+    `endCursor` on both `madePosts` and `madeComments`.
+- 21 new tests across 4 test files. All 31 tests in the repo pass; ruff
+  clean.
+- Eight focused commits (4 × feat:, 4 × test:).
+
+**Per-platform: worked? real row count? quota?**
+
+| Platform | Worked? | Real smoke | Quota / rate-limit observations |
+| --- | --- | --- | --- |
+| **HN** | **YES** | `pg` 2014-01-01 → 2015-01-01 → **229 items** (11 stories, 218 comments). Unique signal_ids, all in window, text legible. Eyeballed 3 rows — clean. | Firebase API is fast + lenient. `user.submitted` returns the user's *entire* history flat (15,565 IDs for pg) so the 10-worker pool walks it in ~30s for that volume. No 429s observed. |
+| **YouTube** | **PARTIAL** — module + 6 tests pass, real smoke **blocked**: `.env` missing so `YOUTUBE_API_KEY` is unset; smoke fails fast with `YouTubeAuthError`. Code path is validated end-to-end against mocked responses. | Untested live. Expected ~1 + 2×ceil(N/50) units per channel — well under the 10k/day cap for our 20-person cohort. |
+| **Reddit** | **PARTIAL** — module + 5 tests pass, real smoke **blocked**: `.env` missing. | Untested live. PRAW auto-handles rate-limiting; cohort members with >1000 posts will hit the listing ceiling — warning is logged but the parquet still gets the truncated set. Flag this for `cohort_balance.md` when we sweep. |
+| **ProductHunt** | **PARTIAL** — module + 5 tests pass, real smoke **blocked**: `.env` missing. | Untested live. Risk forecast says token may need regeneration on first call; haven't seen any errors yet because we haven't called the API. |
+
+**Decisions made:**
+- **No new deps.** YouTube spec said `google-api-python-client` was
+  already in pyproject — it wasn't. Used `requests` directly against
+  the REST endpoints per the spec's documented fallback. Reddit (PRAW)
+  and PH (requests for GraphQL) needed no additions either.
+- **No schema changes.** All four platforms fit the canonical engagement
+  keys (`likes/replies/reposts/views/quotes`). Per-platform metadata
+  goes into the JSON-encoded `metadata` field with platform-specific
+  keys (`subreddit`, `video_id`, `topics`, `is_show_hn`, etc.). The
+  `metadata.type` discriminator (`post`/`comment`/`submission`/`story`/
+  `poll`) is set consistently across platforms — useful for downstream
+  filtering.
+- **Engagement mapping per platform.** YouTube `viewCount → views`,
+  `likeCount → likes`, `commentCount → replies`. Reddit `score → likes`,
+  `num_comments → replies` (submissions only — comments have no
+  reply-count via PRAW listings). HN `score → likes`,
+  `descendants → replies` (stories only — comments have neither).
+  PH `votesCount → likes`, `commentsCount → replies` (posts only —
+  comments have neither).
+- **HN HTML entity decoding.** HN returns titles/text with HTML entities
+  (`&#x27;`, `&amp;`, etc.). The collector preserves them as-is.
+  Decoding is a scoring-layer concern, not an ingestion concern — flag
+  for the W3 scoring prompts to either strip or normalise.
+
+**Blockers:**
+- **No `.env` file** at repo root. Phase 0 created `.env.example`;
+  Kris's Phase 0 STATUS asked Kris to populate it. Until that lands,
+  YT/Reddit/PH cannot run real smoke tests. Per agreement: build all
+  four modules now, smoke-test only HN.
+- snscrape is still dead (carried over from Phase 1.2). X recovery is
+  someone else's problem.
+
+**Next steps:**
+- Kris: populate `.env` from `.env.example`. Then he (or CC in a follow-up
+  session) can run:
+  ```
+  uv run python -m ingestion.youtube_collect --channel-id UCX6OQ3DkcsbYNE6H8uQQuVA --start 2020-01-01 --end 2020-04-01
+  uv run python -m ingestion.reddit_collect --username spez --start 2024-01-01 --end 2024-02-01
+  uv run python -m ingestion.producthunt_collect --username pieter-levels --start 2014-01-01 --end 2015-01-01
+  ```
+- Cowork: prep prompt for task 2.4 (Google Trends / pytrends) — easy
+  win since pytrends is already in pyproject.
+- CC (next session): build the unified `clean.py` (task 2.9) so the
+  signal_events from all five platforms can be concatenated into
+  `data/interim/signal_events.parquet`.
+
+**Files changed (this session):**
+`ingestion/hackernews_collect.py`, `ingestion/youtube_collect.py`,
+`ingestion/reddit_collect.py`, `ingestion/producthunt_collect.py`,
+`tests/test_hackernews_collect.py`, `tests/test_youtube_collect.py`,
+`tests/test_reddit_collect.py`, `tests/test_producthunt_collect.py`,
+`STATUS_UPDATES.md`. No changes to `ingestion/schema.py`,
+`pyproject.toml`, `dashboard/`, `README.md`, or `requirements.txt`.
+
+**Real data on disk (gitignored):**
+- `data/raw/hackernews/pg_2014-01-01_2015-01-01.parquet` — 229 rows
+- `data/raw/hackernews/pg_2014-06-01_2014-07-01.parquet` — 0 rows (HN
+  had no items for pg in that window; widening to 1y produced the 229)
+
+**Cost incurred:** $0. No LLM calls. HN Firebase is free.
+
+---
