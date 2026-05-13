@@ -52,6 +52,39 @@ python -m models.train_compare
 streamlit run dashboard/app.py
 ```
 
+## Dashboard
+
+The methodology dashboard is built with Streamlit and deployed on Streamlit
+Community Cloud (free tier). It surfaces the thesis claim, methodology, cohort
+status, and roadmap to defence — *not* findings (those come post-May 31 lock).
+
+### Deploy / redeploy
+
+1. Push the latest commit to `main`
+2. Streamlit Cloud auto-deploys from main on push
+3. Live URL: https://the-social-media-vc-thesis.streamlit.app/
+
+### First-time setup (one-off)
+
+1. Go to https://share.streamlit.io
+2. Sign in with the GitHub account that owns this repo
+3. Click "Create app" → "Deploy from existing repo"
+4. Repository: `KR2809/the-social-media-vc-thesis`
+5. Branch: `main`
+6. Main file path: `dashboard/app.py`
+7. App URL slug: `the-social-media-vc-thesis` (or your choice)
+8. Click Deploy
+
+Streamlit Cloud reads `requirements.txt` at the repo root (not
+`pyproject.toml`). Keep that file minimal — current deps: `streamlit`,
+`pandas`, `plotly`, `pillow`.
+
+### Local development
+
+```bash
+uv run streamlit run dashboard/app.py
+```
+
 ## License
 
 MIT for code, CC-BY 4.0 for non-code artefacts (signal taxonomy, KG schema,
