@@ -1,0 +1,5 @@
+# requirements.txt for Streamlit Cloud deploy only; canonical deps are in pyproject.toml.
+streamlit>=1.40
+pandas>=2.2
+plotly>=5.20
+pillow>=10.0
