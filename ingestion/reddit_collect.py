@@ -45,7 +45,8 @@ class RedditAuthError(RuntimeError):
 
 
 def _require_reddit_client() -> praw.Reddit:
-    load_dotenv()
+    # override=True: see note in youtube_collect._require_api_key.
+    load_dotenv(override=True)
     cid = os.environ.get("REDDIT_CLIENT_ID")
     csec = os.environ.get("REDDIT_CLIENT_SECRET")
     uagent = os.environ.get("REDDIT_USER_AGENT")

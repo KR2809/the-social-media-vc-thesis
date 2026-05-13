@@ -75,7 +75,10 @@ def _api_get(path: str, params: dict, api_key: str) -> dict:
 
 
 def _require_api_key() -> str:
-    load_dotenv()
+    # override=True so that `.env` wins over an empty value injected by the
+    # parent shell (e.g. some IDE/agent harnesses pre-set blank API keys for
+    # safety, which would otherwise mask our real value).
+    load_dotenv(override=True)
     key = os.environ.get("YOUTUBE_API_KEY")
     if not key:
         raise YouTubeAuthError(

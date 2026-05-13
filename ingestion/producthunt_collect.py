@@ -97,7 +97,8 @@ query MadeComments($username: String!, $after: String) {
 
 
 def _require_token() -> str:
-    load_dotenv()
+    # override=True: see note in youtube_collect._require_api_key.
+    load_dotenv(override=True)
     tok = os.environ.get("PRODUCTHUNT_DEV_TOKEN")
     if not tok:
         raise ProductHuntAuthError(
