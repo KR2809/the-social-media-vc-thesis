@@ -203,6 +203,63 @@ budget-guard plumbing is verified via mocked token counts.
 
 ---
 
+## 3b. Storage architecture (DECISION_LOG iter-13, 2026-05-14)
+
+**Option C — Hybrid (locked).** Three storage layers that should always agree; the parquet/csv files are the source of truth.
+
+```
+┌─────────────────────────────────────┐
+│  data/raw/, data/interim/,          │   Local source of truth.
+│  data/processed/ (gitignored)       │   All model code reads from here.
+│                                     │   ~250 KB now → ~30-70 MB projected.
+└──────────────┬──────────────────────┘
+               │
+               ├──> scripts/publish_data_snapshot.py (TODO, F1.5)
+               │       └──> GitHub Releases (`data_snapshot_YYYY-MM-DD.tar.gz`)
+               │           Cite from thesis appendix; examiners can `gh release download`.
+               │
+               └──> scripts/sync_to_supabase.py (TODO, F1.5)
+                       └──> Supabase Postgres (500 MB free tier)
+                           ├── `signal_events` table (mirror of signal_events.parquet)
+                           ├── `scored_signals` table
+                           ├── `person_features` table
+                           ├── `kg_features` table
+                           ├── `outcome_labels` table
+                           ├── `eval_metrics` table
+                           ├── `backtest_results` table
+                           └── `allocation` table
+```
+
+**What the FastAPI layer reads from:**
+- `--source local` (default in dev): reads `data/processed/*.parquet` directly via pyarrow
+- `--source supabase` (default in prod): reads via Supabase Postgres client
+
+**What lives where:**
+
+| Asset | Local parquet | GitHub release | Supabase |
+|---|---|---|---|
+| Source of truth | ✅ | mirror | mirror |
+| Used by all model code (`pipeline.py`, tests) | ✅ | — | — |
+| Used by the live demo frontend | — | — | ✅ |
+| Cited in the thesis appendix | ✅ (instructions) | ✅ (tag URL) | ✅ (project URL) |
+| Updated when scoring re-runs | ✅ first | next snapshot | next sync run |
+| The May-31 locked predictions JSON | committed to `04_RETROSPECTIVE_CASES/` | ✅ in release tag `v1.0-thesis-submission` | also mirrored to `locked_predictions` table |
+
+**What this architecture DOES buy:**
+- ✅ The "where's your database" defence question has a clean answer (Supabase queryable URL + schema)
+- ✅ Postgres `created_at` defaults give an independent ingestion-timestamp record (reinforces lookahead-bias-discipline claim)
+- ✅ The May-31 lock gets a second provenance anchor (Postgres row-insert time, on top of git hash + SHA-256)
+- ✅ Strongest reproducibility position of any BBA thesis at EDHEC: examiner picks 1 of 3 paths to verify (release tar.gz / live Supabase query / local clone + pipeline run)
+
+**What this architecture DOES NOT buy:**
+- ❌ Faster queries (parquet already fast at <100 MB)
+- ❌ "Real-time" anything (data updates a few times during thesis cycle)
+- ❌ Vector search (pgvector available if needed, but signal embeddings explicitly out of scope per iter-2)
+
+**Pause-on-idle risk:** Supabase free-tier projects pause after 7 days of inactivity; first request takes ~30s to wake. Hourly cron keepalive (Vercel cron or GitHub Actions) is the workaround. **Explicitly deferred to post-deployment** per iter-13 ("the last last element"). Defence-day mitigation regardless: manually warm up the project 24h before defence.
+
+---
+
 ## 4. Real-data state (as of 2026-05-14)
 
 | Asset | Where | What's in it |

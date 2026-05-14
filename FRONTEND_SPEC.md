@@ -130,15 +130,30 @@ To be locked by Kris + Claude Design. Recommendations:
 
 ## 3. Data flow (how the frontend connects to the existing repo)
 
-The Next.js app reads the same processed-data files the Streamlit prototype reads. No model re-training in the browser. The build order is:
+The Next.js app reads the same processed data the model code produces. No model re-training in the browser. Per **DECISION_LOG iter-13**, storage is hybrid (Option C): parquet/csv files are the source of truth; GitHub Releases hold versioned snapshots for citability; Supabase Postgres mirrors the rows for the live demo.
 
 ```
-pipeline.py all                    (existing — produces all parquet/csv outputs)
+pipeline.py all                    (existing — produces all parquet/csv in data/processed/)
   ↓
-FastAPI thin layer (api/)          (NEW — serves the parquet rows as JSON)
+  ├──> scripts/publish_data_snapshot.py (F1.5)
+  │       └──> GitHub Release artifact (data_snapshot_YYYY-MM-DD.tar.gz)
+  │
+  └──> scripts/sync_to_supabase.py (F1.5, idempotent)
+          └──> Supabase Postgres (free tier, 500 MB)
+                ↓
+FastAPI thin layer (api/, F1)      (--source local OR --source supabase)
   ↓
-Next.js frontend (web/)            (NEW — reads from the FastAPI layer)
+Next.js frontend (web/, F2-F8)     (deployed to Vercel; in prod reads via FastAPI → Supabase)
 ```
+
+**Local development:** FastAPI runs with `--source local`; reads from `data/processed/*.parquet` directly via pyarrow. No Supabase dependency for dev work.
+
+**Production:** FastAPI runs with `--source supabase`; reads from the mirrored tables. Local parquet is the upstream — `sync_to_supabase.py` is run on demand whenever the pipeline produces new outputs.
+
+**The thesis appendix cites three reproducibility paths:**
+1. `gh release download v1.0-thesis-submission` → tar.gz of the data snapshot
+2. Live Supabase project URL (read-only credentials in the appendix)
+3. `git clone + uv sync + pipeline.py all` (full local reproduction from raw)
 
 ### 3.1 FastAPI endpoints to build (small, focused)
 
@@ -202,16 +217,18 @@ type FounderCard = {
 | Phase | Deliverable | Owner | Estimate |
 |---|---|---|---|
 | F0 | Design mockups (Figma / Claude Design) — all 3 views + chrome + states | Kris | 1–2 sessions |
-| F1 | FastAPI layer (`api/`) with the 7 endpoints above, mocked outputs first | CC | 3–4h |
+| F1 | FastAPI layer (`api/`) with the 7 endpoints above, reading from local parquet (`--source local`). Mocked rows where data is empty (e.g. scored signals before API key) | CC | 3–4h |
+| **F1.5** | **Storage migration to Option C (iter-13)** — `scripts/publish_data_snapshot.py` + `scripts/sync_to_supabase.py` + Supabase project setup + schema design + verification script. FastAPI gains `--source supabase` flag | CC | 6–8h |
 | F2 | Next.js scaffold + Tailwind + shadcn/ui + dark/light tokens + top chrome (slider + selectors) | CC | 2–3h |
 | F3 | View 1 — Replay (ranked list + slider re-order animation + outcome chips) | CC | 3–4h |
 | F4 | View 2 — Outcome panel (precision@k headline + 4 baseline comparison cards + CI bars) | CC | 3–4h |
 | F5 | View 3 — Founder card (KG ego-network via react-flow + top-5 signals + outcome timeline + framework-narrative paragraph) | CC | 4–5h |
-| F6 | Wire frontend to FastAPI (replace mocks with real fetches); add loading / error states | CC | 2h |
+| F6 | Wire frontend to FastAPI (replace mocks with real fetches); add loading / error states. Production build points at Supabase | CC | 2h |
 | F7 | Vercel deploy + custom domain (e.g. `signal-fund.vercel.app`) + analytics | CC | 1h |
 | F8 | Polish pass: typography, microcopy, accessibility, mobile fallback | CC + Kris | 2–3h |
+| **F9** | **Supabase keepalive cron** (the "last last" element per iter-13). Hourly Vercel cron or GitHub Actions ping to prevent pause-on-idle. ONLY built after F7 deploy + F8 verification | CC | 1h |
 
-Total: ~20–25 hours of CC time + Kris's design time. Compressible to ~10h if View 3's KG drill-down is deferred to a polish session.
+Total: ~27–34 hours of CC time + Kris's design time. F1, F1.5, F2 can run in parallel (different surfaces). Compressible to ~15h if View 3's KG drill-down is deferred to a polish session.
 
 ---
 
@@ -242,6 +259,10 @@ The frontend is defence-ready when **all** of the following are true:
 | YC-batch overlap data turns out unsourceable / messy | Medium | Drop YC card; keep 4 in-framework baselines. Not a blocker. |
 | The 3 views start scope-creeping (e.g. "add a search bar" / "let users save portfolios") | High | This spec is the freeze. Any new feature request goes into a "vNext" file, not built before defence. |
 | Streamlit prototype drift: changes there don't reach the Next.js app | Low | Both read the same parquet/csv. The FastAPI layer is the single seam; tests in `tests/test_api/` (NEW) assert endpoint correctness. |
+| Supabase free-tier project pauses after 7 days idle; first request post-pause = ~30s wake-up | Medium | F9 keepalive cron deferred to post-deployment per iter-13. Defence-day mitigation: manually warm up project 24h before defence regardless of cron status. |
+| Parquet → Postgres schema drift in F1.5 mirror | Medium | One-time careful schema design + verification script that asserts `row_count(parquet) == row_count(supabase)` after every sync. CI test runs the sync against a small fixture. |
+| Live Supabase contains stale data because nobody re-ran `sync_to_supabase.py` after a pipeline re-run | High | Pipeline.py final stage calls the sync script (opt-in flag `--push-to-supabase`). Snapshot publisher tags both the GitHub release and the Supabase project with the same version string for cross-check. |
+| Supabase free-tier hits the 500MB Postgres limit | Very Low | Projected total is 30-70MB. Even with 10x growth we have headroom. If we ever approach the limit, drop the raw_response text column (largest by far) — it's audit-only, not used downstream. |
 
 ---
 

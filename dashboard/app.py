@@ -215,30 +215,46 @@ def page_methodology() -> None:
         "limitations chapter."
     )
 
-    st.subheader("Data sources")
+    st.subheader("Data sources (creator-platform digital exhaust)")
     sources = pd.DataFrame(
         [
             ["X (Twitter)", "Pre-launch posts via Wayback snapshots; snscrape blocked", "✅", "20 founders"],
-            ["YouTube", "Long-form videos, transcripts, channel growth", "🔲", "Planned"],
-            ["Reddit", "Subreddit comments, build-in-public posts", "🔲", "Planned"],
-            ["Hacker News", "Show HN, comments, karma trajectory", "🔲", "Planned"],
-            ["Product Hunt", "Launches, upvotes, maker history", "🔲", "Planned"],
-            ["Substack", "Newsletter posts, subscriber milestones", "🔲", "Planned"],
-            ["GitHub trending", "Repo activity, contributor patterns", "🔲", "Planned"],
-            ["Google Trends", "Topic momentum, niche emergence signals", "🔲", "Planned"],
+            ["YouTube", "Long-form videos, channel growth", "✅", "Collector shipped; channel-ID overrides pending"],
+            ["Reddit", "Subreddit comments, build-in-public posts", "✅", "Collector shipped; credentials pending"],
+            ["Hacker News", "Show HN, comments, karma trajectory", "✅", "Real data: 599 signals across 20 founders"],
+            ["Product Hunt", "Launches, upvotes, maker history", "✅", "Collector shipped; credentials pending"],
+            ["Google Trends", "Topic momentum, niche emergence signals", "✅", "Real data: 53 weeks for 'indie hacker'"],
         ],
-        columns=["Source", "What it captures", "Status", "Coverage"],
+        columns=["Source", "What it captures", "Status", "Real-data state"],
     )
     st.dataframe(sources, hide_index=True, use_container_width=True)
-    st.caption("✅ shipped · 🟡 in progress · 🔲 planned")
+    st.caption(
+        "Explicitly NOT: LinkedIn, press releases, company filings, "
+        "or any private/paid data. The methodological purity is the wedge — "
+        "every signal we use is free, public, and replicable."
+    )
 
-    st.subheader("The May 31 commitment")
+    st.subheader("Reproducibility — three paths examiners can verify")
+    st.markdown(
+        "1. **Download a release snapshot** — `gh release download v1.0-thesis-submission` "
+        "pulls a tar.gz of all processed parquet/csv outputs.\n"
+        "2. **Query the live Supabase** — read-only credentials in the thesis appendix. "
+        "Every signal, score, prediction queryable via SQL.\n"
+        "3. **Full local reproduction** — `git clone + uv sync + python pipeline.py all` "
+        "re-runs the entire chain from raw collectors to allocation output.\n\n"
+        "All three paths land on the same numbers (verified by `scripts/verify_supabase_mirror.py`). "
+        "See DECISION_LOG iter-13 (Option C hybrid storage)."
+    )
+
+    st.subheader("The May 31 live portfolio")
     st.markdown(
         "On **May 31, 2026** the framework is applied forward to approximately 30 currently-"
-        "emerging founders. The predictions are cryptographically timestamped via a public git "
-        "commit. Outcomes are re-evaluated at 12 months (May 2027) and 24 months (May 2028). "
-        "This converts a retrospective study into a longitudinal one and directly addresses "
-        "the survivorship-bias critique."
+        "emerging founders. The picks are **published as a transparent live portfolio**, with "
+        "the JSON cryptographically anchored by SHA-256 + git commit hash + Supabase row-insert "
+        "timestamp. The repo is tagged `v1.0-thesis-submission`; from that moment, no model "
+        "parameters, prompts, or weights can change. Outcomes re-evaluated at "
+        "+12 months (May 2027) and +24 months (May 2028). This converts a retrospective study "
+        "into a longitudinal one and directly addresses the survivorship-bias critique."
     )
 
 

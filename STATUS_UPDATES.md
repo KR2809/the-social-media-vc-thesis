@@ -801,3 +801,110 @@ the paper. Every UI element traces back to `PROGRESS.md §1.1`. Any
 scope creep (e.g. "let's also show IRR") goes back to DECISION_LOG
 for a new iteration before it's built.
 ---
+
+---
+## 2026-05-14 16:00 — iter-13 docs lock: Option C hybrid storage architecture
+
+**What I did (docs only — no code changes):**
+
+1. **DECISION_LOG iter-13** added 7 entries locking the storage
+   architecture as **Option C — Hybrid**:
+   - Parquet/csv files in `data/processed/` remain the source of
+     truth. All model code reads from here.
+   - One-shot `scripts/publish_data_snapshot.py` writes versioned
+     tar.gz to GitHub Releases (citable, reproducible).
+   - One-shot `scripts/sync_to_supabase.py` mirrors rows into
+     Supabase Postgres (500 MB free tier, plenty).
+   - FastAPI layer gets `--source {local,supabase}` flag — local
+     dev reads parquet directly, prod reads Supabase.
+   - Data volume confirmed small (~30-70 MB projected after full
+     scoring run; fits trivially on free tier).
+   - Cron keepalive explicitly **deferred to post-deployment**
+     ("the last last element" per Kris's sequencing).
+   - Thesis appendix cites 3 reproducibility paths: GitHub release
+     tar.gz / live Supabase URL / git-clone + pipeline.py all.
+
+2. **PROGRESS.md §3b — Storage architecture** new section. ASCII
+   diagram of the 3-layer flow. Table mapping each asset to local
+   / GitHub release / Supabase. Explicit "what this DOES buy" /
+   "what this DOES NOT buy" — defensive against over-promising.
+
+3. **FRONTEND_SPEC.md** updated:
+   - §3 data flow diagram now shows the 3-layer architecture
+     (local source-of-truth + GitHub release snapshot + Supabase
+     mirror). Local dev vs production read paths specified.
+   - §4 build phases: **F1.5** (storage migration, 6-8h) added
+     between F1 and F2; **F9** (Supabase keepalive cron, 1h)
+     appended as the explicit last phase. F1 ships against local
+     parquet first; F1.5 adds the Supabase swap. Total estimate
+     bumped to ~27-34h.
+   - §6 risks: 4 new rows covering pause-on-idle, parquet→Postgres
+     schema drift, stale-Supabase from missed sync, free-tier
+     500MB ceiling (very low risk — 10x headroom).
+
+4. **Dashboard Methodology page** rewritten:
+   - Data-sources table updated: 6 collectors all marked ✅ shipped
+     with real-data state (was previously "Planned"). Substack and
+     GitHub-trending rows removed since neither is in scope per
+     iter-12.
+   - New "Reproducibility — three paths" subsection — the
+     defensible-moat explanation for examiners.
+   - May-31 commitment section rewritten as "May 31 live portfolio"
+     with the three provenance anchors (SHA-256 + git hash +
+     Supabase row-insert timestamp) explicitly listed.
+
+**Decisions made:**
+- **Option C over Options A or B.** Critical pushback applied:
+  Option A (static files only) works methodologically but loses
+  1-2 grade points on the artefact dimension at defence; Option B
+  (Supabase only) sacrifices the local-clone reproducibility story.
+  C is the minimum infrastructure that lets the thesis defend
+  "yes, we have a real data backend" without losing reproducibility.
+- **No live ingestion.** Sync to Supabase is on-demand, not
+  continuous. Postgres is a mirror, not a source.
+- **Cron keepalive deferred.** Built AFTER F7 deploy + F8
+  verification, per Kris's explicit "last last" sequencing.
+  Defence-day mitigation regardless: manual warmup 24h before.
+- **All 3 reproducibility paths must agree.** Verification script
+  asserts row-count parity after every sync.
+
+**Test count:** 134/134 still pass; ruff clean. Code surface
+unchanged (the FastAPI layer + sync scripts are F1 and F1.5 work,
+not built yet).
+
+**Files changed (this session):**
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/DECISION_LOG.md`
+  (iter-13 inserted at top)
+- `PROGRESS.md` (new §3b Storage architecture)
+- `FRONTEND_SPEC.md` (§3 + §4 + §6 updated)
+- `dashboard/app.py` (Methodology page rewritten for reproducibility
+  + correct source statuses)
+- `STATUS_UPDATES.md` (this entry)
+
+**Cost incurred:** $0.
+
+**Next steps (Kris-side, unchanged from prior + new):**
+1. Drop `ANTHROPIC_API_KEY` in `.env` (unchanged).
+2. Register ≥10 negative peers (unchanged).
+3. Create a Supabase project at supabase.com (free tier) — paste
+   the project URL + anon key + service role key in `.env`.
+   Roughly 5 minutes of setup work.
+4. Continue Figma / Claude Design mockups for the 3-view frontend.
+
+**Next steps (CC, next session — order matters):**
+- **F0 unblocked** by Kris's mockups → start F1 (FastAPI + local
+  parquet) and F1.5 (Supabase mirror) in parallel.
+- F1.5 acceptance criterion: `scripts/verify_supabase_mirror.py`
+  asserts row-count parity AND a few row-level spot checks
+  (e.g. `signal_events.signal_id == supabase.signal_events.signal_id`
+  for a sampled subset).
+
+**Risk-watch (load-bearing for iter-13):**
+- Supabase pause-on-idle on defence day. F9 keepalive cron is the
+  cure but it's deferred. Defence-day mitigation = manual warmup
+  24h before regardless of cron status. Worth a calendar reminder
+  on Jul 17.
+- Stale Supabase post-pipeline-rerun. Pipeline.py F1.5 stage gets
+  an opt-in `--push-to-supabase` flag so the sync is one-flag away
+  from automatic.
+---
