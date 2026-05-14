@@ -78,7 +78,10 @@ def inject_css() -> None:
 
 def header() -> None:
     st.markdown(
-        "<h1 style='margin-bottom:0.1rem'>From Social Signals to Entrepreneurial Emergence</h1>",
+        "<h1 style='margin-bottom:0.1rem'>From Social Signals to Pre-Seed Allocation</h1>"
+        "<div style='color:#555; font-size:1.05rem; font-style:italic; "
+        "margin-bottom:0.4rem'>A Systematic Framework for Data-Driven Venture "
+        "Capital Inspired by QuantumLight Capital</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -105,9 +108,11 @@ def page_claim() -> None:
     st.subheader("The claim")
     st.markdown(
         "<div class='claim-quote'>"
-        "Observable, multi-platform, public behavioural signals — structured as a knowledge "
-        "graph — can predict which individuals will emerge as successful micro-entrepreneurs "
-        "in the creator economy <em>before</em> they formally launch."
+        "Observable, multi-platform, public behavioural signals — structured "
+        "as a knowledge graph — can be combined into a systematic pre-seed "
+        "allocation framework. QuantumLight Capital ($250M, Series B/C) runs "
+        "this approach with proprietary operational data; we test the same "
+        "principles at pre-seed using only free public social signals."
         "</div>",
         unsafe_allow_html=True,
     )
@@ -116,18 +121,20 @@ def page_claim() -> None:
     st.subheader("The research question")
     st.markdown(
         "<div class='claim-quote'>"
-        "Can social media behavioural signals predict which individuals will emerge as "
-        "successful micro-entrepreneurs in the creator economy?"
+        "Can a two-tier framework — Tier 1 topic-momentum detection plus "
+        "Tier 2 founder-emergence prediction from public social signals — "
+        "produce a defensible pre-seed allocation recommendation that beats "
+        "naïve baselines under retrospective backtest?"
         "</div>",
         unsafe_allow_html=True,
     )
-    st.caption("Verbatim from COMPREHENSIVE_PLAN §2.1.")
+    st.caption("Reframed per DECISION_LOG iter-4 (Social-Signal Fund pivot).")
 
     st.subheader("Five differentiators")
     diffs = [
         ("Individual-level", "Not company-level. The unit of analysis is the person before the venture."),
         ("Pre-launch", "Not post-founding. Signals are read in the window before a formal venture exists."),
-        ("Creator economy", "A specific, growing niche — not generic startups, not VC-backed teams."),
+        ("Pre-seed VC framing", "QuantumLight at Series B/C with proprietary data → us at pre-seed with public signals."),
         ("Multi-signal integration", "Multiple platforms, not just X. YouTube, Reddit, HN, PH, GH, Substack, GTrends."),
         ("Knowledge-graph methodology", "Relational structure, not flat features. Topics, people, projects, time."),
     ]
@@ -163,7 +170,7 @@ def page_methodology() -> None:
     phases = [
         ("Phase 1", "Retrospective positive cases", "5–20 emerged founders"),
         ("Phase 1.5", "Matched-pair negative retrospective cases", "Project-level, anonymous"),
-        ("Phase 2", "Reflexive self-case", "Under review"),
+        ("Phase 2", "Self-case (author runs the tool on himself)", "Live in /Self-case"),
         ("Phase 3", "Knowledge graph construction", "From cohort ingestion"),
         ("Phase 4", "Comparative empirical evaluation", "Baseline vs KG-augmented + May 31 LOCKED predictions"),
     ]
@@ -348,6 +355,66 @@ def page_results() -> None:
         )
 
 
+def page_self_case() -> None:
+    from analysis.self_case import self_case_view
+
+    st.subheader("Self-case: predicting the author")
+    st.caption(
+        "Per DECISION_LOG iter-11: the self-case is Kris using the framework "
+        "on his own X handle. Same ingestion, same scoring, same KG, same "
+        "model. Demonstrates the framework's generalisability by example."
+    )
+
+    view = self_case_view()
+    st.markdown(f"**Anchor handle:** `@{view.handle}` (`SELF_HANDLE` in `analysis/self_case.py`)")
+
+    if not view.has_features:
+        st.warning(
+            f"No feature row yet. Status: {view.note}\n\n"
+            f"To populate: ingest @{view.handle} via the platform collectors, "
+            "run `python pipeline.py score person graph kg-features`."
+        )
+        return
+
+    c1, c2, c3 = st.columns(3)
+    if view.p_emerge is not None:
+        c1.metric("P(emerge) prediction", f"{view.p_emerge:.3f}")
+    else:
+        c1.metric("P(emerge) prediction", "pending model")
+    if view.cohort_percentile is not None:
+        c2.metric("Cohort percentile", f"{view.cohort_percentile * 100:.0f}%")
+    if view.feature_row:
+        c3.metric("# signals ingested", int(view.feature_row.get("n_signals", 0)))
+
+    if view.feature_row:
+        st.markdown("**Per-person flat features**")
+        feat_df = pd.DataFrame(
+            [
+                {"feature": k, "value": v}
+                for k, v in view.feature_row.items()
+                if k != "person_id" and v is not None
+            ]
+        )
+        st.dataframe(feat_df, use_container_width=True, hide_index=True)
+
+    if view.kg_row:
+        st.markdown("**Knowledge-graph features**")
+        kg_df = pd.DataFrame(
+            [
+                {"feature": k, "value": v}
+                for k, v in view.kg_row.items()
+                if k != "person_id" and v is not None
+            ]
+        )
+        st.dataframe(kg_df, use_container_width=True, hide_index=True)
+
+    st.info(view.note if view.note != "ok" else (
+        "All artefacts present. P(emerge) is the KG-augmented model's prediction "
+        "for the author. Cohort percentile compares it against the other persons "
+        "in the labels file."
+    ))
+
+
 def page_backtest() -> None:
     st.subheader("Phase 4 retrospective backtest")
     st.caption(
@@ -477,7 +544,7 @@ def page_simulation() -> None:
 
 def main() -> None:
     st.set_page_config(
-        page_title="From Social Signals to Entrepreneurial Emergence",
+        page_title="From Social Signals to Pre-Seed Allocation",
         layout="wide",
         initial_sidebar_state="expanded",
     )
@@ -489,7 +556,7 @@ def main() -> None:
         "Page",
         [
             "Thesis claim", "Methodology", "Cohort status", "Results",
-            "Backtest", "Simulation", "Roadmap",
+            "Backtest", "Simulation", "Self-case", "Roadmap",
         ],
         label_visibility="collapsed",
     )
@@ -510,6 +577,8 @@ def main() -> None:
         page_backtest()
     elif page == "Simulation":
         page_simulation()
+    elif page == "Self-case":
+        page_self_case()
     else:
         page_roadmap()
 

@@ -65,6 +65,8 @@ def load_labels(labels_path: Path = _LABELS_DEFAULT) -> pd.DataFrame:
     if not {"person_id", "emerged"}.issubset(df.columns):
         raise ValueError(f"labels file missing required columns: {df.columns.tolist()}")
     df["emerged"] = df["emerged"].astype(int)
+    # Filter out unknown / TBD labels (-1) — used by the self-case row.
+    df = df[df["emerged"].isin([0, 1])].reset_index(drop=True)
     return df
 
 

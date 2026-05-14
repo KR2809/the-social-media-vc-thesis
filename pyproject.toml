@@ -53,7 +53,9 @@ ignore = ["E501"]
 # scikit-learn convention: feature matrix is `X` (uppercase).
 "models/**/*.py" = ["N803", "N806"]
 "analysis/lock_predictions.py" = ["N806"]
+"analysis/self_case.py" = ["N806"]
 "tests/test_lock_predictions.py" = ["N806"]
+"tests/test_self_case.py" = ["N806"]
 "analysis/seed_labels.py" = []
 
 [tool.black]

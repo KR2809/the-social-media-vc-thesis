@@ -36,7 +36,7 @@ logger = logging.getLogger("pipeline")
 
 STAGES = [
     "clean", "score", "person", "graph", "kg-features", "topic",
-    "seed-labels", "eval", "allocate", "backtest",
+    "discover-topics", "seed-labels", "eval", "allocate", "backtest",
 ]
 
 
@@ -104,10 +104,18 @@ def _stage_allocate():
 
 def _stage_seed_labels():
     from analysis.seed_labels import seed_positives
+    from analysis.self_case import register_self_case
     from ingestion.negative_peers import materialise_for_outcome_labels
 
     seed_positives()
     materialise_for_outcome_labels()
+    register_self_case()
+
+
+def _stage_discover_topics():
+    from analysis.topic_discovery import discover_topics
+
+    discover_topics(skip_trends=False)
 
 
 def _stage_backtest():
@@ -123,6 +131,7 @@ _DISPATCH = {
     "graph": _stage_graph,
     "kg-features": _stage_kg_features,
     "topic": _stage_topic,
+    "discover-topics": _stage_discover_topics,
     "seed-labels": _stage_seed_labels,
     "eval": _stage_eval,
     "allocate": _stage_allocate,

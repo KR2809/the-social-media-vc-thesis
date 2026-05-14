@@ -616,3 +616,85 @@ Tests added: `tests/test_monte_carlo.py`, `tests/test_allocation_framework.py`,
   meaningful numbers; build the W6 dashboard polish (KG visualisation
   via Gephi export of `graph.graphml`).
 ---
+
+---
+## 2026-05-14 14:00 — Title relock + self-case redefinition + auto-topic discovery + PROGRESS.md
+
+**What I did:**
+
+1. **Title relocked** to the iter-4 QuantumLight pivot across all
+   surfaces — repo README, dashboard header (with QL subtitle line),
+   workspace CLAUDE.md, COMPREHENSIVE_PLAN §2.1, EXECUTION_ROADMAP
+   header, and a fresh DECISION_LOG iteration 11. Dashboard's Thesis
+   Claim page rewritten to anchor on QuantumLight (Series B/C with
+   proprietary data → us at pre-seed with public signals); RQ
+   reframed as the two-tier pre-seed allocation question; the
+   "Creator economy" differentiator card replaced with "Pre-seed VC
+   framing" to match the new positioning.
+
+2. **Self-case redefined** as Kris using the framework on himself
+   (not reflexive ethnography). New `analysis/self_case.py`:
+   `SELF_HANDLE = "kristian_ratkov"`, `register_self_case()` writes
+   `emerged=-1` to outcome_labels (sentinel for "unknown/TBD,
+   excluded from training"), `self_case_view()` returns features +
+   KG features + P(emerge) + cohort percentile for the dashboard.
+   `baseline_model.load_labels` filters `emerged ∉ {0,1}` so the
+   self-case row is auto-excluded from training. New /Self-case
+   dashboard page surfaces all of this. 5 tests.
+
+3. **Auto-topic discovery** as a core pipeline task. New
+   `analysis/topic_discovery.py` with a hybrid two-pass approach:
+     - Pass A (cohort-grounded, retrospective): clusters
+       `s6_topic_label` weighted by strength × recency, picks top N.
+     - Pass B (forward-looking, candidate generation): pytrends
+       `related_queries` rising for each Pass-A seed.
+     - Merge: cohort topics + non-duplicate rising candidates, each
+       tagged with `source`, ranked.
+   Pipeline gains `discover-topics` stage. 6 tests (Pass B mocked so
+   no network in CI).
+
+4. **PROGRESS.md** at the repo root — a single-file source-of-truth
+   document for Cowork. Covers: current locks (title, RQ, cohort),
+   every module + status, real-data state, blockers + owners,
+   roadmap re-tagged against shipped code, how Cowork should consume
+   the file. Workspace CLAUDE.md gains a "Build status" pointer
+   directing future cowork sessions to this file.
+
+**Decisions made:**
+- **`emerged=-1` sentinel** for the self-case row keeps it out of
+  training data while preserving it for prediction. Cleaner than
+  branching the training pipeline; `load_labels` does the filter
+  once and downstream code is unchanged.
+- **Pass B fail-soft** — pytrends failures are logged and skipped,
+  not raised. The cohort-grounded pass works independently.
+- **Per-file ruff exemptions** for the sklearn `X` uppercase in
+  `analysis/self_case.py` and its test, consistent with
+  `lock_predictions.py`.
+
+**Test count:** 134/134 pass (up from 123). ruff clean.
+
+**Files changed (this session):**
+`analysis/self_case.py`, `analysis/topic_discovery.py`,
+`models/baselines/baseline_model.py` (emerged filter),
+`dashboard/app.py` (header + claim page + Self-case page),
+`pipeline.py` (discover-topics + self-case wiring),
+`pyproject.toml` (ruff exemptions), `README.md`, `PROGRESS.md` (new),
+workspace `CLAUDE.md` + `COMPREHENSIVE_PLAN.md` + `EXECUTION_ROADMAP.md`
++ `DECISION_LOG.md` (iter-11 entries).
+Tests added: `tests/test_self_case.py`, `tests/test_topic_discovery.py`.
+
+**Cost incurred:** $0.
+
+**Next steps (Kris-side, unchanged from prior):**
+1. Drop `ANTHROPIC_API_KEY` in `.env` to enable scoring.
+2. Register negative peers via
+   `python -m ingestion.negative_peers` or
+   `register_peer()` in a REPL.
+3. (Optional) Ingest your X handle so the Self-case page populates.
+
+**Next steps (CC, next session):**
+Once API key + ≥1 negative peer land:
+1. `python pipeline.py all` — full chain in one command.
+2. Inspect eval report + bootstrap CIs + backtest table.
+3. Iterate Tovstiga email content for the Fri May 16 send.
+---
