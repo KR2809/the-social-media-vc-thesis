@@ -16,6 +16,9 @@ import streamlit as st
 EDHEC_BLUE = "#1F4E79"
 GITHUB_URL = "github.com/KR2809/the-social-media-vc-thesis"
 DATA_DIR = Path(__file__).parent / "data"
+# Repo-level processed outputs from `pipeline.py`. Resolved at runtime so
+# the dashboard works whether invoked from repo root or dashboard/.
+PROCESSED_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
 # ---------- data loaders ----------
@@ -297,6 +300,54 @@ def page_roadmap() -> None:
     )
 
 
+def page_results() -> None:
+    st.subheader("Model results & allocation")
+    st.caption(
+        "Surfaces outputs of `pipeline.py eval allocate`. Empty placeholders "
+        "appear until the LLM scoring pass + negative-peer labels land."
+    )
+
+    eval_path = PROCESSED_DIR / "eval_metrics.csv"
+    alloc_path = PROCESSED_DIR / "allocation.csv"
+
+    if eval_path.exists():
+        st.markdown("**Baseline vs KG-augmented**")
+        df = pd.read_csv(eval_path)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        if {"name", "roc_auc"} <= set(df.columns):
+            baseline_row = df[df["name"] == "baseline"]
+            kg_row = df[df["name"] == "kg_augmented"]
+            if len(baseline_row) and len(kg_row):
+                delta_auc = (
+                    kg_row.iloc[0]["roc_auc"] - baseline_row.iloc[0]["roc_auc"]
+                )
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Baseline ROC AUC", f"{baseline_row.iloc[0]['roc_auc']:.3f}")
+                c2.metric("KG-augmented ROC AUC", f"{kg_row.iloc[0]['roc_auc']:.3f}")
+                c3.metric("Δ AUC (KG vs baseline)", f"{delta_auc:+.3f}")
+    else:
+        st.info(
+            "No evaluation metrics yet. Run `python pipeline.py eval` once "
+            "scored signals and negative-cohort labels are in place."
+        )
+
+    if alloc_path.exists():
+        st.markdown("**Capital allocation (fractional Kelly)**")
+        df = pd.read_csv(alloc_path)
+        show_cols = [c for c in [
+            "person_id", "p_emerge", "allocation_normalised", "dollars_allocated"
+        ] if c in df.columns]
+        st.dataframe(df[show_cols].head(20), use_container_width=True, hide_index=True)
+        st.caption(
+            "Defaults: 1/4-Kelly @ 30x payoff, 10% per-person cap, $1M capital. "
+            "Tunable via `AllocationParams` in `analysis/allocation.py`."
+        )
+    else:
+        st.info(
+            "No allocation table yet. Run `python pipeline.py allocate` after eval."
+        )
+
+
 # ---------- entry ----------
 
 def main() -> None:
@@ -311,7 +362,7 @@ def main() -> None:
     st.sidebar.markdown("### Navigate")
     page = st.sidebar.radio(
         "Page",
-        ["Thesis claim", "Methodology", "Cohort status", "Roadmap"],
+        ["Thesis claim", "Methodology", "Cohort status", "Results", "Roadmap"],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -325,6 +376,8 @@ def main() -> None:
         page_methodology()
     elif page == "Cohort status":
         page_cohort()
+    elif page == "Results":
+        page_results()
     else:
         page_roadmap()
 
