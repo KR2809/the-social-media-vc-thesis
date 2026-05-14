@@ -30,17 +30,43 @@ self-case, auto-topic discovery, dashboard — is functional now.
 
 ## 1. Thesis identity (current locks)
 
+### 1.1 The one-sentence thesis (iter-12, 2026-05-14)
+
+> *"A pre-seed allocation framework built entirely from free public social-media signals can identify creator-economy founders before they formally launch, at materially higher rates than naïve baselines, operationalised as a transparent live portfolio with locked prospective predictions."*
+
+This sentence is the load-bearing claim — it goes on the cover page, in the abstract, in the Tovstiga email, in the dashboard header. Everything in this repo flows from it.
+
+**Critically, what this thesis does NOT claim:**
+
+- ❌ "Beats Sequoia / a16z / YC on returns" — real VC pick data is private, action spaces don't match, introduces a returns claim we cannot defend.
+- ❌ "$X capital becomes $Y" — no IRR claim, no exit-value data.
+- ❌ "Excess returns" — not a returns claim. A *prediction* claim that we *operationalise* as portfolio selection.
+
+**What it DOES claim, and how we prove it:**
+
+| Claim | Evidence |
+|---|---|
+| Public social-media signals carry predictive info about who becomes a founder | LLM-scored signals → KG-augmented logistic model → ROC + PR-AUC with bootstrap CIs |
+| The framework captures that info at materially higher rates than naïve baselines | Portfolio precision@k at retrospective dates vs 4 in-framework baselines (random / signal-volume / recency / Tier-1-only) + YC-batch overlap (if sourceable) |
+| The framework is testable, transparent, replicable from free public data | Public GitHub repo + locked v1.0 tag + live dashboard + zero-cost data stack |
+| Operationalised as an auditable paper portfolio | 3-view frontend (Replay / Outcome / Founder card) + May-31 locked predictions JSON with SHA-256 + git commit hash |
+
+### 1.2 Locked elements
+
 | Element | Value | Source |
 |---|---|---|
 | Title | *From Social Signals to Pre-Seed Allocation: A Systematic Framework for Data-Driven Venture Capital Inspired by QuantumLight Capital* | DECISION_LOG iter-11 (2026-05-14) |
-| Central RQ | *Can a two-tier framework — Tier 1 topic-momentum detection plus Tier 2 founder-emergence prediction from public social signals — produce a defensible pre-seed allocation recommendation that beats naïve baselines under retrospective backtest?* | DECISION_LOG iter-11 |
-| Cohort | 20 positive founders, named (`cohort_verified.md`) + project-level anonymous negatives (`ingestion/negative_peers.py`, currently empty registry) | iter-6 |
+| Central RQ | *Does a two-tier framework built exclusively on free public social-media signals identify creator-economy founders at materially higher rates than naïve baselines over a retrospective replay, with rates measured as precision@k at the §4.1 emergence horizon?* | DECISION_LOG iter-12 |
+| Empirical claim | Portfolio-level precision@k with bootstrap CIs vs 4 baselines | iter-12 |
+| Cohort | 20 positive founders, named (`cohort_verified.md`) + project-level anonymous negatives (`ingestion/negative_peers.py`, registry currently empty) | iter-6 |
+| "Social media" scope | Creator-platform digital exhaust: X (Wayback), YouTube, Reddit, HN, Product Hunt, Google Trends. Explicitly NOT LinkedIn / press releases / company filings | iter-12 |
 | Self-case | Kris using the framework on his own X handle (`@kristian_ratkov`) | iter-11 |
 | Outcome composite | §4.1 of `COMPREHENSIVE_PLAN.md` (≥10k followers/sub OR ≥$5k MRR / ≥$60k ARR OR funding/acq/top-100, within 24mo of first signal) | iter-2 |
 | Default LLM | Claude Haiku 4.5 (cheap); Sonnet 4.6 for taxonomy refinement only | CLAUDE.md §3.3 |
 | Budget cap | $30/month | CLAUDE.md §3.4 |
-| Prediction lock date | **2026-05-31 (sacred)** | Move A, iter-5 |
+| Prediction lock date | **2026-05-31 (sacred)** — reframed as a "live portfolio" publication, re-evaluated at +12mo / +24mo | Move A (iter-5), reframed iter-12 |
 | Submission | 2026-06-30; defence 2026-07-18 | EDHEC |
+| Demo | 3-view frontend (Replay / Outcome / Founder card) — see [`FRONTEND_SPEC.md`](FRONTEND_SPEC.md) | iter-12 |
 
 ---
 
@@ -115,11 +141,13 @@ clean → score → person → graph → kg-features → topic
   → discover-topics → seed-labels → eval → allocate → backtest
 ```
 
-### 2.6 `dashboard/app.py` — Streamlit MVP (8 pages)
+### 2.6 `dashboard/app.py` — Streamlit prototype (8 pages, kept as a working artefact)
+
+The Streamlit dashboard is now positioned as the **working prototype + supervisor-touchpoint demo (Tovstiga email, Fri May 16)**. It is NOT the defence demo. The defence demo is the 3-view Next.js app specified in [`FRONTEND_SPEC.md`](FRONTEND_SPEC.md) (iter-12, 2026-05-14).
 
 | Page | Surfaces | Status |
 |---|---|---|
-| Thesis claim | Locked title + RQ + five differentiators + lit comparison | ✅ live |
+| Thesis claim | Locked one-sentence thesis + RQ + five differentiators + lit comparison | ✅ live |
 | Methodology | 4-phase columns + outcome composite + data sources | ✅ live |
 | Cohort status | 20-founder table + per-platform balance | ✅ live (data via `dashboard/data/cohort_status.json`) |
 | Results | `eval_metrics.csv` + `allocation.csv` with Δ AUC headline | ✅ wired, populates after `pipeline.py eval allocate` |
@@ -130,6 +158,22 @@ clean → score → person → graph → kg-features → topic
 
 Deployable to Streamlit Community Cloud free-tier from the public repo.
 README has deploy instructions.
+
+### 2.7 Defence-grade frontend — 3 views (iter-12, design phase)
+
+**The defence demo is not a Streamlit dashboard.** It is a polished Next.js + Tailwind app reading the same parquet/csv outputs the Streamlit prototype reads, with three connected views:
+
+1. **Replay mode** — slider for date T. Capital $1M. K = 20. Drag the slider; the framework re-ranks in real time. Show "as of this date, the framework picked: …". Highlight which picks had *not yet emerged* at T (the real test of pre-emergence prediction).
+2. **Outcome panel** — at T + 24mo, mark each picked founder ✅ emerged / ❌ not-yet / ❓ unknown. Headline metric = precision@k with bootstrap CI bar underneath. Four baseline-portfolio cards (random / signal-volume / recency / Tier-1-only) shown side-by-side for comparison.
+3. **Founder card** drill-down — pick one founder from the portfolio. Show their KG ego-network, top 5 signals at time T (what the model "saw" then), their actual outcome path. The storytelling layer.
+
+Full spec: [`FRONTEND_SPEC.md`](FRONTEND_SPEC.md). Build order: design (Kris + Claude Design) → static prototype → wire to the existing parquet/csv outputs via a thin FastAPI layer → deploy to Vercel free tier.
+
+**What this frontend does NOT include** (locked iter-12):
+
+- ❌ Stranger-handle live-scoring (cohort replay + self-case only — see DECISION_LOG iter-12 for reasoning)
+- ❌ Fund-returns dashboards (P&L curves, IRR numbers) — would require return data we don't have and breaks the prediction-claim defensibility
+- ❌ "vs a16z / Sequoia" comparisons — only the 4 in-framework baselines + YC-batch overlap (if sourceable)
 
 ---
 

@@ -698,3 +698,106 @@ Once API key + ≥1 negative peer land:
 2. Inspect eval report + bootstrap CIs + backtest table.
 3. Iterate Tovstiga email content for the Fri May 16 send.
 ---
+
+---
+## 2026-05-14 15:30 — iter-12 docs lock: portfolio-prediction framing + 3-view frontend spec
+
+**What I did (docs only — no code changes this session):**
+
+1. **DECISION_LOG iter-12** added 7 entries locking:
+   - The one-sentence thesis (portfolio-operationalised PREDICTION
+     claim, NOT a fund-returns claim).
+   - Empirical proof framed as precision@k + bootstrap CIs vs 4
+     in-framework baselines + YC-batch overlap (if sourceable).
+   - "vs a16z / Sequoia" explicitly DROPPED — real pick data is
+     private, action spaces don't match, breaks defensibility.
+   - May-31 lock reframed as "live portfolio publication" with
+     +12mo / +24mo re-evaluation.
+   - Frontend reframed from 8 loose Streamlit pages to 3 connected
+     Next.js views (Replay / Outcome / Founder card).
+   - Demo testability scope: cohort replay + self-case only; NOT
+     arbitrary stranger handles.
+   - "Social media" framed precisely as creator-platform digital
+     exhaust (X / YouTube / Reddit / HN / PH / GTrends), NOT generic.
+
+2. **COMPREHENSIVE_PLAN §2.1** updated:
+   - The one-sentence thesis now appears as a load-bearing quote box
+     at the top of §2.1 (copied verbatim into cover page, abstract,
+     Tovstiga email, dashboard header).
+   - Adds explicit "what this thesis does NOT claim" section to
+     pre-empt examiner critique.
+   - Lock table expanded with one-sentence thesis row, empirical
+     claim row, "social media" scope row, demo row, May-31 reframe row.
+
+3. **PROGRESS.md** restructured:
+   - §1 split into §1.1 (one-sentence thesis + what it does and
+     doesn't claim) and §1.2 (locked elements table). Both rev'd to
+     iter-12.
+   - New §2.7 (Defence-grade frontend) added between Streamlit and
+     test surface. Streamlit positioned as the prototype + Tovstiga-
+     touchpoint demo, NOT the defence demo.
+
+4. **FRONTEND_SPEC.md** created (new top-level file). 8 sections:
+   - §1 Information architecture (3 views + chrome) — Replay /
+     Outcome panel / Founder card. Each view's centre / left rail /
+     right rail / footer specced.
+   - §2 Design principles — trust signals from rigor not chrome;
+     reading order; every claim cites its source; honest about what
+     the framework can't do; visual style recommendations.
+   - §3 Data flow — Next.js → FastAPI → existing parquet/csv. 7
+     endpoints specced. Frontend data model in TypeScript.
+   - §4 Build phases — F0 design → F1 API → F2-F5 views → F6 wire
+     → F7 deploy → F8 polish. ~20-25h CC time total.
+   - §5 Acceptance criteria — 10 specific bullets defining
+     "defence-ready".
+   - §6 Risks + mitigations.
+   - §7 What this spec is NOT (anti-scope).
+   - §8 Next actions: Kris's design first, then CC implementation.
+
+5. **Dashboard claim page** copy rewritten to match the locked
+   one-sentence thesis + RQ + an explicit "What this thesis does NOT
+   claim" section with the three load-bearing negative claims (no
+   fund-returns, no vs-a16z, no stranger live-scoring).
+
+6. **Workspace CLAUDE.md** Build-status pointer (added iter-11)
+   continues to direct future cowork sessions to `PROGRESS.md`.
+
+**Decisions made:** all 7 iter-12 entries above. Critical pushback
+points where I declined to overclaim:
+- "We beat a16z" → DROPPED, can't source private VC pick data.
+- "$X becomes $Y" → DROPPED, no return data; assumptions would carry
+  the argument; examiner kills it.
+- Stranger live-scoring in demo → DROPPED, reputational + technical
+  risk on famous-person false negatives.
+
+**Test count:** 134/134 still pass; ruff still clean. Code surface
+unchanged this session — only docs + a single dashboard copy edit.
+
+**Files changed (this session):**
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/DECISION_LOG.md`
+  (iter-12 inserted at top)
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/COMPREHENSIVE_PLAN.md`
+  (§2.1 framing + table rewritten)
+- `PROGRESS.md` (§1 + §2.6 + new §2.7)
+- `FRONTEND_SPEC.md` (NEW, 350+ lines)
+- `dashboard/app.py` (page_claim copy rewritten to match iter-12)
+- `STATUS_UPDATES.md` (this entry)
+
+**Cost incurred:** $0.
+
+**Next steps:**
+- **Kris:** create Figma / Claude Design mockups for all 3 views per
+  `FRONTEND_SPEC.md` §1.2-1.4. Hand back to CC.
+- **CC (next session, gated on F0 mockups):**
+  - F1: build FastAPI layer with the 7 endpoints (mock outputs first).
+  - F2: Next.js + Tailwind + shadcn scaffold with top chrome.
+- **Kris (in parallel, no dependency on frontend):** drop
+  `ANTHROPIC_API_KEY` in `.env` + register ≥10 negative peers via
+  `ingestion.negative_peers.register_peer()` — these unblock the
+  real backtest numbers the frontend will surface.
+
+**Risk-watch (load-bearing):** the frontend must NOT claim more than
+the paper. Every UI element traces back to `PROGRESS.md §1.1`. Any
+scope creep (e.g. "let's also show IRR") goes back to DECISION_LOG
+for a new iteration before it's built.
+---

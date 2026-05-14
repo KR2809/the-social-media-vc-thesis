@@ -108,27 +108,41 @@ def page_claim() -> None:
     st.subheader("The claim")
     st.markdown(
         "<div class='claim-quote'>"
-        "Observable, multi-platform, public behavioural signals — structured "
-        "as a knowledge graph — can be combined into a systematic pre-seed "
-        "allocation framework. QuantumLight Capital ($250M, Series B/C) runs "
-        "this approach with proprietary operational data; we test the same "
-        "principles at pre-seed using only free public social signals."
+        "A pre-seed allocation framework built entirely from free public "
+        "social-media signals can identify creator-economy founders before "
+        "they formally launch, at materially higher rates than naïve baselines, "
+        "operationalised as a transparent live portfolio with locked "
+        "prospective predictions."
         "</div>",
         unsafe_allow_html=True,
     )
-    st.caption("Paraphrased from the locked thesis title and COMPREHENSIVE_PLAN §1.")
+    st.caption(
+        "The one-sentence thesis (DECISION_LOG iter-12, 2026-05-14). "
+        "Note what this does NOT claim: no $-returns, no IRR, no 'vs Sequoia / a16z'."
+    )
 
     st.subheader("The research question")
     st.markdown(
         "<div class='claim-quote'>"
-        "Can a two-tier framework — Tier 1 topic-momentum detection plus "
-        "Tier 2 founder-emergence prediction from public social signals — "
-        "produce a defensible pre-seed allocation recommendation that beats "
-        "naïve baselines under retrospective backtest?"
+        "Does a two-tier framework built exclusively on free public social-media "
+        "signals (Tier 1 topic-momentum detection + Tier 2 founder-emergence "
+        "prediction) identify creator-economy founders at materially higher rates "
+        "than naïve baselines (random / signal-volume / recency / Tier-1-only) "
+        "over a retrospective replay, with rates measured as precision@k at the "
+        "§4.1 emergence horizon?"
         "</div>",
         unsafe_allow_html=True,
     )
-    st.caption("Reframed per DECISION_LOG iter-4 (Social-Signal Fund pivot).")
+    st.caption("Reframed per DECISION_LOG iter-12 (portfolio-prediction sharpening).")
+
+    st.subheader("What this thesis does NOT claim")
+    st.markdown(
+        "- ❌ **No fund-returns claim.** No IRR. No P&L. No '$1M becomes $4M'.\n"
+        "- ❌ **No 'vs a16z / Sequoia' comparison.** Real VC pick data is "
+        "private; action spaces don't match. Out of scope.\n"
+        "- ❌ **No stranger-handle live-scoring** in the demo. Cohort replay "
+        "+ self-case only. (Reputational + technical risk; see DECISION_LOG iter-12.)"
+    )
 
     st.subheader("Five differentiators")
     diffs = [
