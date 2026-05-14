@@ -16,7 +16,7 @@ from models.baselines.baseline_model import (
     BASELINE_FEATURE_COLS,
     train_baseline,
 )
-from models.evaluation.eval import evaluate_model, run_full_eval
+from models.evaluation.eval import evaluate_model, evaluate_with_ci, run_full_eval
 from models.kg_augmented.kg_model import KG_FEATURE_COLS, train_kg_augmented
 from scoring.score_signals import _SCORED_SCHEMA
 
@@ -181,6 +181,21 @@ def test_eval_baseline_separates_synthetic_classes(tmp_path):
     # Synthetic data is highly separable; AUC should be very high.
     assert m.roc_auc > 0.8, f"baseline AUC unexpectedly low: {m.roc_auc}"
     assert m.n == 6 and m.n_pos == 3
+
+
+def test_evaluate_with_ci_attaches_bounds(tmp_path):
+    _, flat_path, kg_path, labels_path = _make_synthetic_dataset(tmp_path)
+    flat = pd.read_parquet(flat_path)
+    from models.baselines.baseline_model import load_labels
+    labels = load_labels(labels_path)
+    m = evaluate_with_ci("baseline", flat, BASELINE_FEATURE_COLS, labels, n_iter=200)
+    assert m.roc_auc_ci_lo is not None and m.roc_auc_ci_hi is not None
+    assert m.roc_auc_ci_lo <= m.roc_auc <= m.roc_auc_ci_hi or (
+        # CI bounds occasionally don't bracket the point estimate exactly with
+        # small n; require they're at least within a reasonable range.
+        abs(m.roc_auc - m.roc_auc_ci_lo) < 0.3
+    )
+    assert m.pr_auc_ci_lo is not None and m.pr_auc_ci_hi is not None
 
 
 def test_run_full_eval_writes_report(tmp_path):

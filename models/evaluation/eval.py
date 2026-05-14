@@ -60,6 +60,11 @@ class ModelMetrics:
     brier: float
     n: int
     n_pos: int
+    # Optional bootstrap CIs (filled in by evaluate_with_ci).
+    roc_auc_ci_lo: float | None = None
+    roc_auc_ci_hi: float | None = None
+    pr_auc_ci_lo: float | None = None
+    pr_auc_ci_hi: float | None = None
 
 
 def _precision_at_k(y_true: np.ndarray, y_score: np.ndarray, k: int) -> float:
@@ -116,6 +121,39 @@ def evaluate_model(
         n=len(y),
         n_pos=int(y.sum()),
     )
+
+
+def evaluate_with_ci(
+    name: str,
+    features_df: pd.DataFrame,
+    feature_cols: list[str],
+    labels: pd.DataFrame,
+    n_iter: int = 1_000,
+    random_seed: int = 42,
+) -> ModelMetrics:
+    """Evaluate + attach bootstrap CIs to AUC + PR-AUC.
+
+    Per `COMPREHENSIVE_PLAN §4.0` (iter-10): bootstrap CIs on the
+    empirical evaluation metrics. Turns "n is too small for a point
+    estimate" into "here is exactly what n buys us in CI width."
+    """
+    from models.monte_carlo import bootstrap_metric_ci
+
+    metrics = evaluate_model(name, features_df, feature_cols, labels)
+    X, y = assemble_xy(features_df, labels, feature_cols)
+    oof = _cv_predict_proba(X, y, feature_cols)
+
+    _, summary_auc = bootstrap_metric_ci(
+        oof, y, roc_auc_score, n_iter=n_iter, random_seed=random_seed,
+    )
+    _, summary_pr = bootstrap_metric_ci(
+        oof, y, average_precision_score, n_iter=n_iter, random_seed=random_seed,
+    )
+    metrics.roc_auc_ci_lo = summary_auc.get("lower_ci")
+    metrics.roc_auc_ci_hi = summary_auc.get("upper_ci")
+    metrics.pr_auc_ci_lo = summary_pr.get("lower_ci")
+    metrics.pr_auc_ci_hi = summary_pr.get("upper_ci")
+    return metrics
 
 
 def evaluate_both(

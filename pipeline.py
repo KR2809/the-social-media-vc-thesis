@@ -34,7 +34,10 @@ import click
 
 logger = logging.getLogger("pipeline")
 
-STAGES = ["clean", "score", "person", "graph", "kg-features", "topic", "eval", "allocate"]
+STAGES = [
+    "clean", "score", "person", "graph", "kg-features", "topic",
+    "seed-labels", "eval", "allocate", "backtest",
+]
 
 
 def _stage_clean():
@@ -99,6 +102,20 @@ def _stage_allocate():
     write_allocation(probs)
 
 
+def _stage_seed_labels():
+    from analysis.seed_labels import seed_positives
+    from ingestion.negative_peers import materialise_for_outcome_labels
+
+    seed_positives()
+    materialise_for_outcome_labels()
+
+
+def _stage_backtest():
+    from models.allocation_framework.backtest import run_backtest
+
+    run_backtest()
+
+
 _DISPATCH = {
     "clean": _stage_clean,
     "score": _stage_score,
@@ -106,8 +123,10 @@ _DISPATCH = {
     "graph": _stage_graph,
     "kg-features": _stage_kg_features,
     "topic": _stage_topic,
+    "seed-labels": _stage_seed_labels,
     "eval": _stage_eval,
     "allocate": _stage_allocate,
+    "backtest": _stage_backtest,
 }
 
 
