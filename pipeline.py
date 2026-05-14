@@ -31,12 +31,16 @@ import pickle
 from pathlib import Path
 
 import click
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 logger = logging.getLogger("pipeline")
 
 STAGES = [
     "clean", "score", "person", "graph", "kg-features", "topic",
     "discover-topics", "seed-labels", "eval", "allocate", "backtest",
+    "push-to-supabase", "verify-mirror",
 ]
 
 
@@ -124,6 +128,40 @@ def _stage_backtest():
     run_backtest()
 
 
+def _stage_push_to_supabase():
+    """DECISION_LOG iter-13: mirror local parquet/csv to Supabase Postgres.
+
+    Opt-in: requires SUPABASE_SERVICE_ROLE_KEY in .env. If the key is
+    missing this stage is a no-op (logs a warning and continues).
+    """
+    import os as _os
+
+    if not _os.environ.get("SUPABASE_SERVICE_ROLE_KEY"):
+        logger.warning(
+            "SUPABASE_SERVICE_ROLE_KEY missing — skipping Supabase push. "
+            "Set it in .env to enable."
+        )
+        return
+    from scripts.sync_to_supabase import sync_all
+
+    sync_all()
+
+
+def _stage_verify_mirror():
+    """Assert local ↔ Supabase parity. Runs after push-to-supabase."""
+    import os as _os
+
+    if not _os.environ.get("SUPABASE_URL"):
+        logger.warning("SUPABASE_URL missing — skipping verify-mirror")
+        return
+    from scripts.verify_supabase_mirror import verify_all
+
+    reports = verify_all()
+    n_fail = sum(1 for r in reports if not r.passed)
+    if n_fail > 0:
+        raise RuntimeError(f"verify-mirror failed for {n_fail} table(s)")
+
+
 _DISPATCH = {
     "clean": _stage_clean,
     "score": _stage_score,
@@ -136,6 +174,8 @@ _DISPATCH = {
     "eval": _stage_eval,
     "allocate": _stage_allocate,
     "backtest": _stage_backtest,
+    "push-to-supabase": _stage_push_to_supabase,
+    "verify-mirror": _stage_verify_mirror,
 }
 
 

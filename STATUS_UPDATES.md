@@ -908,3 +908,123 @@ not built yet).
   an opt-in `--push-to-supabase` flag so the sync is one-flag away
   from automatic.
 ---
+
+---
+## 2026-05-14 17:00 — Supabase infrastructure live + FastAPI scaffold + 3 new scripts
+
+**What I did:** With Kris still off gathering the API key, mockups,
+and negative peers, I knocked out the full **F1 + F1.5** sequence
+from `FRONTEND_SPEC.md` — everything I could build before his inputs
+arrive.
+
+**Supabase project provisioned (live):**
+- Project: `thesis-social-signal-fund` (id `uhhcylfvoxgyrqijlxjk`,
+  eu-west-2, free tier, ACTIVE_HEALTHY)
+- URL: https://uhhcylfvoxgyrqijlxjk.supabase.co
+- 13 tables created via migration `20260514_initial_schema.sql`
+  (signal_events, scored_signals, person_features, kg_features,
+  outcome_labels, negative_peers_registry, eval_metrics,
+  backtest_results, allocation, topic_momentum_metrics,
+  discovered_topics, locked_predictions, snapshots)
+- RLS enabled on every table; anon-key SELECT policies (the same
+  read-only access pattern that goes into the thesis appendix)
+- Every table carries a `mirror_synced_at TIMESTAMPTZ DEFAULT now()`
+  column for independent ingestion-timestamp provenance (iter-13)
+- Migration committed to `supabase/migrations/` for version control
+
+**Three new scripts (all idempotent, all opt-in via env keys):**
+
+1. `scripts/sync_to_supabase.py` — bulk upsert (200-row chunks) for
+   every table. Coerces NaN→None, parses metadata JSON string to
+   JSONB, integer-casts emerged labels. Returns per-table counts.
+   `--dry-run`, `--tables`, `--verbose`. 12 tests, all mocked.
+
+2. `scripts/verify_supabase_mirror.py` — three layers of parity
+   check per table: (L1) row count, (L2) primary-key set equality,
+   (L3) random-sample row-level spot checks. Reads via anon key
+   (no service-role needed). 7 tests, all mocked. **Smoke-tested
+   against the live project** — correctly detected the missing eval
+   rows (local=2, remote=0 → FAIL) since sync hasn't run yet.
+
+3. `scripts/publish_data_snapshot.py` — builds versioned tar.gz of
+   processed files, computes SHA-256 manifest, optionally uploads
+   to GitHub Releases via `gh` CLI, optionally inserts row into
+   Supabase `snapshots` table. Deterministic version derived from
+   commit + date so re-publishing is a no-op. Smoke-tested in
+   dry-run mode.
+
+**FastAPI scaffold (api/):**
+- `api/sources.py` — `LocalSource` (reads parquet/CSV directly) +
+  `SupabaseSource` (paginates Postgres). Selected at runtime via
+  `DATA_SOURCE=local|supabase` env var. Same interface; endpoints
+  don't care which is wired.
+- `api/main.py` — 8 endpoints per FRONTEND_SPEC §3:
+  `/api/health`, `/api/portfolio`, `/api/baselines`,
+  `/api/precision-at-k`, `/api/founder/{person_id}`, `/api/cohort`,
+  `/api/timeline-bounds`, `/api/locked-predictions`,
+  `/api/discovered-topics`. CORS middleware permissive in dev,
+  tightenable via `FRONTEND_ORIGINS` env. 13 tests; all mocked at
+  the data-source seam — no network/parquet required in CI.
+- **Smoke test against running app:** `/api/health` returns 200,
+  `/api/cohort` returns the real 20 founders, `/api/timeline-bounds`
+  reports correct empty state.
+
+**pipeline.py extended (two new stages):**
+- `push-to-supabase` — opt-in, no-op if SUPABASE_SERVICE_ROLE_KEY
+  missing (logs a warning, continues — never breaks the chain).
+- `verify-mirror` — runs after push-to-supabase. Raises RuntimeError
+  if any table fails parity (catches stale sync silently).
+- `load_dotenv(override=True)` added at top so env vars resolve
+  consistently across all stages.
+- New full chain: clean → score → person → graph → kg-features →
+  topic → discover-topics → seed-labels → eval → allocate →
+  backtest → **push-to-supabase → verify-mirror**
+
+**Dependencies added to pyproject.toml:**
+- supabase>=2.30 (Python client)
+- fastapi>=0.110, uvicorn>=0.30 (API server)
+- httpx>=0.27 (transitive but pinned for clarity)
+
+**Test count:** 165/165 pass (was 134; +31 across the new modules).
+Ruff clean. No code regressions in existing tests.
+
+**Files changed (this session):**
+- `supabase/migrations/20260514_initial_schema.sql` (NEW — 13 tables, RLS, policies)
+- `scripts/{__init__,sync_to_supabase,verify_supabase_mirror,publish_data_snapshot}.py` (NEW)
+- `api/{__init__,sources,main}.py` (NEW)
+- `tests/test_{sync_to_supabase,verify_supabase_mirror,api}.py` (NEW)
+- `pipeline.py` (+ 2 stages + load_dotenv)
+- `pyproject.toml` (+ 4 deps)
+- `.env.example` (+ SUPABASE_URL, SUPABASE_ANON_KEY published; SUPABASE_SERVICE_ROLE_KEY + GITHUB_TOKEN placeholders)
+- `.gitignore` (+ data/snapshots/)
+- `STATUS_UPDATES.md` (this entry)
+
+**Live Supabase URL + anon key are now in `.env.example`** —
+intentionally committed (anon key is public-by-design, RLS allows
+SELECT to anyone with the URL).
+
+**Cost incurred:** $0 (free-tier project; no LLM calls).
+
+**Next steps:**
+- **Kris (unchanged from prior):**
+  1. Drop `ANTHROPIC_API_KEY` in `.env`.
+  2. Drop `SUPABASE_SERVICE_ROLE_KEY` in `.env`. Grab from
+     supabase.com/dashboard/project/uhhcylfvoxgyrqijlxjk/settings/api
+     — *Service role* key (not anon).
+  3. Optional: `GITHUB_TOKEN` for the snapshot publisher.
+  4. Register negative peers.
+  5. Continue design mockups for the 3 frontend views.
+
+- **CC (next session, parallel work):**
+  - Once SUPABASE_SERVICE_ROLE_KEY lands: `python pipeline.py
+    push-to-supabase verify-mirror` to do the first real sync +
+    parity check.
+  - Once Kris's mockups land: F2 (Next.js scaffold), F3-F5 (views).
+  - F1.5 keepalive deferred per iter-13 — still the last step.
+
+**Risk-watch:**
+- Service-role key when added MUST NOT be committed. `.env` is
+  gitignored; the example file only has the public-anon key.
+- Supabase project is INACTIVE on free tier after 7 days idle.
+  Defence-day warmup reminder still required (Jul 17).
+---
