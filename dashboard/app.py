@@ -75,7 +75,7 @@ def inject_css() -> None:
 
 def header() -> None:
     st.markdown(
-        f"<h1 style='margin-bottom:0.1rem'>From Social Signals to Entrepreneurial Emergence</h1>",
+        "<h1 style='margin-bottom:0.1rem'>From Social Signals to Entrepreneurial Emergence</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -129,7 +129,7 @@ def page_claim() -> None:
         ("Knowledge-graph methodology", "Relational structure, not flat features. Topics, people, projects, time."),
     ]
     cols = st.columns(5)
-    for col, (title, body) in zip(cols, diffs):
+    for col, (title, body) in zip(cols, diffs, strict=False):
         with col:
             st.markdown(
                 f"<div class='diff-card'><strong>{title}</strong><br>"
@@ -165,7 +165,7 @@ def page_methodology() -> None:
         ("Phase 4", "Comparative empirical evaluation", "Baseline vs KG-augmented + May 31 LOCKED predictions"),
     ]
     cols = st.columns(len(phases))
-    for col, (tag, name, note) in zip(cols, phases):
+    for col, (tag, name, note) in zip(cols, phases, strict=False):
         with col:
             st.markdown(
                 f"<div class='diff-card'><strong style='color:{EDHEC_BLUE}'>{tag}</strong><br>"
@@ -308,7 +308,7 @@ def main() -> None:
     inject_css()
     header()
 
-    st.sidebar.markdown(f"### Navigate")
+    st.sidebar.markdown("### Navigate")
     page = st.sidebar.radio(
         "Page",
         ["Thesis claim", "Methodology", "Cohort status", "Roadmap"],

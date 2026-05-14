@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -15,13 +14,11 @@ from analysis import kg_features as kf
 from analysis import person_features as pf
 from models.baselines.baseline_model import (
     BASELINE_FEATURE_COLS,
-    assemble_xy,
     train_baseline,
 )
-from models.evaluation.eval import evaluate_model, run_full_eval, write_report
+from models.evaluation.eval import evaluate_model, run_full_eval
 from models.kg_augmented.kg_model import KG_FEATURE_COLS, train_kg_augmented
 from scoring.score_signals import _SCORED_SCHEMA
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: synthetic scored signals for 6 people (3 positives, 3 negatives).

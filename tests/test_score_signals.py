@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pyarrow.parquet as pq
-import pytest
 
 from ingestion.schema import SignalEvent, signal_events_to_parquet
 from scoring import score_signals as sc

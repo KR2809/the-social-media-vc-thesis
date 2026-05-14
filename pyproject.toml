@@ -49,6 +49,11 @@ target-version = "py311"
 select = ["E", "F", "I", "N", "B", "W"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# scikit-learn convention: feature matrix is `X` (uppercase).
+"models/**/*.py" = ["N803", "N806"]
+"analysis/seed_labels.py" = []
+
 [tool.black]
 line-length = 100
 target-version = ["py311"]

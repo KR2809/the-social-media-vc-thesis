@@ -104,15 +104,15 @@ def build_graph(
             topics_per_person[person].add(topic)
 
     # Derive (Topic)-CO_OCCURS_WITH-(Topic) — both directions counted once.
-    for person, topics in topics_per_person.items():
+    for topics in topics_per_person.values():
         tlist = sorted(topics)
         for i in range(len(tlist)):
             for j in range(i + 1, len(tlist)):
                 a, b = _node_id("Topic", tlist[i]), _node_id("Topic", tlist[j])
                 # Accumulate weight = number of persons in which both topics co-occur.
                 if g.has_edge(a, b):
-                    # MultiDiGraph: incrementing weight on the first existing edge key.
-                    for k, attrs in g[a][b].items():
+                    # MultiDiGraph: increment weight on the first existing edge key.
+                    for attrs in g[a][b].values():
                         attrs["weight"] = attrs.get("weight", 1) + 1
                         break
                 else:
