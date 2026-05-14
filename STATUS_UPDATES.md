@@ -511,3 +511,108 @@ plumbing is wired and tested, so the first real run will be logged
 and bounded automatically.
 
 ---
+
+---
+## 2026-05-14 13:00 — Roadmap gap fill: MC + backtest + lock + negative-peers + CIs
+
+**What I did:** Audited cowork docs against shipped code and built
+everything the roadmap names that wasn't yet wired:
+
+1. **Monte Carlo simulation module** (`models/monte_carlo.py`,
+   25 tests) — implements the full
+   `cc_prompts_phase3_monte_carlo.md` spec: `bootstrap_metric_ci`,
+   `simulate_founder_emergence`, `simulate_topic_trajectory`,
+   `simulate_portfolio`. Every public function carries the
+   load-bearing epistemic claim verbatim in its docstring
+   ("framework demonstration, not statistical claim beyond cohort").
+   Tests assert the claim is present.
+
+2. **Two-tier framework + Phase 4 backtest**
+   (`models/allocation_framework/`, 6 tests) — `combine.py` produces
+   ranked (person, topic) pairs at any historical date with
+   lookahead-bias filters on both Tier-1 and Tier-2. `backtest.py`
+   runs the framework at retrospective dates against three baselines
+   (random, signal_volume, recency) and writes a CSV + markdown
+   report. Per the roadmap, lift numbers only become meaningful once
+   negative-peer labels populate.
+
+3. **Prospective prediction lock harness**
+   (`analysis/lock_predictions.py`, 5 tests) — the May-31 sacred-date
+   freeze. Loads the trained KG-augmented model, predicts P(emerge)
+   for a prospective cohort, writes JSON with SHA-256 hashes of all
+   input artefacts + the git commit hash. Refuses to lock if any
+   prospective handle is missing features.
+
+4. **Negative-peer protocol** (`ingestion/negative_peers.py`, 6 tests)
+   — anonymous project-level coding per iter-6. `NegativePeer`
+   dataclass, `register_peer` + `materialise_for_outcome_labels`
+   (idempotent), `write_protocol_summary` for the thesis. Public
+   peer_<n> IDs only; handles stay private. Once Kris registers
+   the matched negatives, the model and backtest layers become
+   meaningful.
+
+5. **Bootstrap CIs in eval** — `evaluate_with_ci()` wraps
+   `evaluate_model()` and attaches 95% CIs to ROC + PR AUC via
+   `bootstrap_metric_ci`. Implements the iter-10 framework tightening
+   ("turns 'n is too small' into 'here is what n buys us in CI
+   width'"). `ModelMetrics` extended with `ci_lo` / `ci_hi` fields.
+
+6. **Pipeline.py extended** — added `seed-labels` and `backtest`
+   stages. Full chain now: clean → score → person → graph →
+   kg-features → topic → seed-labels → eval → allocate → backtest.
+
+7. **Dashboard pages** — Backtest page surfaces `backtest_results.csv`
+   with precision@k + lift tables. Simulation page has three
+   interactive tabs (founder emergence / portfolio / topic trajectory)
+   wired to the Monte Carlo functions. Total dashboard pages: 7.
+
+**Decisions made:**
+- **Tier-1 single-keyword fallback** — when only one keyword's
+  momentum is being scored, the rank-normalisation collapses to zero.
+  I switched to a tanh squash in that degenerate case so single-topic
+  sweeps still produce meaningful scores rather than zero.
+- **Lock harness emits next-steps to console** — the git commit + tag
+  steps are out-of-scope (they need user-side authorisation). The
+  harness writes the JSON + SHA + records the git HEAD in the JSON;
+  the actual `git add / commit / tag v1.0-thesis-submission`
+  remains Kris's call on May 31.
+- **Backtest is currently exercising plumbing, not generating a lift
+  claim** — n=20 positive-only. Per the roadmap, this is the right
+  state pre-negatives.
+
+**Blockers (unchanged from prior):**
+- ANTHROPIC_API_KEY needed to fire real scoring.
+- Negative-peer registrations needed before backtest + eval produce
+  defensible numbers. The protocol module is ready; Kris hand-picks
+  the matched negatives.
+
+**Out of scope tonight (Kris decisions):**
+- Title pivot ambiguity (iter-4 QuantumLight vs Jan version still in
+  CLAUDE.md / dashboard).
+- Self-case study keep / drop (iter-3 says dropped; iter-2 / iter-8
+  still ambiguous).
+- 10 topics for `topic-trend` ingestion (task 2.6 — Tier-1
+  enhancement, not a Phase-3 blocker).
+
+**Files changed (this session):**
+`models/monte_carlo.py`, `models/allocation_framework/{combine,backtest}.py`,
+`analysis/lock_predictions.py`, `ingestion/negative_peers.py`,
+`models/evaluation/eval.py` (CI extension), `pipeline.py` (new
+stages), `dashboard/app.py` (Backtest + Simulation pages),
+`pyproject.toml` (per-file ruff exemptions).
+Tests added: `tests/test_monte_carlo.py`, `tests/test_allocation_framework.py`,
+`tests/test_lock_predictions.py`, `tests/test_negative_peers.py`.
+
+**Test count:** 123/123 pass (was 80 at session start). ruff clean.
+
+**Cost incurred:** $0 (numpy + scipy + sklearn only; no LLM calls).
+
+**Next steps:**
+- **Kris:** drop ANTHROPIC_API_KEY in `.env`; register negative peers
+  via `ingestion.negative_peers.register_peer`; decide on title +
+  self-case ambiguity.
+- **CC (next session):** fire `python pipeline.py all` once env +
+  labels are populated; iterate on the backtest report once it has
+  meaningful numbers; build the W6 dashboard polish (KG visualisation
+  via Gephi export of `graph.graphml`).
+---

@@ -348,6 +348,131 @@ def page_results() -> None:
         )
 
 
+def page_backtest() -> None:
+    st.subheader("Phase 4 retrospective backtest")
+    st.caption(
+        "Two-tier framework applied retrospectively at multiple dates, "
+        "compared against random / signal-volume / recency baselines. "
+        "Lift numbers become meaningful once negative-peer labels populate."
+    )
+    bt_path = PROCESSED_DIR / "backtest_results.csv"
+    if not bt_path.exists():
+        st.info(
+            "No backtest results yet. Run `python pipeline.py backtest` "
+            "after seed-labels + scoring."
+        )
+        return
+
+    df = pd.read_csv(bt_path)
+    st.markdown("**precision@k by strategy and backtest date**")
+    pivot = df.pivot_table(
+        index=["backtest_date", "strategy"],
+        columns="k",
+        values="precision_at_k",
+        aggfunc="first",
+    ).reset_index()
+    st.dataframe(pivot, use_container_width=True, hide_index=True)
+
+    st.markdown("**Lift vs base rate (precision@k / base_rate)**")
+    if "lift_at_k" in df.columns:
+        lift_pivot = df.pivot_table(
+            index=["backtest_date", "strategy"],
+            columns="k",
+            values="lift_at_k",
+            aggfunc="first",
+        ).reset_index()
+        st.dataframe(lift_pivot, use_container_width=True, hide_index=True)
+
+
+def page_simulation() -> None:
+    st.subheader("Monte Carlo simulation")
+    st.caption(
+        "Framework demonstration. Simulations show what the index would do "
+        "under stated priors — they are NOT statistical claims that "
+        "generalise beyond the cohort."
+    )
+
+    sim_tab, portfolio_tab, topic_tab = st.tabs(
+        ["Founder emergence", "Portfolio", "Topic trajectory"]
+    )
+
+    with sim_tab:
+        st.markdown("**Founder emergence — per-founder P(emerge) distribution**")
+        c1, c2, c3 = st.columns(3)
+        s1 = c1.slider("S1 mean (content cadence)", 0.0, 1.0, 0.5, 0.05, key="sim_s1")
+        s3 = c2.slider("S3 mean (intent)", 0.0, 1.0, 0.4, 0.05, key="sim_s3")
+        s4 = c3.slider("S4 mean (network)", 0.0, 1.0, 0.3, 0.05, key="sim_s4")
+        n_iter = st.select_slider("n_iter", [200, 500, 1000, 2000, 5000], 1000)
+        if st.button("Simulate emergence"):
+            import warnings as _w
+
+            from models.monte_carlo import simulate_founder_emergence
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                _, summary = simulate_founder_emergence(
+                    {"s1_mean": s1, "s3_mean": s3, "s4_mean": s4},
+                    n_iter=n_iter, random_seed=42,
+                )
+            st.json(summary)
+
+    with portfolio_tab:
+        st.markdown("**Portfolio — fund-level emergence rate**")
+        n_founders = st.number_input("# founders", 2, 20, 5, key="port_n")
+        probs_text = st.text_input(
+            "P(emerge) per founder, comma-separated",
+            ",".join(["0.5"] * int(n_founders)),
+            key="port_probs",
+        )
+        weights_text = st.text_input(
+            "Weights, comma-separated (must sum to 1)",
+            ",".join([f"{1/int(n_founders):.3f}"] * int(n_founders)),
+            key="port_weights",
+        )
+        n_iter = st.select_slider(
+            "n_iter (portfolio)", [200, 500, 1000, 5000], 1000, key="port_iter"
+        )
+        if st.button("Simulate portfolio", key="port_btn"):
+            import numpy as _np
+
+            from models.monte_carlo import simulate_portfolio
+            try:
+                probs = _np.array([float(x) for x in probs_text.split(",")])
+                weights = _np.array([float(x) for x in weights_text.split(",")])
+                _, summary = simulate_portfolio(
+                    probs, weights, n_iter=n_iter, random_seed=42,
+                )
+                st.json(summary)
+            except Exception as exc:
+                st.error(f"Invalid input: {exc}")
+
+    with topic_tab:
+        st.markdown("**Topic trajectory — mainstream / niche / faded probabilities**")
+        c1, c2 = st.columns(2)
+        ev = c1.slider("Initial engagement velocity", 0.0, 100.0, 40.0, 1.0)
+        align = c2.slider("Cross-creator alignment", 0.0, 1.0, 0.3, 0.05)
+        horizon = st.slider("Horizon months", 3, 36, 18)
+        n_iter = st.select_slider(
+            "n_iter (topic)", [200, 500, 1000, 5000], 1000, key="topic_iter"
+        )
+        if st.button("Simulate trajectory", key="topic_btn"):
+            import warnings as _w
+
+            from models.monte_carlo import simulate_topic_trajectory
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                _, summary = simulate_topic_trajectory(
+                    {
+                        "engagement_velocity": ev,
+                        "cross_creator_alignment": align,
+                        "lead_lag_position": 0.5,
+                        "external_mention_growth": 1.0,
+                        "months_since_first_signal": 6,
+                    },
+                    horizon_months=horizon, n_iter=n_iter, random_seed=42,
+                )
+            st.json(summary)
+
+
 # ---------- entry ----------
 
 def main() -> None:
@@ -362,7 +487,10 @@ def main() -> None:
     st.sidebar.markdown("### Navigate")
     page = st.sidebar.radio(
         "Page",
-        ["Thesis claim", "Methodology", "Cohort status", "Results", "Roadmap"],
+        [
+            "Thesis claim", "Methodology", "Cohort status", "Results",
+            "Backtest", "Simulation", "Roadmap",
+        ],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -378,6 +506,10 @@ def main() -> None:
         page_cohort()
     elif page == "Results":
         page_results()
+    elif page == "Backtest":
+        page_backtest()
+    elif page == "Simulation":
+        page_simulation()
     else:
         page_roadmap()
 
