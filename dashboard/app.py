@@ -16,6 +16,9 @@ import streamlit as st
 EDHEC_BLUE = "#1F4E79"
 GITHUB_URL = "github.com/KR2809/the-social-media-vc-thesis"
 DATA_DIR = Path(__file__).parent / "data"
+# Repo-level processed outputs from `pipeline.py`. Resolved at runtime so
+# the dashboard works whether invoked from repo root or dashboard/.
+PROCESSED_DIR = Path(__file__).resolve().parents[1] / "data" / "processed"
 
 
 # ---------- data loaders ----------
@@ -75,7 +78,10 @@ def inject_css() -> None:
 
 def header() -> None:
     st.markdown(
-        f"<h1 style='margin-bottom:0.1rem'>From Social Signals to Entrepreneurial Emergence</h1>",
+        "<h1 style='margin-bottom:0.1rem'>From Social Signals to Pre-Seed Allocation</h1>"
+        "<div style='color:#555; font-size:1.05rem; font-style:italic; "
+        "margin-bottom:0.4rem'>A Systematic Framework for Data-Driven Venture "
+        "Capital Inspired by QuantumLight Capital</div>",
         unsafe_allow_html=True,
     )
     st.markdown(
@@ -102,34 +108,52 @@ def page_claim() -> None:
     st.subheader("The claim")
     st.markdown(
         "<div class='claim-quote'>"
-        "Observable, multi-platform, public behavioural signals — structured as a knowledge "
-        "graph — can predict which individuals will emerge as successful micro-entrepreneurs "
-        "in the creator economy <em>before</em> they formally launch."
+        "A pre-seed allocation framework built entirely from free public "
+        "social-media signals can identify creator-economy founders before "
+        "they formally launch, at materially higher rates than naïve baselines, "
+        "operationalised as a transparent live portfolio with locked "
+        "prospective predictions."
         "</div>",
         unsafe_allow_html=True,
     )
-    st.caption("Paraphrased from the locked thesis title and COMPREHENSIVE_PLAN §1.")
+    st.caption(
+        "The one-sentence thesis (DECISION_LOG iter-12, 2026-05-14). "
+        "Note what this does NOT claim: no $-returns, no IRR, no 'vs Sequoia / a16z'."
+    )
 
     st.subheader("The research question")
     st.markdown(
         "<div class='claim-quote'>"
-        "Can social media behavioural signals predict which individuals will emerge as "
-        "successful micro-entrepreneurs in the creator economy?"
+        "Does a two-tier framework built exclusively on free public social-media "
+        "signals (Tier 1 topic-momentum detection + Tier 2 founder-emergence "
+        "prediction) identify creator-economy founders at materially higher rates "
+        "than naïve baselines (random / signal-volume / recency / Tier-1-only) "
+        "over a retrospective replay, with rates measured as precision@k at the "
+        "§4.1 emergence horizon?"
         "</div>",
         unsafe_allow_html=True,
     )
-    st.caption("Verbatim from COMPREHENSIVE_PLAN §2.1.")
+    st.caption("Reframed per DECISION_LOG iter-12 (portfolio-prediction sharpening).")
+
+    st.subheader("What this thesis does NOT claim")
+    st.markdown(
+        "- ❌ **No fund-returns claim.** No IRR. No P&L. No '$1M becomes $4M'.\n"
+        "- ❌ **No 'vs a16z / Sequoia' comparison.** Real VC pick data is "
+        "private; action spaces don't match. Out of scope.\n"
+        "- ❌ **No stranger-handle live-scoring** in the demo. Cohort replay "
+        "+ self-case only. (Reputational + technical risk; see DECISION_LOG iter-12.)"
+    )
 
     st.subheader("Five differentiators")
     diffs = [
         ("Individual-level", "Not company-level. The unit of analysis is the person before the venture."),
         ("Pre-launch", "Not post-founding. Signals are read in the window before a formal venture exists."),
-        ("Creator economy", "A specific, growing niche — not generic startups, not VC-backed teams."),
+        ("Pre-seed VC framing", "QuantumLight at Series B/C with proprietary data → us at pre-seed with public signals."),
         ("Multi-signal integration", "Multiple platforms, not just X. YouTube, Reddit, HN, PH, GH, Substack, GTrends."),
         ("Knowledge-graph methodology", "Relational structure, not flat features. Topics, people, projects, time."),
     ]
     cols = st.columns(5)
-    for col, (title, body) in zip(cols, diffs):
+    for col, (title, body) in zip(cols, diffs, strict=False):
         with col:
             st.markdown(
                 f"<div class='diff-card'><strong>{title}</strong><br>"
@@ -160,12 +184,12 @@ def page_methodology() -> None:
     phases = [
         ("Phase 1", "Retrospective positive cases", "5–20 emerged founders"),
         ("Phase 1.5", "Matched-pair negative retrospective cases", "Project-level, anonymous"),
-        ("Phase 2", "Reflexive self-case", "Under review"),
+        ("Phase 2", "Self-case (author runs the tool on himself)", "Live in /Self-case"),
         ("Phase 3", "Knowledge graph construction", "From cohort ingestion"),
         ("Phase 4", "Comparative empirical evaluation", "Baseline vs KG-augmented + May 31 LOCKED predictions"),
     ]
     cols = st.columns(len(phases))
-    for col, (tag, name, note) in zip(cols, phases):
+    for col, (tag, name, note) in zip(cols, phases, strict=False):
         with col:
             st.markdown(
                 f"<div class='diff-card'><strong style='color:{EDHEC_BLUE}'>{tag}</strong><br>"
@@ -191,30 +215,46 @@ def page_methodology() -> None:
         "limitations chapter."
     )
 
-    st.subheader("Data sources")
+    st.subheader("Data sources (creator-platform digital exhaust)")
     sources = pd.DataFrame(
         [
             ["X (Twitter)", "Pre-launch posts via Wayback snapshots; snscrape blocked", "✅", "20 founders"],
-            ["YouTube", "Long-form videos, transcripts, channel growth", "🔲", "Planned"],
-            ["Reddit", "Subreddit comments, build-in-public posts", "🔲", "Planned"],
-            ["Hacker News", "Show HN, comments, karma trajectory", "🔲", "Planned"],
-            ["Product Hunt", "Launches, upvotes, maker history", "🔲", "Planned"],
-            ["Substack", "Newsletter posts, subscriber milestones", "🔲", "Planned"],
-            ["GitHub trending", "Repo activity, contributor patterns", "🔲", "Planned"],
-            ["Google Trends", "Topic momentum, niche emergence signals", "🔲", "Planned"],
+            ["YouTube", "Long-form videos, channel growth", "✅", "Collector shipped; channel-ID overrides pending"],
+            ["Reddit", "Subreddit comments, build-in-public posts", "✅", "Collector shipped; credentials pending"],
+            ["Hacker News", "Show HN, comments, karma trajectory", "✅", "Real data: 599 signals across 20 founders"],
+            ["Product Hunt", "Launches, upvotes, maker history", "✅", "Collector shipped; credentials pending"],
+            ["Google Trends", "Topic momentum, niche emergence signals", "✅", "Real data: 53 weeks for 'indie hacker'"],
         ],
-        columns=["Source", "What it captures", "Status", "Coverage"],
+        columns=["Source", "What it captures", "Status", "Real-data state"],
     )
     st.dataframe(sources, hide_index=True, use_container_width=True)
-    st.caption("✅ shipped · 🟡 in progress · 🔲 planned")
+    st.caption(
+        "Explicitly NOT: LinkedIn, press releases, company filings, "
+        "or any private/paid data. The methodological purity is the wedge — "
+        "every signal we use is free, public, and replicable."
+    )
 
-    st.subheader("The May 31 commitment")
+    st.subheader("Reproducibility — three paths examiners can verify")
+    st.markdown(
+        "1. **Download a release snapshot** — `gh release download v1.0-thesis-submission` "
+        "pulls a tar.gz of all processed parquet/csv outputs.\n"
+        "2. **Query the live Supabase** — read-only credentials in the thesis appendix. "
+        "Every signal, score, prediction queryable via SQL.\n"
+        "3. **Full local reproduction** — `git clone + uv sync + python pipeline.py all` "
+        "re-runs the entire chain from raw collectors to allocation output.\n\n"
+        "All three paths land on the same numbers (verified by `scripts/verify_supabase_mirror.py`). "
+        "See DECISION_LOG iter-13 (Option C hybrid storage)."
+    )
+
+    st.subheader("The May 31 live portfolio")
     st.markdown(
         "On **May 31, 2026** the framework is applied forward to approximately 30 currently-"
-        "emerging founders. The predictions are cryptographically timestamped via a public git "
-        "commit. Outcomes are re-evaluated at 12 months (May 2027) and 24 months (May 2028). "
-        "This converts a retrospective study into a longitudinal one and directly addresses "
-        "the survivorship-bias critique."
+        "emerging founders. The picks are **published as a transparent live portfolio**, with "
+        "the JSON cryptographically anchored by SHA-256 + git commit hash + Supabase row-insert "
+        "timestamp. The repo is tagged `v1.0-thesis-submission`; from that moment, no model "
+        "parameters, prompts, or weights can change. Outcomes re-evaluated at "
+        "+12 months (May 2027) and +24 months (May 2028). This converts a retrospective study "
+        "into a longitudinal one and directly addresses the survivorship-bias critique."
     )
 
 
@@ -297,21 +337,257 @@ def page_roadmap() -> None:
     )
 
 
+def page_results() -> None:
+    st.subheader("Model results & allocation")
+    st.caption(
+        "Surfaces outputs of `pipeline.py eval allocate`. Empty placeholders "
+        "appear until the LLM scoring pass + negative-peer labels land."
+    )
+
+    eval_path = PROCESSED_DIR / "eval_metrics.csv"
+    alloc_path = PROCESSED_DIR / "allocation.csv"
+
+    if eval_path.exists():
+        st.markdown("**Baseline vs KG-augmented**")
+        df = pd.read_csv(eval_path)
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        if {"name", "roc_auc"} <= set(df.columns):
+            baseline_row = df[df["name"] == "baseline"]
+            kg_row = df[df["name"] == "kg_augmented"]
+            if len(baseline_row) and len(kg_row):
+                delta_auc = (
+                    kg_row.iloc[0]["roc_auc"] - baseline_row.iloc[0]["roc_auc"]
+                )
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Baseline ROC AUC", f"{baseline_row.iloc[0]['roc_auc']:.3f}")
+                c2.metric("KG-augmented ROC AUC", f"{kg_row.iloc[0]['roc_auc']:.3f}")
+                c3.metric("Δ AUC (KG vs baseline)", f"{delta_auc:+.3f}")
+    else:
+        st.info(
+            "No evaluation metrics yet. Run `python pipeline.py eval` once "
+            "scored signals and negative-cohort labels are in place."
+        )
+
+    if alloc_path.exists():
+        st.markdown("**Capital allocation (fractional Kelly)**")
+        df = pd.read_csv(alloc_path)
+        show_cols = [c for c in [
+            "person_id", "p_emerge", "allocation_normalised", "dollars_allocated"
+        ] if c in df.columns]
+        st.dataframe(df[show_cols].head(20), use_container_width=True, hide_index=True)
+        st.caption(
+            "Defaults: 1/4-Kelly @ 30x payoff, 10% per-person cap, $1M capital. "
+            "Tunable via `AllocationParams` in `analysis/allocation.py`."
+        )
+    else:
+        st.info(
+            "No allocation table yet. Run `python pipeline.py allocate` after eval."
+        )
+
+
+def page_self_case() -> None:
+    from analysis.self_case import self_case_view
+
+    st.subheader("Self-case: predicting the author")
+    st.caption(
+        "Per DECISION_LOG iter-11: the self-case is Kris using the framework "
+        "on his own X handle. Same ingestion, same scoring, same KG, same "
+        "model. Demonstrates the framework's generalisability by example."
+    )
+
+    view = self_case_view()
+    st.markdown(f"**Anchor handle:** `@{view.handle}` (`SELF_HANDLE` in `analysis/self_case.py`)")
+
+    if not view.has_features:
+        st.warning(
+            f"No feature row yet. Status: {view.note}\n\n"
+            f"To populate: ingest @{view.handle} via the platform collectors, "
+            "run `python pipeline.py score person graph kg-features`."
+        )
+        return
+
+    c1, c2, c3 = st.columns(3)
+    if view.p_emerge is not None:
+        c1.metric("P(emerge) prediction", f"{view.p_emerge:.3f}")
+    else:
+        c1.metric("P(emerge) prediction", "pending model")
+    if view.cohort_percentile is not None:
+        c2.metric("Cohort percentile", f"{view.cohort_percentile * 100:.0f}%")
+    if view.feature_row:
+        c3.metric("# signals ingested", int(view.feature_row.get("n_signals", 0)))
+
+    if view.feature_row:
+        st.markdown("**Per-person flat features**")
+        feat_df = pd.DataFrame(
+            [
+                {"feature": k, "value": v}
+                for k, v in view.feature_row.items()
+                if k != "person_id" and v is not None
+            ]
+        )
+        st.dataframe(feat_df, use_container_width=True, hide_index=True)
+
+    if view.kg_row:
+        st.markdown("**Knowledge-graph features**")
+        kg_df = pd.DataFrame(
+            [
+                {"feature": k, "value": v}
+                for k, v in view.kg_row.items()
+                if k != "person_id" and v is not None
+            ]
+        )
+        st.dataframe(kg_df, use_container_width=True, hide_index=True)
+
+    st.info(view.note if view.note != "ok" else (
+        "All artefacts present. P(emerge) is the KG-augmented model's prediction "
+        "for the author. Cohort percentile compares it against the other persons "
+        "in the labels file."
+    ))
+
+
+def page_backtest() -> None:
+    st.subheader("Phase 4 retrospective backtest")
+    st.caption(
+        "Two-tier framework applied retrospectively at multiple dates, "
+        "compared against random / signal-volume / recency baselines. "
+        "Lift numbers become meaningful once negative-peer labels populate."
+    )
+    bt_path = PROCESSED_DIR / "backtest_results.csv"
+    if not bt_path.exists():
+        st.info(
+            "No backtest results yet. Run `python pipeline.py backtest` "
+            "after seed-labels + scoring."
+        )
+        return
+
+    df = pd.read_csv(bt_path)
+    st.markdown("**precision@k by strategy and backtest date**")
+    pivot = df.pivot_table(
+        index=["backtest_date", "strategy"],
+        columns="k",
+        values="precision_at_k",
+        aggfunc="first",
+    ).reset_index()
+    st.dataframe(pivot, use_container_width=True, hide_index=True)
+
+    st.markdown("**Lift vs base rate (precision@k / base_rate)**")
+    if "lift_at_k" in df.columns:
+        lift_pivot = df.pivot_table(
+            index=["backtest_date", "strategy"],
+            columns="k",
+            values="lift_at_k",
+            aggfunc="first",
+        ).reset_index()
+        st.dataframe(lift_pivot, use_container_width=True, hide_index=True)
+
+
+def page_simulation() -> None:
+    st.subheader("Monte Carlo simulation")
+    st.caption(
+        "Framework demonstration. Simulations show what the index would do "
+        "under stated priors — they are NOT statistical claims that "
+        "generalise beyond the cohort."
+    )
+
+    sim_tab, portfolio_tab, topic_tab = st.tabs(
+        ["Founder emergence", "Portfolio", "Topic trajectory"]
+    )
+
+    with sim_tab:
+        st.markdown("**Founder emergence — per-founder P(emerge) distribution**")
+        c1, c2, c3 = st.columns(3)
+        s1 = c1.slider("S1 mean (content cadence)", 0.0, 1.0, 0.5, 0.05, key="sim_s1")
+        s3 = c2.slider("S3 mean (intent)", 0.0, 1.0, 0.4, 0.05, key="sim_s3")
+        s4 = c3.slider("S4 mean (network)", 0.0, 1.0, 0.3, 0.05, key="sim_s4")
+        n_iter = st.select_slider("n_iter", [200, 500, 1000, 2000, 5000], 1000)
+        if st.button("Simulate emergence"):
+            import warnings as _w
+
+            from models.monte_carlo import simulate_founder_emergence
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                _, summary = simulate_founder_emergence(
+                    {"s1_mean": s1, "s3_mean": s3, "s4_mean": s4},
+                    n_iter=n_iter, random_seed=42,
+                )
+            st.json(summary)
+
+    with portfolio_tab:
+        st.markdown("**Portfolio — fund-level emergence rate**")
+        n_founders = st.number_input("# founders", 2, 20, 5, key="port_n")
+        probs_text = st.text_input(
+            "P(emerge) per founder, comma-separated",
+            ",".join(["0.5"] * int(n_founders)),
+            key="port_probs",
+        )
+        weights_text = st.text_input(
+            "Weights, comma-separated (must sum to 1)",
+            ",".join([f"{1/int(n_founders):.3f}"] * int(n_founders)),
+            key="port_weights",
+        )
+        n_iter = st.select_slider(
+            "n_iter (portfolio)", [200, 500, 1000, 5000], 1000, key="port_iter"
+        )
+        if st.button("Simulate portfolio", key="port_btn"):
+            import numpy as _np
+
+            from models.monte_carlo import simulate_portfolio
+            try:
+                probs = _np.array([float(x) for x in probs_text.split(",")])
+                weights = _np.array([float(x) for x in weights_text.split(",")])
+                _, summary = simulate_portfolio(
+                    probs, weights, n_iter=n_iter, random_seed=42,
+                )
+                st.json(summary)
+            except Exception as exc:
+                st.error(f"Invalid input: {exc}")
+
+    with topic_tab:
+        st.markdown("**Topic trajectory — mainstream / niche / faded probabilities**")
+        c1, c2 = st.columns(2)
+        ev = c1.slider("Initial engagement velocity", 0.0, 100.0, 40.0, 1.0)
+        align = c2.slider("Cross-creator alignment", 0.0, 1.0, 0.3, 0.05)
+        horizon = st.slider("Horizon months", 3, 36, 18)
+        n_iter = st.select_slider(
+            "n_iter (topic)", [200, 500, 1000, 5000], 1000, key="topic_iter"
+        )
+        if st.button("Simulate trajectory", key="topic_btn"):
+            import warnings as _w
+
+            from models.monte_carlo import simulate_topic_trajectory
+            with _w.catch_warnings():
+                _w.simplefilter("ignore")
+                _, summary = simulate_topic_trajectory(
+                    {
+                        "engagement_velocity": ev,
+                        "cross_creator_alignment": align,
+                        "lead_lag_position": 0.5,
+                        "external_mention_growth": 1.0,
+                        "months_since_first_signal": 6,
+                    },
+                    horizon_months=horizon, n_iter=n_iter, random_seed=42,
+                )
+            st.json(summary)
+
+
 # ---------- entry ----------
 
 def main() -> None:
     st.set_page_config(
-        page_title="From Social Signals to Entrepreneurial Emergence",
+        page_title="From Social Signals to Pre-Seed Allocation",
         layout="wide",
         initial_sidebar_state="expanded",
     )
     inject_css()
     header()
 
-    st.sidebar.markdown(f"### Navigate")
+    st.sidebar.markdown("### Navigate")
     page = st.sidebar.radio(
         "Page",
-        ["Thesis claim", "Methodology", "Cohort status", "Roadmap"],
+        [
+            "Thesis claim", "Methodology", "Cohort status", "Results",
+            "Backtest", "Simulation", "Self-case", "Roadmap",
+        ],
         label_visibility="collapsed",
     )
     st.sidebar.markdown("---")
@@ -325,6 +601,14 @@ def main() -> None:
         page_methodology()
     elif page == "Cohort status":
         page_cohort()
+    elif page == "Results":
+        page_results()
+    elif page == "Backtest":
+        page_backtest()
+    elif page == "Simulation":
+        page_simulation()
+    elif page == "Self-case":
+        page_self_case()
     else:
         page_roadmap()
 

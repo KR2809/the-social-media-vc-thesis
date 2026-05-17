@@ -3,9 +3,9 @@
 A data-driven pre-seed venture-capital allocation framework using only public
 social-media signals. BBA thesis at EDHEC International BBA, 2025–26.
 
-**Thesis title:** *From Social Signals to Entrepreneurial Emergence: A
-Knowledge Graph Framework for Predicting Micro-Entrepreneurship in the
-Creator Economy*
+**Thesis title:** *From Social Signals to Pre-Seed Allocation: A
+Systematic Framework for Data-Driven Venture Capital Inspired by
+QuantumLight Capital*
 **Author:** Kristian Ratkov
 **Supervisor:** George Tovstiga
 **Submission:** June 30, 2026 · Defence: July 18, 2026
