@@ -13,6 +13,12 @@
         "8501"
       ],
       "port": 8501
+    },
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "frontend", "run", "dev", "--", "--port", "3001"],
+      "port": 3001
     }
   ]
 }

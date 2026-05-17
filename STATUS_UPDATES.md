@@ -403,3 +403,99 @@ used HN Firebase = free, YouTube Data API ~3 units (10k/day cap),
 pytrends = free, Wayback = skipped.)
 
 ---
+## 2026-05-17 12:10 — Frontend scaffold: Next.js + data layer + port plan
+
+**What I did:**
+- Created branch `frontend-thesis-demo` (off `main` — the existing
+  `frontend` branch on origin is stale, predates Phase 2 ingestion).
+- Imported the Claude Design handoff bundle for "Thesis Demo.html" into
+  `design-source/` (README + chat transcripts + the 7 prototype files:
+  HTML, CSS, data.js, chrome/view1/view2/view3 JSX, app.jsx).
+- Scaffolded a Next.js 16 + React 19 + Tailwind 4 + TypeScript app in
+  `frontend/`. Wired a `DataSource` interface
+  (`src/lib/thesis/types.ts`) plus a faithful TS port of the prototype's
+  `data.js` (`src/lib/thesis/synthetic.ts`) and a real-data stub
+  (`src/lib/thesis/real.ts`). Replaced the boilerplate landing page
+  with a scaffold home that renders the thesis header, a `source:
+  synthetic` status banner, and the top-10 ranked picks at May 2026 —
+  enough to prove the data layer wires end-to-end.
+- Verified in browser preview: server returns 200, snapshot shows the
+  full page with all 10 picks (Σ scores, outcomes), no console errors.
+- Wrote `FRONTEND_PLAN.md` at the repo root: contract between sessions.
+  Includes a real-data gap audit (which of the demo's fields exist
+  today vs. which depend on Phase 3 scoring) and a 4-phase port plan
+  (A: chrome → B: views synthetic → C: real-data swap → D: polish).
+- Added a `frontend` config to `.claude/launch.json` so future sessions
+  can `preview_start` the dev server on port 3001.
+
+**Decisions made:**
+- **Branched off `main`, not the stale `frontend`** branch. The
+  existing `frontend` on origin is 17 files / 3582 lines behind main
+  (missing all Phase 2 ingestion + scoring scripts). Branching off
+  `frontend` would have silently dropped that work.
+- **Took the "full Next.js + real data" path despite the May 31
+  deadline** because Kris asked for it explicitly when offered the
+  trade-off. Flagged honestly that this is multi-session and won't be
+  done before the prediction lock.
+- **Synthetic data is the default for now**, behind a typed `DataSource`
+  seam. As Phase 3 scoring outputs land, each field gets swapped to
+  real in `src/lib/thesis/real.ts`. The `source: "synthetic" | "real" |
+  "hybrid"` flag is shown on the landing page so the data status is
+  always honest.
+- **Did NOT port the chrome or any of the 3 views this session.** Read
+  all 7 design files (~2,800 lines) and wrote a session-by-session
+  port plan instead, rather than rushing a half-done port. The styles
+  alone (1,282 lines) need a careful incremental port to Tailwind 4 +
+  CSS vars.
+- **Used Next.js's bundled docs** before writing the page — AGENTS.md
+  in `frontend/` flagged that Next.js 16 has breaking changes from
+  training-data knowledge. Confirmed App Router page patterns are
+  still standard.
+
+**Blockers:**
+- **Real-data wiring is gated on Phase 3 scoring.** Per the audit in
+  `FRONTEND_PLAN.md`: T1/T2/combined Σ, baselines, KG ego-networks,
+  per-founder signals all depend on `scoring/score_signals.py`
+  (untracked in another worktree, not yet shipped). Cohort handles +
+  first-signal dates + emergence dates CAN be wired today from
+  `signal_events.parquet` + `cohort_verified.md`.
+- **The synthetic cohort is n=30** (prototype mock) vs. **real
+  cohort n=20**. When Phase C lands, founder count will change and
+  some visual layouts (KG mini-map angular layout, baseline pick
+  lists) will need a quick check.
+- **Existing `frontend` branch on origin needs a decision** — keep as
+  archive of the old streamlit-era dashboard, or delete? Not blocking,
+  but worth Kris's call before opening a PR for `frontend-thesis-demo`.
+
+**Next steps:**
+- **CC (next session, Phase A)**: port the chrome — TopBar, DateSlider,
+  ViewNav, SettingsPopover, InfoTip, plus shared primitives (Avatar,
+  OutcomeChip, ScoreSpark, CIBar). One session estimate. Acceptance:
+  chrome renders in both themes, slider drags.
+- **CC (after Phase A, Phase B)**: port the 3 views against synthetic
+  data. After this, the demo is feature-complete vs. the prototype on
+  the Next.js stack — shippable as the defence artefact even if real
+  data isn't wired.
+- **Kris**: decide on the stale `frontend` branch. Optional: if Phase 3
+  scoring lands early, we can leapfrog Phase C ahead of full B
+  completion.
+- **CC (Phase C, after Phase 3 lands)**: swap synthetic adapters for
+  real one field at a time. Each swap = one commit; landing page
+  banner flips from `synthetic` → `hybrid` → `real`.
+
+**Files changed (this session):**
+`.claude/launch.json` (added `frontend` config),
+`FRONTEND_PLAN.md` (new, root),
+`design-source/` (new, the design handoff bundle, ~2,800 lines across
+7 files),
+`frontend/` (new, full Next.js scaffold). Within frontend:
+`src/app/layout.tsx`, `src/app/page.tsx`, `src/app/globals.css`
+(overwrote scaffold defaults with thesis chrome + colour tokens),
+`src/lib/thesis/{types,synthetic,real,index}.ts` (new data layer).
+No changes to ingestion, analysis, scoring, dashboard, or tests.
+
+**Cost incurred:** $0. (no LLM calls; the scaffold is pure
+local code generation. `create-next-app` installed 428 packages
+in 53s, all local.)
+
+---
