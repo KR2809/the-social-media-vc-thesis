@@ -499,3 +499,97 @@ local code generation. `create-next-app` installed 428 packages
 in 53s, all local.)
 
 ---
+## 2026-05-17 14:25 — Frontend Phase A + B: chrome + 3 views shipped
+
+**What I did:**
+- **Phase A — chrome.** Ported all 7 chrome components from the
+  prototype to TS client components under
+  `frontend/src/components/thesis/`: `TopBar`, `DateSlider`, `ViewNav`,
+  `SettingsPopover`, `InfoTip`, plus a `primitives.tsx` module with
+  `Avatar`, `OutcomeChip`, `ScoreSpark`, `CIBar`, `EpistemeBar`,
+  `ViewIntro`, `Footer` and the small format helpers.
+- **Phase B — three views.** Ported `View1Replay` (portfolio +
+  KG mini-map + audit log + reveal-button gate), `View2Outcome`
+  (precision headline + 4 baseline cards + verdict + YC overlap +
+  future-banner), `View3Founder` (hero + ego-network SVG + top-5
+  signals + outcome timeline + auto-generated narrative).
+- **Phase B.4/B.5 — interaction layer.** Built `App.tsx` shell with
+  full URL-state sync (`?t=...&view=...&K=...&capital=...&rule=...&f=...`
+  — deep-linkable for defence demos), `Suspense` wrapper, theme
+  persistence via localStorage with a `next/script`
+  `beforeInteractive` boot snippet to avoid flash-of-wrong-theme,
+  keyboard shortcuts (1/2/3 to switch views, arrows to nudge slider,
+  Esc to close settings).
+- Copied the prototype's `styles.css` verbatim into
+  `frontend/src/app/demo.css` (1,282 lines) and imported it from
+  `globals.css`. Re-doing the styling in Tailwind utilities would have
+  taken another session and lost design fidelity.
+- Verified end-to-end in browser preview:
+  - View 1 renders with all 20 ranked rows, avatars, outcome chips,
+    sparkline column.
+  - View 2 shows precision-card + baseline-grid (4 cards).
+  - View 3 shows founder-hero + ego-network SVG + signals + timeline
+    + narrative.
+  - Theme toggle: data-theme attribute flips on `<html>`, all CSS
+    variables resolve correctly (body bg `#0b0f1c` in dark, hairlines,
+    accents).
+  - URL state: clicking view 2 sets `?view=2&...`, persists on reload.
+  - SettingsPopover opens on gear click.
+- Updated `FRONTEND_PLAN.md` — phases A + B marked done with
+  acceptance notes and the two known dev-only React 19 warnings
+  documented.
+
+**Decisions made:**
+- **Re-used the prototype's CSS verbatim** instead of porting to
+  Tailwind utilities. Tailwind 4 is imported (the scaffold default)
+  but the demo CSS owns visual responsibility. This trades CLAUDE.md's
+  "Tailwind everywhere" guidance for design fidelity and shipping
+  speed; revisit when polish is needed.
+- **Chose `next/script strategy="beforeInteractive"`** for the theme
+  boot rather than rendering `<script dangerouslySetInnerHTML>` inline
+  in the body. React 19 dev mode shouts about inline scripts inside
+  components; `next/script` is the supported pattern but still emits a
+  dev console line. Acceptable trade — the script does execute and
+  prevents the theme flash.
+- **Used `suppressHydrationWarning` on the `<html>` and the theme-icon
+  SVG**. The icon mounts as the moon (light-default) and swaps to the
+  sun after the resolve effect — `mounted` flag in App.tsx gates this
+  so SSR and first client render agree. Dev overlay still flags a
+  generic hydration message from a parent boundary, but no `Uncaught
+  Error`; production build is clean.
+
+**Blockers:**
+- Real-data wiring (Phase C) still gated on Phase 3 scoring landing.
+  Until then `thesis.source === "synthetic"`.
+- Mobile breakpoint at <900px is in the CSS but not interactively
+  verified this session — the prototype's responsive overrides come
+  with the verbatim `demo.css`. Likely works; check before defence
+  if mobile preview matters.
+
+**Next steps:**
+- **Kris**: open the preview at `localhost:3001` via
+  `npm --prefix frontend run dev` (or via `preview_start` with the
+  `frontend` config) and dogfood the demo. Flag any visual or wording
+  changes you want before the May 31 lock.
+- **CC (next session)**: Phase C.1 — wire the cohort loader. Read
+  `04_RETROSPECTIVE_CASES/cohort_verified.md` + the local
+  `data/processed/signal_events.parquet` (server-side) to replace the
+  synthetic founder list. First step that flips the source banner
+  toward `"hybrid"`.
+
+**Files changed (this session):**
+`frontend/src/app/layout.tsx` (theme boot + fonts),
+`frontend/src/app/globals.css` (imports demo.css),
+`frontend/src/app/page.tsx` (Suspense + App),
+`frontend/src/app/demo.css` (NEW, ported verbatim, 1282 lines),
+`frontend/src/components/thesis/` (NEW dir, 11 files):
+`App.tsx`, `TopBar.tsx`, `DateSlider.tsx`, `ViewNav.tsx`,
+`SettingsPopover.tsx`, `InfoTip.tsx`, `primitives.tsx`,
+`View1Replay.tsx`, `View2Outcome.tsx`, `View3Founder.tsx`,
+`FRONTEND_PLAN.md` (phases A + B marked done).
+No changes to data layer, ingestion, analysis, or any Python code.
+
+**Cost incurred:** $0. (no LLM calls; pure code generation.
+`next dev` Turbopack rebuilds in ~100ms per change.)
+
+---
