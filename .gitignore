@@ -28,6 +28,11 @@ data/snapshots/*
 *.csv
 *.jsonl
 
+# Private — handle ↔ peer_id mapping for the negative-peer protocol.
+# Only `.template` schema files are committed; real handles never are.
+data/private/*
+!data/private/*.template
+
 # Notebooks output
 *-checkpoint.ipynb
 
