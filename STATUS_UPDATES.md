@@ -1028,3 +1028,50 @@ SELECT to anyone with the URL).
 - Supabase project is INACTIVE on free tier after 7 days idle.
   Defence-day warmup reminder still required (Jul 17).
 ---
+
+## 2026-05-18 22:15 — B2 negative-peer picking canvas
+
+**What I did:**
+- Built `scripts/register_negative_peers.py` — a 57-stub picking canvas
+  (19 niches × 3 peers each) covering every niche/quarter bucket from
+  `cohort_verified.md` §73–98 except the Pieter Levels anchor (skipped
+  per protocol).
+- Wired the two-file pattern: gitignored `data/private/` for real
+  handles, committed `.template` showing schema, anonymised peer_ids
+  as the only public ↔ private bridge.
+- Added `tests/test_register_negative_peers.py` (6 tests) — import has
+  no side effects, all 57 stubs present and unfilled, peer_ids match
+  `NEG_<slug>_<YYYYQX>_<NN>`, `main()` skips unfilled stubs.
+
+**Decisions made:**
+- Used `data/private/*` + `!data/private/*.template` rather than
+  `data/private/` because git's negation patterns don't reach into a
+  fully-ignored directory.
+- Kept the script import-side-effect-free by gating all `register_peer`
+  calls inside `main()` — protects against `pytest --collect-only`
+  accidentally writing to the registry.
+- Did NOT pre-fill any `peer_id`s, `outcome_class`es, or `notes`. The
+  brief was explicit: this is empty scaffolding; Kris does the picking.
+
+**Blockers:** none. B2 unblocked as a working session for Kris — he
+opens the script in Cursor, fills rows as he picks peers, re-runs the
+script each pass.
+
+**Next steps:**
+- **Kris:** open `scripts/register_negative_peers.py` in Cursor, work
+  through the 19 niches over the next 48h. Use the search frame
+  comment in each section header. Log private URLs in
+  `data/private/negative_peers_handles.csv` (schema in `.template`).
+- Once ≥15 peers registered: `python pipeline.py seed-labels eval
+  backtest allocate` unblocks the dashboard.
+
+**Files changed:**
+- `scripts/register_negative_peers.py` (new)
+- `scripts/README.md` (new)
+- `tests/test_register_negative_peers.py` (new)
+- `data/private/negative_peers_handles.csv.template` (new)
+- `.gitignore` (added `data/private/*` block)
+- `STATUS_UPDATES.md` (this entry)
+
+**Cost incurred:** $0 (no LLM calls in this session).
+---
