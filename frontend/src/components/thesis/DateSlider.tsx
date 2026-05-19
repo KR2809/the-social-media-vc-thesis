@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 
 interface Props {
   value: number;
@@ -11,6 +11,7 @@ interface Props {
 }
 
 export function DateSlider({ value, onChange, min, max }: Props) {
+  const thesis = useThesis();
   const ticks: number[] = [];
   for (let y = 2014; y <= 2026; y++) ticks.push((y - 2014) * 12);
 

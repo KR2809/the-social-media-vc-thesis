@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 import type { RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import {
@@ -285,7 +285,8 @@ export function View1Replay({
   revealed,
   setRevealed,
 }: Props) {
-  const rows = useMemo(() => thesis.rankAt(t, K), [t, K]);
+  const thesis = useThesis();
+  const rows = useMemo(() => thesis.rankAt(t, K), [t, K, thesis]);
   const prevRows = useRef(rows);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const prevRanks = useMemo(() => {

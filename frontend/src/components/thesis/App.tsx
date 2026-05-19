@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { thesis } from "@/lib/thesis";
+import { getThesisSource, syntheticSource } from "@/lib/thesis";
+import type { DataSource } from "@/lib/thesis";
+import { ThesisProvider } from "@/lib/thesis/context";
 import { TopBar } from "./TopBar";
 import { DateSlider } from "./DateSlider";
 import { ViewNav } from "./ViewNav";
@@ -16,8 +18,10 @@ type Theme = "light" | "dark";
 type View = 1 | 2 | 3;
 
 const MIN = 0;
-const MAX = thesis.months("2026-05")!;
-const DEFAULT_T = thesis.months("2022-Q1")!;
+// Month-parsing is data-independent, so we read it off the synthetic source
+// at module load — both synthetic and hybrid use the same parser.
+const MAX = syntheticSource.months("2026-05")!;
+const DEFAULT_T = syntheticSource.months("2022-Q1")!;
 
 function parseT(s: string | null): number {
   const n = s == null ? DEFAULT_T : parseInt(s, 10);
@@ -44,6 +48,20 @@ function parseRule(s: string | null): AllocationRule {
 export function App() {
   const router = useRouter();
   const params = useSearchParams();
+
+  // Resolve the active DataSource (real → hybrid, fallback → synthetic).
+  // Synthetic is rendered first so SSR + initial hydration stay deterministic;
+  // the real source swaps in once /api/cohort + /api/timeline-bounds resolve.
+  const [thesis, setThesis] = useState<DataSource>(syntheticSource);
+  useEffect(() => {
+    let cancelled = false;
+    getThesisSource().then((src) => {
+      if (!cancelled) setThesis(src);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [t, setTState] = useState(() => parseT(params.get("t")));
   const [view, setViewState] = useState<View>(() => parseView(params.get("view")));
@@ -163,12 +181,13 @@ export function App() {
 
   const focusedFounder = useMemo(
     () => (focusedId ? thesis.founders().find(f => f.id === focusedId) ?? null : null),
-    [focusedId],
+    [focusedId, thesis],
   );
 
-  const picks = useMemo(() => thesis.rankAt(t, K), [t, K]);
+  const picks = useMemo(() => thesis.rankAt(t, K), [t, K, thesis]);
 
   return (
+    <ThesisProvider value={thesis}>
     <div className="app">
       <TopBar
         theme={theme}
@@ -226,5 +245,6 @@ export function App() {
       </div>
       <Footer />
     </div>
+    </ThesisProvider>
   );
 }

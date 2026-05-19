@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 import type { TaxonomyCode } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import { Avatar, EpistemeBar, OutcomeChip, ViewIntro } from "./primitives";
@@ -15,7 +15,8 @@ function EgoNetwork({
   hop: 1 | 2;
   setHop: (h: 1 | 2) => void;
 }) {
-  const data = useMemo(() => thesis.egoFor(founderId), [founderId]);
+  const thesis = useThesis();
+  const data = useMemo(() => thesis.egoFor(founderId), [founderId, thesis]);
   const W = 380;
   const H = 320;
   const positions = useMemo(() => {
@@ -122,6 +123,7 @@ function EgoNetwork({
 }
 
 function TaxChip({ dim, cat, score }: { dim: string; cat: TaxonomyCode; score: number }) {
+  const thesis = useThesis();
   const t = thesis.taxonomy()[cat];
   return (
     <span
@@ -135,7 +137,8 @@ function TaxChip({ dim, cat, score }: { dim: string; cat: TaxonomyCode; score: n
 }
 
 function TopSignals({ founderId, t }: { founderId: string; t: number }) {
-  const signals = useMemo(() => thesis.signalsFor(founderId, t), [founderId, t]);
+  const thesis = useThesis();
+  const signals = useMemo(() => thesis.signalsFor(founderId, t), [founderId, t, thesis]);
   return (
     <div className="signals">
       {signals.map((s, i) => (
@@ -178,6 +181,7 @@ function TopSignals({ founderId, t }: { founderId: string; t: number }) {
 }
 
 function Timeline({ founderId, t }: { founderId: string; t: number }) {
+  const thesis = useThesis();
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) return null;
   const fm = thesis.months(f.first);
@@ -236,6 +240,7 @@ function Timeline({ founderId, t }: { founderId: string; t: number }) {
 }
 
 function Narrative({ founderId, t }: { founderId: string; t: number }) {
+  const thesis = useThesis();
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) return null;
   const c = thesis.curve(f, t) || 0;
@@ -301,6 +306,7 @@ interface Props {
 }
 
 export function View3Founder({ founderId, t, gotoView }: Props) {
+  const thesis = useThesis();
   const [hop, setHop] = useState<1 | 2>(1);
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) {
