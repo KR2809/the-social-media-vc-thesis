@@ -51,3 +51,75 @@ boundary.
 - Decision log entry: `DECISION_LOG.md` iter-6 (2026-05-10).
 - Allowed `outcome_class` values: `"low_traction" | "no_launch" |
   "abandoned" | "drifted"` (see `ingestion/negative_peers.py`).
+
+## Negative-peer candidate-sourcing tool
+
+`find_negative_peer_candidates.py` is a longlist generator that surfaces
+15–25 PH launches per niche/quarter bucket, ranked by least engagement
+first, with Wayback dormancy flags. Output is one CSV per niche in
+`data/interim/negative_peer_candidates/<niche-slug>.csv`. Kris reads the
+CSV and hand-picks 3 candidates into `register_negative_peers.py`.
+
+**This tool surfaces candidates; the picking stays manual** (per
+DECISION_LOG iter-6). It never edits `register_negative_peers.py`.
+
+### Usage
+
+```bash
+# All 15 PH-applicable niches (the 4 research-Substack niches are skipped
+# with an info log — use Perplexity for those, see AI_DELEGATION_PLAYBOOK.md).
+python scripts/find_negative_peer_candidates.py --niche all
+
+# One niche (key of NICHE_MAP at top of the file).
+python scripts/find_negative_peer_candidates.py --niche dev-tooling-boilerplate
+
+# Re-query Wayback for cached candidates.
+python scripts/find_negative_peer_candidates.py --refresh-wayback
+
+# Loosen the upvotes ceiling (default 100).
+python scripts/find_negative_peer_candidates.py --niche all --max-upvotes 50
+
+# Raise the per-niche cap (default 25 — the bottom of the upvotes
+# distribution after filtering, which is what the picker wants).
+python scripts/find_negative_peer_candidates.py --niche all --max-candidates 50
+```
+
+### How to use the output CSVs
+
+1. Open the niche CSV. Rows are sorted ascending by upvotes (least
+   engagement first).
+2. Skim the `wayback_status` column. `dormant` and `gone` are strong
+   negative-peer candidates; `live` + low upvotes are `low_traction`
+   candidates.
+3. Read `notes_for_picker` for a one-line per-row summary.
+4. Pick 3 rows per niche. Open the PH URL to verify the launch matches
+   the niche frame in `cohort_verified.md` §73–98.
+5. Log the picked URL + maker handle in
+   `data/private/negative_peers_handles.csv` (gitignored).
+6. Fill the corresponding `NegativePeer(...)` row in
+   `register_negative_peers.py`. The `candidate_outcome_class_guess`
+   column is a sensible default for the `outcome_class` field, but apply
+   your own judgement.
+
+### Research-Substack niches → Perplexity, not PH
+
+The 4 research-Substack niches (Citrini, Doomberg, McCormick, Hobart)
+are Substack-native, not PH-native. The tool logs an info message and
+skips them. Use the Perplexity prompt template in
+`~/Documents/Claude/Projects/Thesis/00_PLANNING/AI_DELEGATION_PLAYBOOK.md`
+(section 1.x "Negative-peer sourcing — research-Substack niches") instead.
+
+### Constraints
+
+- Free APIs only (PH dev token + public Wayback CDX).
+- Reuses `ingestion/producthunt_collect.py`'s GraphQL client and
+  `ingestion/twitter_collect.py`'s Wayback helpers.
+- No LLM calls (zero Anthropic cost).
+- Idempotent: Wayback responses are cached in
+  `data/interim/negative_peer_candidates/.wayback_cache.json`. Pass
+  `--refresh-wayback` to invalidate.
+- Niche → PH-topic mapping is hard-coded in `NICHE_MAP` at the top of
+  the file with a `rationale` per entry. Where no good PH topic exists
+  (newsletters, solo-creator businesses), the row is flagged
+  `requires_review=True` and the picker is steered to keywords in
+  `notes_for_picker`.

@@ -1260,3 +1260,37 @@ script each pass.
 - Anthropic scoring run: **$5.45 USD**. Well under the $30 monthly cap.
 
 ---
+
+## 2026-05-19 21:30 — B2 tooling: negative-peer candidate longlist generator
+
+**What I did:**
+- Built `scripts/find_negative_peer_candidates.py` — a CLI tool that surfaces 15–25 PH launches per niche/quarter bucket, ranked by least engagement first, with Wayback dormancy flags. Output is one CSV per niche in `data/interim/negative_peer_candidates/<niche-slug>.csv` for Kris to hand-pick 3 per niche into `register_negative_peers.py`.
+- Hard-coded the niche → PH-topic mapping at the top of the file: 15 PH-applicable niches (each with a rationale + `requires_review` flag where the mapping is fuzzy) + 4 research-Substack niches explicitly marked out-of-scope (the tool logs an info message and skips them; Perplexity is the right tool for those, see new `AI_DELEGATION_PLAYBOOK.md` §1.5b).
+- Added `tests/test_find_negative_peer_candidates.py` — 33 unit tests covering mapping exhaustiveness, positives-cohort exclusion, the 4 Wayback paths (live / dormant / gone / no_wayback_data), the `candidate_outcome_class_guess` decision tree, CSV schema integrity, idempotency cache, redirect resolution, and the `--max-candidates` cap.
+- Documented usage in `scripts/README.md` § Negative-peer candidate-sourcing tool and added a Perplexity prompt template in `AI_DELEGATION_PLAYBOOK.md` §1.5b for the 4 Substack niches.
+
+**Decisions made:**
+- **Reuse, don't reimplement.** The PH GraphQL client (`ingestion.producthunt_collect._gql`) and Wayback CDX helpers (`ingestion.twitter_collect._rate_limited_get` + `_CDX_ENDPOINT`) are imported directly. Per the prompt: "no LLM calls, deterministic API stitching."
+- **PH-tracking-URL resolution.** PH's GraphQL `website` field returns a `producthunt.com/r/<id>?utm_*` tracking redirect. Wayback denies archiving of PH /r/* paths (SSL access denied). The tool follows the redirect with a `HEAD` request once and caches the resolved URL; only then queries Wayback. This was a surprise from the first smoke run.
+- **Single Wayback CDX query per candidate**, bucketing snapshots in-memory across the launch → launch+30mo window — 2× faster than my first cut which queried pre-window and in-window separately.
+- **`--max-candidates` cap (default 25).** Dense topics (developer-tools, marketing) return hundreds of posts per quarter; the spec asks for 15–25 per niche, and the cap also keeps the all-15-niches sweep target of <5 minutes realistic.
+- **Idempotent cache.** Wayback responses + PH-redirect resolutions live in `data/interim/negative_peer_candidates/.wayback_cache.json`; re-runs are near-instant unless `--refresh-wayback` is passed.
+- **Never auto-fills the canvas.** The tool only writes CSVs; `register_negative_peers.py` is untouched. Picking remains researcher judgement per DECISION_LOG iter-6.
+
+**Blockers:**
+- **PH dev token rate-limited (429) during smoke.** My session's PH GraphQL hourly budget was exhausted by an earlier slow run before I optimised the redirect step. The tool ran end-to-end on `dev-tooling-boilerplate` and `testimonials-social-proof` after the optimisation — both wrote schema-correct CSVs but with 0 data rows because every PH GraphQL call returned 429. **Kris: wait for the PH dev-token quota to reset (typically hourly), then run `python scripts/find_negative_peer_candidates.py --niche all`. Expected runtime: ~3 minutes if the cache is cold, ~30 seconds warm.** The script is correct; the 0-row output is purely an external rate-limit, not a code bug.
+- If a niche genuinely has zero PH candidates under <100 upvotes after the rate-limit resets, raise `--max-upvotes` to 200, or for newsletter / solo-creator niches (already flagged `requires_review=True` in the mapping) fall back to Perplexity per `AI_DELEGATION_PLAYBOOK.md` §1.5b.
+
+**Next steps:**
+- Kris: wait for PH rate-limit reset, then run the tool, hand-pick 3 candidates per niche, fill `register_negative_peers.py`, and run `python scripts/register_negative_peers.py` to register them. Once ≥15 peers, the B2 blocker in `PROGRESS.md` §5 clears.
+- Kris: spot-check 2–3 rows per CSV by hand (open the PH URL, verify upvote count, check Wayback status).
+
+**Files changed:**
+- `scripts/find_negative_peer_candidates.py` (new, ~600 lines)
+- `tests/test_find_negative_peer_candidates.py` (new, 33 tests)
+- `scripts/README.md` (added § Negative-peer candidate-sourcing tool)
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/AI_DELEGATION_PLAYBOOK.md` (added §1.5b — Perplexity prompt for research-Substack negative-peer sourcing)
+
+**Cost incurred:** $0. Zero Anthropic API calls. PH dev token + public Wayback only.
+
+---
