@@ -1,15 +1,13 @@
-import { Suspense } from "react";
 import { App } from "@/components/thesis/App";
 
-// useSearchParams() inside <App> requires a Suspense boundary in production
-// builds (per Next.js 16 docs/use-search-params); in dev it does not suspend.
-// Wrapping App keeps the boundary in place without preventing hydration —
-// the fallback shows briefly during streaming SSR, then the App subtree
-// reveals as soon as the searchParams Promise resolves on the client.
+// Render App directly. App is a "use client" component reading
+// useSearchParams(); on Next.js 16 in development useSearchParams does NOT
+// suspend (per docs/api-reference/functions/use-search-params), so the
+// Suspense boundary was unnecessary AND triggered a streaming-SSR
+// hydration hang on this scaffold. We'll add Suspense back at Phase D
+// when we ship a prod build, once the underlying bug is also addressed.
+export const dynamic = "force-dynamic";
+
 export default function Home() {
-  return (
-    <Suspense fallback={<div style={{ padding: 32 }}>Loading…</div>}>
-      <App />
-    </Suspense>
-  );
+  return <App />;
 }

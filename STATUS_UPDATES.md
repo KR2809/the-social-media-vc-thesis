@@ -1127,3 +1127,29 @@ script each pass.
 
 **Cost incurred:** $0 (no LLM calls in this session).
 ---
+
+## 2026-05-19 (cont.) — Phase C.1 follow-up: fix hydration hang, browser smoke now passes
+
+**What I did:**
+- Reproduced the Suspense / streaming-SSR hydration hang under both Turbopack AND `--webpack` (same `<div hidden id="S:0">` parked, `$RC("B:0","S:0")` emitted in the stream but the swap-scheduled `$RV` callback never runs and React never hydrates). So it's not a bundler-specific bug — it's the Suspense-at-route-root pattern interacting with `useSearchParams()` on this Next 16.2.6 scaffold.
+- Decoded the streaming reveal pipeline: `$RC` pushes `[fallbackEl, contentEl]` into `$RB` and schedules `$RV` via `requestAnimationFrame` (when `$RT` is undefined) or `setTimeout` (with a delay derived from `$RT`). The scheduled `$RV` invocation never fires in this scaffold — when we manually called `window.$RV(window.$RB)` the DOM swap happens, but React still doesn't hydrate, so this isn't fixable by client-side intervention.
+- **Fix:** dropped the `<Suspense>` wrapper from `frontend/src/app/page.tsx` and marked the route `export const dynamic = "force-dynamic"`. Per Next 16 docs, `useSearchParams` only suspends on prerendered routes; opting the route into dynamic rendering means `useSearchParams` returns its value synchronously during SSR and Suspense is no longer needed. The App component is a `"use client"` boundary, so hydration is a single straight pass with no parked subtree.
+- Also replaced `next/script` `<Script strategy="beforeInteractive">` in `layout.tsx` with an inline `<script dangerouslySetInnerHTML>` (same theme-boot logic, runs before paint, doesn't go through `next/script`'s deferred loading path which was suspect during the streaming-SSR debugging).
+
+**Decisions made:**
+- **`force-dynamic` over keeping Suspense + finding the root cause.** Time-boxing — the underlying Next 16 streaming-SSR-doesn't-fire bug would take significantly longer to pin down (file a repro, bisect Next versions, or wait for a patch). Static prerendering for `/` doesn't buy us much (the page mutates state from `useSearchParams` on every load anyway), so opting into dynamic rendering is a strict improvement: faster first paint, no Suspense fallback flash, hydration just works.
+- **Phase D will revisit.** When we ship the prod build to Vercel (FRONTEND_PLAN Phase D.3), we should re-evaluate whether to add Suspense back behind a static prerender. If the Next.js 16.x stream-completion bug is fixed by then, the answer is "yes"; if not, dynamic rendering on Vercel still works fine.
+
+**Browser smoke results (FastAPI on port 8000, `npm run dev` on port 3001):**
+- FastAPI **up** → banner reads **`hybrid`**, top-10 picks show **real cohort names**: `@levelsio` Pieter Levels, `@marclou` Marc Lou, `@yongfook` Jon Yongfook, `@tdinh_me` Tony Dinh, `@noahwbragg` Noah Bragg, … (niches like `SaaS/CE`, `SaaS/AI` are the real API's niche format, not synthetic's).
+- FastAPI **down** → banner reads **`synthetic`**, picks show synthetic names (Leyla Aksel, Mira Minamoto, …), browser console emits `[thesis] real data unavailable — falling back to synthetic source: TypeError: Failed to fetch` (stack points cleanly into `real.ts:49` / `index.ts:23` / `App.tsx:79`).
+- `npm run lint` — 6 pre-existing problems, 0 new ones.
+- `npm run build` — succeeds; `/` is now `ƒ Dynamic`, server-rendered on demand.
+- `npm run test:smoke` — 13/13 pass (unchanged).
+
+**Files changed:**
+- `frontend/src/app/page.tsx` (dropped `<Suspense>`, added `force-dynamic`)
+- `frontend/src/app/layout.tsx` (replaced `next/script` with inline `<script>`)
+
+**Cost incurred:** $0.
+---

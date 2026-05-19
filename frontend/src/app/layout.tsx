@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Script from "next/script";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,9 +24,12 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
-        <Script id="theme-boot" strategy="beforeInteractive">
-          {themeBoot}
-        </Script>
+        <script
+          id="theme-boot"
+          // Inlined synchronously so it runs before React hydrates and
+          // before first paint, avoiding a flash of wrong theme.
+          dangerouslySetInnerHTML={{ __html: themeBoot }}
+        />
       </head>
       <body>{children}</body>
     </html>
