@@ -247,7 +247,7 @@ def test_find_candidates_for_niche_excludes_positives_and_high_upvotes() -> None
         _fake_post("4", 8, maker_x="marclou"),     # filtered: positive maker
     ]
 
-    with patch.object(fnpc, "_iter_posts_by_topic", return_value=posts), \
+    with patch.object(fnpc, "_iter_posts_by_topic_cached", return_value=posts), \
          patch.object(fnpc, "_classify_cached", return_value=("live", "20250101000000")):
         rows = find_candidates_for_niche(
             "dev-tooling-boilerplate",
@@ -255,6 +255,7 @@ def test_find_candidates_for_niche_excludes_positives_and_high_upvotes() -> None
             token="fake",
             positives={"marclou"},
             wayback_cache={},
+            ph_cache={},
         )
 
     ids = [r.ph_post_id for r in rows]
@@ -271,14 +272,50 @@ def test_find_candidates_for_niche_out_of_scope_returns_empty(caplog) -> None:
             token="fake",
             positives=set(),
             wayback_cache={},
+            ph_cache={},
         )
     assert rows == []
     assert any("out-of-scope" in rec.message for rec in caplog.records)
 
 
+def test_max_pages_for_cap_known_values() -> None:
+    # (2*N + 49) // 50 floor; bounded to [1, 10].
+    assert fnpc._max_pages_for_cap(1) == 1
+    assert fnpc._max_pages_for_cap(25) == 1
+    assert fnpc._max_pages_for_cap(26) == 2
+    assert fnpc._max_pages_for_cap(50) == 2
+    assert fnpc._max_pages_for_cap(100) == 4
+    assert fnpc._max_pages_for_cap(1000) == 10  # capped
+
+
+def test_iter_posts_by_topic_respects_max_pages() -> None:
+    """Confirms we stop paginating once we've fetched max_pages worth."""
+    call_count = {"n": 0}
+
+    def fake_gql(query, variables, token):  # noqa: ARG001
+        call_count["n"] += 1
+        # Always say there's a next page so we can verify the cap.
+        return {
+            "posts": {
+                "pageInfo": {"hasNextPage": True, "endCursor": f"c{call_count['n']}"},
+                "edges": [{"node": {"id": f"p{call_count['n']}", "createdAt": "2023-01-01T00:00:00Z"}}],
+            }
+        }
+
+    with patch.object(fnpc, "_gql", side_effect=fake_gql):
+        posts, complete = fnpc._iter_posts_by_topic(
+            "developer-tools", date(2023, 1, 1), date(2023, 6, 1), "tok", max_pages=3
+        )
+
+    assert call_count["n"] == 3
+    assert len(posts) == 3
+    # Reaching max_pages cleanly is a complete fetch (cacheable).
+    assert complete is True
+
+
 def test_find_candidates_for_niche_caps_at_max_candidates() -> None:
     posts = [_fake_post(str(i), upvotes=i, maker_x=f"u{i}") for i in range(50)]
-    with patch.object(fnpc, "_iter_posts_by_topic", return_value=posts), \
+    with patch.object(fnpc, "_iter_posts_by_topic_cached", return_value=posts), \
          patch.object(fnpc, "_classify_cached", return_value=("live", None)):
         rows = find_candidates_for_niche(
             "dev-tooling-boilerplate",
@@ -287,6 +324,7 @@ def test_find_candidates_for_niche_caps_at_max_candidates() -> None:
             token="fake",
             positives=set(),
             wayback_cache={},
+            ph_cache={},
         )
     assert len(rows) == 5
     # Cap takes the lowest-upvote slice (already sorted ascending).
@@ -301,16 +339,17 @@ def test_find_candidates_dedup_across_topics() -> None:
         "social-media-tools": [shared, _fake_post("other", 20, maker_x="other_user")],
     }
 
-    def fake_iter(topic_slug, start, end, token):
+    def fake_iter_cached(topic_slug, start, end, token, max_pages, ph_cache, refresh):  # noqa: ARG001
         return by_topic[topic_slug]
 
-    with patch.object(fnpc, "_iter_posts_by_topic", side_effect=fake_iter), \
+    with patch.object(fnpc, "_iter_posts_by_topic_cached", side_effect=fake_iter_cached), \
          patch.object(fnpc, "_classify_cached", return_value=("live", None)):
         rows = find_candidates_for_niche(
             "twitter-growth-tools",
             token="fake",
             positives=set(),
             wayback_cache={},
+            ph_cache={},
         )
 
     ids = sorted(r.ph_post_id for r in rows)
@@ -449,7 +488,116 @@ def test_classify_cached_refresh_bypasses_cache(monkeypatch) -> None:
 
 def test_find_candidates_unknown_niche_raises() -> None:
     with pytest.raises(KeyError):
-        find_candidates_for_niche("does-not-exist", token="fake", positives=set(), wayback_cache={})
+        find_candidates_for_niche(
+            "does-not-exist", token="fake", positives=set(), wayback_cache={}, ph_cache={}
+        )
+
+
+# ---------------------------------------------------------------------------
+# 12. PH response cache (Piece 3)
+# ---------------------------------------------------------------------------
+
+
+def test_iter_posts_by_topic_cached_hits_cache() -> None:
+    cached_posts = [{"id": "cached_1", "createdAt": "2023-01-01T00:00:00Z"}]
+    ph_cache = {
+        fnpc._ph_cache_key("developer-tools", date(2023, 5, 1), date(2023, 12, 1)): cached_posts
+    }
+    called = []
+
+    def explode(*a, **kw):  # noqa: ARG001
+        called.append(1)
+        return [], True
+
+    with patch.object(fnpc, "_iter_posts_by_topic", side_effect=explode):
+        result = fnpc._iter_posts_by_topic_cached(
+            "developer-tools",
+            date(2023, 5, 1),
+            date(2023, 12, 1),
+            "tok",
+            max_pages=2,
+            ph_cache=ph_cache,
+            refresh=False,
+        )
+
+    assert result == cached_posts
+    assert called == []  # cache hit, no live query
+
+
+def test_iter_posts_by_topic_cached_refresh_bypasses() -> None:
+    cached_posts = [{"id": "stale"}]
+    fresh_posts = [{"id": "fresh"}]
+    key = fnpc._ph_cache_key("developer-tools", date(2023, 5, 1), date(2023, 12, 1))
+    ph_cache = {key: cached_posts}
+
+    with patch.object(fnpc, "_iter_posts_by_topic", return_value=(fresh_posts, True)):
+        result = fnpc._iter_posts_by_topic_cached(
+            "developer-tools",
+            date(2023, 5, 1),
+            date(2023, 12, 1),
+            "tok",
+            max_pages=2,
+            ph_cache=ph_cache,
+            refresh=True,
+        )
+
+    assert result == fresh_posts
+    # Cache is overwritten with the fresh data.
+    assert ph_cache[key] == fresh_posts
+
+
+def test_iter_posts_by_topic_cached_skips_cache_on_partial_fetch() -> None:
+    partial_posts = [{"id": "partial"}]
+    ph_cache: dict[str, list[dict]] = {}
+    key = fnpc._ph_cache_key("developer-tools", date(2023, 5, 1), date(2023, 12, 1))
+
+    with patch.object(fnpc, "_iter_posts_by_topic", return_value=(partial_posts, False)):
+        result = fnpc._iter_posts_by_topic_cached(
+            "developer-tools",
+            date(2023, 5, 1),
+            date(2023, 12, 1),
+            "tok",
+            max_pages=2,
+            ph_cache=ph_cache,
+            refresh=False,
+        )
+
+    # Caller still gets the partial result for this run.
+    assert result == partial_posts
+    # But the cache is NOT polluted with it.
+    assert key not in ph_cache
+
+
+def test_iter_posts_by_topic_retries_once_on_429(monkeypatch) -> None:
+    """A 429 mid-fetch sleeps once and then succeeds on retry."""
+    from ingestion.producthunt_collect import ProductHuntRateLimitedError
+
+    call_count = {"n": 0}
+    slept_for: list[float] = []
+
+    def fake_gql(query, variables, token):  # noqa: ARG001
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise ProductHuntRateLimitedError(reset_seconds=3)
+        return {
+            "posts": {
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+                "edges": [{"node": {"id": "p1", "createdAt": "2023-01-01T00:00:00Z"}}],
+            }
+        }
+
+    monkeypatch.setattr(fnpc, "_gql", fake_gql)
+    # Patch the sleep inside the retry path (it's `import time as _t; _t.sleep`).
+    import time as _real_time
+    monkeypatch.setattr(_real_time, "sleep", lambda s: slept_for.append(s))
+
+    posts, complete = fnpc._iter_posts_by_topic(
+        "developer-tools", date(2023, 1, 1), date(2023, 6, 1), "tok", max_pages=3
+    )
+    assert call_count["n"] == 2  # one 429, one success
+    assert slept_for == [3]
+    assert [p["id"] for p in posts] == ["p1"]
+    assert complete is True  # natural completion via hasNextPage=False
 
 
 # ---------------------------------------------------------------------------

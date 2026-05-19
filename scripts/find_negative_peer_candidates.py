@@ -43,7 +43,14 @@ import click
 import requests
 
 from ingestion.cohort import load_cohort
-from ingestion.producthunt_collect import _gql, _require_token
+from ingestion.producthunt_collect import (
+    ProductHuntRateLimitedError,
+    _gql,
+    _pick_token,
+    _require_token,
+    _require_tokens,
+    rate_limit_state,
+)
 from ingestion.twitter_collect import _CDX_ENDPOINT, _rate_limited_get
 
 logger = logging.getLogger(__name__)
@@ -287,6 +294,7 @@ DEFAULT_MAX_UPVOTES = 100
 DEFAULT_MAX_CANDIDATES = 25  # per spec: surface 15-25 per niche/quarter bucket
 OUT_DIR = Path("data/interim/negative_peer_candidates")
 WAYBACK_CACHE_PATH = OUT_DIR / ".wayback_cache.json"
+PH_CACHE_PATH = OUT_DIR / ".ph_cache.json"
 
 CSV_FIELDS = [
     "candidate_id",
@@ -307,8 +315,16 @@ CSV_FIELDS = [
 ]
 
 
-# PH GraphQL query for posts in a topic within a date window. The PH v2
-# schema exposes `posts(topic:, postedAfter:, postedBefore:, order:, ...)`.
+# PH GraphQL query for posts in a topic within a date window.
+#
+# Trimmed for complexity-budget efficiency:
+#   - Drops `topics(first: 10)`, `name`, `tagline`, `commentsCount`, `makers.id`
+#     — the candidate tool never reads them. PH bills complexity per field
+#     requested per connection edge, so trimming makes us ~30-40% lighter.
+#   - Keeps `order: NEWEST` because PH's `order: VOTES` is descending (we want
+#     least-engagement first, so server-side sort won't help). The CLI caps
+#     pagination after `_max_pages_for_cap()` pages instead — see callers.
+#
 # Variables are ISO-8601 datetimes (UTC).
 _POSTS_BY_TOPIC_QUERY = """
 query PostsByTopic(
@@ -330,15 +346,10 @@ query PostsByTopic(
       node {
         id
         slug
-        name
-        tagline
         createdAt
         votesCount
-        commentsCount
         website
-        topics(first: 10) { edges { node { slug name } } }
         makers {
-          id
           username
           twitterUsername
         }
@@ -347,6 +358,18 @@ query PostsByTopic(
   }
 }
 """
+
+
+def _max_pages_for_cap(max_candidates: int) -> int:
+    """Heuristic: how many 50-item pages we need to honour --max-candidates.
+
+    We over-fetch by ~2× because the upvotes / positives / topic-dedup
+    filter shrinks the pool. For max_candidates=25 we fetch 2 pages (100
+    candidates) per topic, which covers the common case while staying
+    well under PH's complexity budget.
+    """
+    # ceil(2 * max_candidates / page_size), bounded to [1, 10]
+    return max(1, min(10, (2 * max_candidates + 49) // 50))
 
 
 # ---------------------------------------------------------------------------
@@ -431,14 +454,24 @@ def _resolve_ph_redirect(url: str, *, _session: requests.Session | None = None) 
 
 
 def _iter_posts_by_topic(
-    topic_slug: str, start: date, end: date, token: str
-) -> list[dict]:
-    """Return all PH post nodes in `topic_slug` within [start, end)."""
+    topic_slug: str,
+    start: date,
+    end: date,
+    token: str,
+    max_pages: int = 4,
+) -> tuple[list[dict], bool]:
+    """Return (posts, complete) for `topic_slug` within [start, end).
+
+    `complete` is True iff we exhausted the window naturally (pageInfo says
+    no more pages, or we reached `max_pages`). False iff we bailed early
+    due to an error / 429 retry. The cache wrapper uses `complete` to decide
+    whether to persist the result.
+    """
     posts: list[dict] = []
     cursor: str | None = None
     start_iso = datetime.combine(start, datetime.min.time(), tzinfo=UTC).isoformat()
     end_iso = datetime.combine(end, datetime.min.time(), tzinfo=UTC).isoformat()
-    while True:
+    for _ in range(max_pages):
         try:
             data = _gql(
                 _POSTS_BY_TOPIC_QUERY,
@@ -450,12 +483,39 @@ def _iter_posts_by_topic(
                 },
                 token,
             )
+        except ProductHuntRateLimitedError as exc:
+            # Sleep once, then retry the same page. If we re-hit the limit
+            # on the retry, give up gracefully — the partial result will be
+            # cached and the next CLI run resumes from here.
+            import time as _t
+            logger.warning(
+                "PH 429 on topic=%s page; sleeping %ds then retrying once",
+                topic_slug, exc.reset_seconds,
+            )
+            _t.sleep(exc.reset_seconds)
+            try:
+                data = _gql(
+                    _POSTS_BY_TOPIC_QUERY,
+                    {
+                        "topic": topic_slug,
+                        "postedAfter": start_iso,
+                        "postedBefore": end_iso,
+                        "after": cursor,
+                    },
+                    token,
+                )
+            except ProductHuntRateLimitedError:
+                logger.warning(
+                    "PH 429 again after sleep on topic=%s — bailing with partial",
+                    topic_slug,
+                )
+                return posts, False
         except (requests.RequestException, RuntimeError) as exc:
             logger.warning(
                 "PH posts query failed for topic=%s (%s–%s): %s",
                 topic_slug, start, end, exc,
             )
-            return posts
+            return posts, False
         conn = (data or {}).get("posts") or {}
         for edge in conn.get("edges", []) or []:
             node = edge.get("node")
@@ -463,10 +523,12 @@ def _iter_posts_by_topic(
                 posts.append(node)
         page_info = conn.get("pageInfo") or {}
         if not page_info.get("hasNextPage"):
-            return posts
+            return posts, True
         cursor = page_info.get("endCursor")
         if not cursor:
-            return posts
+            return posts, True
+    # max_pages reached — also a clean completion for caching purposes.
+    return posts, True
 
 
 # ---------------------------------------------------------------------------
@@ -694,6 +756,73 @@ def _save_wayback_cache(cache: dict[str, list[str | None]]) -> None:
     WAYBACK_CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
 
 
+# ---------------------------------------------------------------------------
+# PH response cache (Piece 3).
+#
+# Keyed on (topic_slug, start_iso, end_iso) — the data is the same regardless
+# of which dev token asked. Cached at the topic/window grain, not per-page,
+# because partial pagination on the same window is rare; we always fetch
+# the full configured page range and cache that as a unit.
+#
+# Critical property for the picker workflow: if `find_candidates_for_niche`
+# fails mid-run (rate-limit, network blip), the next run picks up from the
+# cache without re-spending budget.
+# ---------------------------------------------------------------------------
+
+
+def _load_ph_cache() -> dict[str, list[dict]]:
+    if not PH_CACHE_PATH.exists():
+        return {}
+    try:
+        return json.loads(PH_CACHE_PATH.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _save_ph_cache(cache: dict[str, list[dict]]) -> None:
+    PH_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PH_CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
+
+
+def _ph_cache_key(topic_slug: str, start: date, end: date) -> str:
+    return f"{topic_slug}|{start.isoformat()}|{end.isoformat()}"
+
+
+def _iter_posts_by_topic_cached(
+    topic_slug: str,
+    start: date,
+    end: date,
+    token: str,
+    max_pages: int,
+    ph_cache: dict[str, list[dict]],
+    refresh: bool,
+) -> list[dict]:
+    """Cache-aware wrapper around `_iter_posts_by_topic`.
+
+    Cache miss → live PH query, store result. Cache hit → return immediately.
+    On `refresh=True`, always re-query and overwrite the cache.
+    """
+    key = _ph_cache_key(topic_slug, start, end)
+    if not refresh and key in ph_cache:
+        logger.info("PH cache hit: %s (%d posts)", key, len(ph_cache[key]))
+        return ph_cache[key]
+    posts, complete = _iter_posts_by_topic(
+        topic_slug, start, end, token, max_pages=max_pages
+    )
+    # Only cache the result on a clean completion. A partial fetch after a
+    # rate-limit / network error is NOT cached — re-running picks up where
+    # we left off and gets the full data. `--refresh-ph` bypasses the cache
+    # outright for the rare case where Kris wants fresh data anyway.
+    if complete:
+        ph_cache[key] = posts
+    else:
+        logger.warning(
+            "skipped PH cache write for %s — partial fetch (rerun to complete)",
+            key,
+        )
+    return posts
+
+
 def _cache_key(website_url: str, launch: date) -> str:
     return f"{launch.isoformat()}|{website_url}"
 
@@ -752,9 +881,11 @@ def find_candidates_for_niche(
     max_upvotes: int = DEFAULT_MAX_UPVOTES,
     max_candidates: int = DEFAULT_MAX_CANDIDATES,
     refresh_wayback: bool = False,
+    refresh_ph: bool = False,
     token: str | None = None,
     positives: set[str] | None = None,
     wayback_cache: dict[str, list[str | None]] | None = None,
+    ph_cache: dict[str, list[dict]] | None = None,
 ) -> list[CandidateRow]:
     """Return candidate rows for one niche, sorted by upvotes ascending."""
     spec = NICHE_MAP[niche_slug]
@@ -772,15 +903,28 @@ def find_candidates_for_niche(
         positives = _positive_handle_set()
     if wayback_cache is None:
         wayback_cache = _load_wayback_cache()
+    if ph_cache is None:
+        ph_cache = _load_ph_cache()
 
     quarter = spec["emergence_quarter"]
     start, end = _parse_quarter(quarter)
 
     # Collect candidate posts across all mapped topics, de-duping by post id.
+    # Page cap is sized to `max_candidates` so dense topics don't burn budget
+    # paginating posts we'll never use.
+    max_pages = _max_pages_for_cap(max_candidates)
     posts_by_id: dict[str, dict] = {}
     if spec["ph_topic_slugs"]:
         for topic_slug in spec["ph_topic_slugs"]:
-            for post in _iter_posts_by_topic(topic_slug, start, end, token):
+            for post in _iter_posts_by_topic_cached(
+                topic_slug,
+                start,
+                end,
+                token,
+                max_pages=max_pages,
+                ph_cache=ph_cache,
+                refresh=refresh_ph,
+            ):
                 pid = str(post.get("id") or "")
                 if not pid:
                     continue
@@ -881,7 +1025,19 @@ def write_csv(niche_slug: str, rows: list[CandidateRow]) -> Path:
     default=False,
     help="Re-query Wayback for all candidates (default reuses cache).",
 )
-def main(niche: str, max_upvotes: int, max_candidates: int, refresh_wayback: bool) -> None:
+@click.option(
+    "--refresh-ph",
+    is_flag=True,
+    default=False,
+    help="Re-query Product Hunt for all topics (default reuses cache).",
+)
+def main(
+    niche: str,
+    max_upvotes: int,
+    max_candidates: int,
+    refresh_wayback: bool,
+    refresh_ph: bool,
+) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
     if niche == "all":
@@ -893,9 +1049,15 @@ def main(niche: str, max_upvotes: int, max_candidates: int, refresh_wayback: boo
             f"unknown niche {niche!r}. valid: {sorted(NICHE_MAP)} or 'all'"
         )
 
-    token = _require_token()
+    tokens = _require_tokens()
     positives = _positive_handle_set()
     wayback_cache = _load_wayback_cache()
+    ph_cache = _load_ph_cache()
+
+    logger.info(
+        "PH dev tokens configured: %d (round-robin enabled: %s)",
+        len(tokens), len(tokens) > 1,
+    )
 
     summary: list[tuple[str, int, str]] = []
     for niche_slug in niches:
@@ -907,26 +1069,62 @@ def main(niche: str, max_upvotes: int, max_candidates: int, refresh_wayback: boo
             )
             summary.append((niche_slug, 0, "out_of_scope"))
             continue
-        logger.info("processing %s (quarter=%s)", niche_slug, spec["emergence_quarter"])
+        # Pick the token with the most headroom before each niche. Tokens
+        # without observed state are treated as fresh (preferred).
+        token = _pick_token(tokens)
+        logger.info(
+            "processing %s (quarter=%s) [token=%s remaining=%s]",
+            niche_slug,
+            spec["emergence_quarter"],
+            _token_label(token, tokens),
+            rate_limit_state(token).remaining if rate_limit_state(token).last_seen_epoch else "untouched",
+        )
         rows = find_candidates_for_niche(
             niche_slug,
             max_upvotes=max_upvotes,
             max_candidates=max_candidates,
             refresh_wayback=refresh_wayback,
+            refresh_ph=refresh_ph,
             token=token,
             positives=positives,
             wayback_cache=wayback_cache,
+            ph_cache=ph_cache,
         )
         out_path = write_csv(niche_slug, rows)
         logger.info("  → %d candidates → %s", len(rows), out_path)
         summary.append((niche_slug, len(rows), str(out_path)))
 
     _save_wayback_cache(wayback_cache)
+    _save_ph_cache(ph_cache)
 
     # Pretty per-niche summary at the end.
     print("\nNiche summary (rows per niche):")
     for niche_slug, n, note in summary:
         print(f"  {niche_slug:<48s} {n:>4d}   {note}")
+
+    # Quota observability — print remaining budget per token + minutes-to-reset.
+    print("\nPH dev-token quota after run:")
+    import time as _time
+    now = _time.time()
+    for tok in tokens:
+        state = rate_limit_state(tok)
+        if state.last_seen_epoch == 0:
+            print(f"  {_token_label(tok, tokens):<12s} untouched")
+            continue
+        mins = max(0, (state.reset_at_epoch - now) / 60.0)
+        print(
+            f"  {_token_label(tok, tokens):<12s} "
+            f"remaining={state.remaining}/{state.limit}  "
+            f"reset_in={mins:.1f}min"
+        )
+
+
+def _token_label(token: str, all_tokens: list[str]) -> str:
+    """Short human label for log/print: token_1, token_2."""
+    try:
+        return f"token_{all_tokens.index(token) + 1}"
+    except ValueError:
+        return "token_?"
 
 
 if __name__ == "__main__":
