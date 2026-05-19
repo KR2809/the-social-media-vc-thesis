@@ -1,4 +1,4 @@
-// Real-data DataSource (Phases C.1 + C.2 + C.6 partial).
+// Real-data DataSource (Phases C.1 + C.2 + C.3 + C.6 partial).
 //
 // Phase C.1 (cohort loader): founders() comes from /api/cohort, today
 // derives from /api/timeline-bounds.latest, source flips to "hybrid".
@@ -8,6 +8,15 @@
 // via parseEmergenceQuarter; first ← first_signal_at fallback to
 // timeline.earliest).
 //
+// Phase C.3 partial (scoring loader): curve/tier1/tier2/rankAt no
+// longer delegate to synthetic. Each is computed from the cached
+// scored signals: curve = mean overall_signal_strength of signals
+// before t; tier1 = mean of S2 + S3 sub-dims (distribution + intent);
+// tier2 = mean of S1 + S4 + S6 sub-dims (action + network + domain).
+// Founders with no signals yet fall through to synthetic curves so
+// the demo never goes blank; the visible "0pp lift vs random"
+// resolves into meaningful spread as scoring completes more rows.
+//
 // Phase C.6 partial (signals loader): signalsFor() pulls real scored
 // signals from /api/founder/{id} top_signals_at_t. Pre-fetched at load
 // time so the sync DataSource interface still works; cache misses fall
@@ -15,7 +24,6 @@
 // next page reload picks up richer signal evidence with no code change.
 //
 // What's still synthetic (deliberately — separate C.* phases):
-//   * curve / tier1 / tier2 / rankAt   (C.3 scoring loader)
 //   * baselineRandom/Volume/Recency    (C.4 baselines — blocked on negs)
 //   * precisionAt                      (C.4 — blocked on negs)
 //   * egoFor                           (C.5 KG loader)
@@ -228,6 +236,73 @@ function buildHybridSource(
 
   const foundersById = new Map(founders.map((f) => [f.id, f]));
 
+  // ────────────────────────────── C.3 partial ──────────────────────────────
+  // Per-founder "score at time t" computed from real scored signals.
+  // Aggregates the founder's cached signals with timestamp ≤ t. When a
+  // founder has no scored signals (yet — scoring may still be running, or
+  // collection hasn't caught the rest of the cohort), we fall back to the
+  // synthetic curve so the demo never goes blank.
+  //
+  // Caching: tCutoffMs computed once per (founder, t) lookup; the cohort is
+  // small so this stays cheap.
+
+  function tToCutoffMs(t: number): number {
+    const year = 2014 + Math.floor(t / 12);
+    const month = t % 12;
+    return Date.UTC(year, month, 1);
+  }
+
+  function signalsBefore(founderId: FounderId, t: number): ScoredSignalRow[] {
+    const cached = signalsByFounder.get(founderId);
+    if (!cached || cached.length === 0) return [];
+    const cutoff = tToCutoffMs(t);
+    return cached.filter((s) => new Date(s.timestamp).getTime() <= cutoff);
+  }
+
+  // Mean of a sub-dim group across a founder's signals. Used to project the
+  // taxonomy onto two tiers (topic-side / founder-side) for the v1 framework.
+  function meanSubDim(rows: ScoredSignalRow[], prefixes: string[]): number {
+    let sum = 0;
+    let n = 0;
+    for (const row of rows) {
+      for (const [k, v] of Object.entries(row)) {
+        if (typeof v !== "number") continue;
+        if (!prefixes.some((p) => k.startsWith(p))) continue;
+        sum += v;
+        n++;
+      }
+    }
+    return n > 0 ? sum / n : 0;
+  }
+
+  function realCurve(f: Founder, t: number): number | null {
+    const fm = syntheticSource.months(f.first);
+    if (fm == null || t < fm) return null;
+    const rows = signalsBefore(f.id, t);
+    if (rows.length === 0) {
+      // No real signals yet — synthetic curve keeps the demo populated.
+      return syntheticSource.curve(f, t);
+    }
+    // Combined score = mean of overall_signal_strength across signals so far.
+    // Clamp to [0, 0.99] to stay within the UI's expected range.
+    const sum = rows.reduce((acc, r) => acc + r.overall_signal_strength, 0);
+    return Math.max(0, Math.min(0.99, sum / rows.length));
+  }
+
+  function realTier1(f: Founder, t: number): number | null {
+    const rows = signalsBefore(f.id, t);
+    if (rows.length === 0) return syntheticSource.tier1(f, t);
+    // Topic-side: distribution (S2) + intent/ambition (S3) sub-dims.
+    return Math.max(0, Math.min(0.99, meanSubDim(rows, ["s2_", "s3_"])));
+  }
+
+  function realTier2(f: Founder, t: number): number | null {
+    const rows = signalsBefore(f.id, t);
+    if (rows.length === 0) return syntheticSource.tier2(f, t);
+    // Founder-side: action (S1) + network density (S4) + domain depth (S6).
+    return Math.max(0, Math.min(0.99, meanSubDim(rows, ["s1_", "s4_", "s6_"])));
+  }
+
   function outcomeAt(f: Founder, t: number): Outcome {
     const em = syntheticSource.months(f.emerge);
     const t24 = t + 24;
@@ -238,14 +313,14 @@ function buildHybridSource(
   function rankAt(t: number, K: number): RankedPick[] {
     const rows: RankedPick[] = [];
     for (const f of founders) {
-      const c = syntheticSource.curve(f, t);
+      const c = realCurve(f, t);
       if (c == null) continue;
       rows.push({
         id: f.id,
         name: f.name,
         niche: f.niche,
-        t1: syntheticSource.tier1(f, t),
-        t2: syntheticSource.tier2(f, t),
+        t1: realTier1(f, t),
+        t2: realTier2(f, t),
         combined: c,
         emerge: f.emerge,
         first: f.first,
@@ -352,9 +427,9 @@ function buildHybridSource(
     months: syntheticSource.months,
     fmtMonth: syntheticSource.fmtMonth,
     fmtQuarter: syntheticSource.fmtQuarter,
-    curve: syntheticSource.curve,
-    tier1: syntheticSource.tier1,
-    tier2: syntheticSource.tier2,
+    curve: realCurve,
+    tier1: realTier1,
+    tier2: realTier2,
     rankAt,
     outcomeAt,
     baselineRandom,
