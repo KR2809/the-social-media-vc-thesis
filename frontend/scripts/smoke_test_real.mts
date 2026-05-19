@@ -9,6 +9,7 @@
 
 import {
   loadRealSource,
+  parseEmergenceQuarter,
   __resetRealSourceCacheForTests,
 } from "../src/lib/thesis/real";
 
@@ -71,9 +72,9 @@ __resetRealSourceCacheForTests();
         body: {
           n: 3,
           members: [
-            { person_id: "levelsio", display_name: "Pieter Levels", venture: "Nomad List", niche: "Indie hacker", emergence_quarter: "2015-Q1", data_score: 9 },
-            { person_id: "marclou", display_name: "Marc Lou", venture: "ShipFast", niche: "Solopreneur", emergence_quarter: "2023-Q1", data_score: 8 },
-            { person_id: "yongfook", display_name: "Yongfook", venture: "Bannerbear", niche: "Indie SaaS", emergence_quarter: "2022-Q2", data_score: 8 },
+            { person_id: "levelsio", display_name: "Pieter Levels", venture: "Nomad List", niche: "Indie hacker", emergence_quarter: "2018–2019", data_score: 9, first_signal_at: "2014-04-20T00:00:00+00:00" },
+            { person_id: "marclou", display_name: "Marc Lou", venture: "ShipFast", niche: "Solopreneur", emergence_quarter: "May 2023", data_score: 8, first_signal_at: "2020-02-23T23:51:22+00:00" },
+            { person_id: "yongfook", display_name: "Yongfook", venture: "Bannerbear", niche: "Indie SaaS", emergence_quarter: "2022-Q2", data_score: 8, first_signal_at: null },
           ],
         },
       };
@@ -104,22 +105,32 @@ __resetRealSourceCacheForTests();
     `no placeholder "Founder N" names`,
   );
 
-  // C.1 contract: emerge/venture/ventureMetric/emphasis stay null/empty.
-  const f0 = founders[0];
-  assert(f0.emerge === null, "founder.emerge === null (deferred to C.2)");
-  assert(f0.venture === null, "founder.venture === null (deferred to C.2)");
-  assert(f0.ventureMetric === null, "founder.ventureMetric === null (deferred to C.2)");
+  // C.2 contract: emerge + venture come from the API; ventureMetric +
+  // emphasis stay deferred to C.3.
+  const levels = founders.find((f) => f.id === "levelsio")!;
+  const lou = founders.find((f) => f.id === "marclou")!;
+  const yong = founders.find((f) => f.id === "yongfook")!;
+
+  assert(levels.emerge === "2018-Q1", `levels.emerge === "2018-Q1" (range lower bound; got "${levels.emerge}")`);
+  assert(lou.emerge === "2023-05", `marclou.emerge === "2023-05" (month-year; got "${lou.emerge}")`);
+  assert(yong.emerge === "2022-Q2", `yongfook.emerge === "2022-Q2" (already-quarter passthrough; got "${yong.emerge}")`);
+
+  assert(levels.venture === "Nomad List", `venture mapped from API (got "${levels.venture}")`);
+  assert(levels.ventureMetric === null, "ventureMetric === null (deferred to C.3)");
   assert(
-    Array.isArray(f0.emphasis) && f0.emphasis.length === 0,
-    "founder.emphasis === [] (deferred to C.3)",
+    Array.isArray(levels.emphasis) && levels.emphasis.length === 0,
+    "emphasis === [] (deferred to C.3)",
   );
 
   // today derived from /api/timeline-bounds.latest (May 2026 → 148 months since 2014-01).
   const expectedToday = (2026 - 2014) * 12 + 4; // May = month index 4
   assert(src.today === expectedToday, `today === ${expectedToday} (got ${src.today})`);
 
-  // first ← earliest (April 2014 → "2014-04")
-  assert(f0.first === "2014-04", `founder.first === "2014-04" (got "${f0.first}")`);
+  // Per-founder first: from first_signal_at when present; fallback to
+  // timeline.earliest when null.
+  assert(levels.first === "2014-04", `levels.first === "2014-04" from first_signal_at (got "${levels.first}")`);
+  assert(lou.first === "2020-02", `marclou.first === "2020-02" from first_signal_at (got "${lou.first}")`);
+  assert(yong.first === "2014-04", `yongfook.first === "2014-04" (fallback to timeline.earliest; got "${yong.first}")`);
 
   restore();
 }
@@ -170,6 +181,37 @@ __resetRealSourceCacheForTests();
   assert(src.source === "synthetic", `source === "synthetic" on empty cohort (got "${src.source}")`);
   restoreWarn();
   restore();
+}
+
+// -------------------------- Case 4: emergence parser ------------------
+
+console.log("\nCase 4: parseEmergenceQuarter — every shape we see in cohort_verified.md");
+{
+  // Real raw values pulled from /api/cohort (see STATUS_UPDATES C.2 entry).
+  const cases: Array<[string | null, string | null, string]> = [
+    [null, null, "null passthrough"],
+    ["", null, "empty string → null"],
+    ["2020", "2020-Q1", "bare year → Q1"],
+    ["2018–2019", "2018-Q1", "year range → lower bound"],
+    ["2019–2021", "2019-Q1", "year range → lower bound"],
+    ["2023", "2023-Q1", "bare year"],
+    ["2019 (exit)", "2019-Q1", "year + (modifier)"],
+    ["2020 onward", "2020-Q1", "year + onward"],
+    ["2019 → 2025 (1M subs)", "2019-Q1", "year arrow → lower year"],
+    ["Apr 2023 (acq.)", "2023-04", "month-year + modifier"],
+    ["May 2020", "2020-05", "month-year"],
+    ["Nov 2021", "2021-11", "month-year"],
+    ["Apr 2025", "2025-04", "month-year"],
+    ["Dec 2020 → scale", "2020-12", "month-year + arrow modifier"],
+    ["Early 2026", "2026-Q1", "Early → Q1"],
+    ["2020-Q3", "2020-Q3", "already-quarter passthrough"],
+    ["fish soup", null, "non-parseable → null"],
+  ];
+
+  for (const [raw, expected, label] of cases) {
+    const got = parseEmergenceQuarter(raw);
+    assert(got === expected, `parseEmergenceQuarter(${JSON.stringify(raw)}) === ${JSON.stringify(expected)} — ${label} (got ${JSON.stringify(got)})`);
+  }
 }
 
 // -------------------------- Summary -----------------------------------

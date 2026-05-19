@@ -43,6 +43,7 @@ interface CohortResponse {
     niche: string;
     emergence_quarter: string | null;
     data_score: number;
+    first_signal_at: string | null;
   }>;
 }
 
@@ -67,6 +68,47 @@ function isoToMonthString(iso: string): string {
   return `${y}-${m}`;
 }
 
+const MONTH_TOKENS: Record<string, string> = {
+  jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06",
+  jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12",
+};
+
+// Parse the cohort's free-text `emergence_quarter` into a "YYYY-MM" or
+// "YYYY-QN" string that synthetic.months() understands. Returns null for
+// values we can't confidently interpret. Range values ("2018–2019") collapse
+// to the LOWER bound — conservative for precision@k claims; flagged in
+// STATUS_UPDATES for reviewer override.
+export function parseEmergenceQuarter(raw: string | null): string | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase().trim();
+
+  // "YYYY-QN" — already in the shape synthetic understands.
+  const qMatch = s.match(/(20\d{2})-q([1-4])/);
+  if (qMatch) return `${qMatch[1]}-Q${qMatch[2]}`;
+
+  // "Apr 2023" / "may 2020" / "dec 2020 → scale".
+  const monMatch = s.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(20\d{2})/);
+  if (monMatch) return `${monMatch[2]}-${MONTH_TOKENS[monMatch[1]]}`;
+
+  // "Early 2026" / "Late 2020".
+  if (/early\s+(20\d{2})/.test(s)) {
+    const y = s.match(/(20\d{2})/)![1];
+    return `${y}-Q1`;
+  }
+  if (/late\s+(20\d{2})/.test(s)) {
+    const y = s.match(/(20\d{2})/)![1];
+    return `${y}-Q4`;
+  }
+
+  // "2018–2019", "2019 → 2025", "2019 (exit)", "2020 onward", "2020": grab
+  // the first 4-digit year and call it Q1 (lower bound on ranges; modifiers
+  // like "(exit)" / "onward" get stripped).
+  const yearMatch = s.match(/(20\d{2})/);
+  if (yearMatch) return `${yearMatch[1]}-Q1`;
+
+  return null;
+}
+
 async function fetchJSON<T>(path: string): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   const res = await fetch(url);
@@ -78,22 +120,25 @@ async function fetchJSON<T>(path: string): Promise<T> {
 
 function mapCohortToFounders(
   cohort: CohortResponse,
-  firstMonth: string | null,
+  fallbackFirstMonth: string | null,
 ): Founder[] {
   return cohort.members.map((m) => ({
     id: m.person_id,
     name: m.display_name,
     niche: m.niche,
-    // First-signal date: C.1 uses the global timeline.earliest as a coarse
-    // shared floor for all founders. Per-founder first dates require a
-    // separate /api/founder/{id} call per member — deferred to C.6 when
-    // signals are loaded anyway.
-    first: firstMonth ?? "2014-01",
-    // TODO(phase-c.2): swap from null once outcome loader lands.
-    emerge: null,
-    // TODO(phase-c.2): swap from null once outcome loader lands.
-    venture: null,
-    // TODO(phase-c.2): swap from null once outcome loader lands.
+    // Per-founder first-signal date from the API. Falls back to the global
+    // timeline.earliest for founders whose signals haven't been collected
+    // yet — keeps them visible on the curve instead of dropping them.
+    first: m.first_signal_at != null
+      ? isoToMonthString(m.first_signal_at)
+      : (fallbackFirstMonth ?? "2014-01"),
+    // C.2: parse cohort_verified.md's free-text emergence_quarter. Lower
+    // bound for ranges; null when the string is too noisy to interpret.
+    emerge: parseEmergenceQuarter(m.emergence_quarter),
+    // C.2: real venture name from the cohort row.
+    venture: m.venture,
+    // TODO(phase-c.3): no clean per-venture metric field in the API yet;
+    // scoring will populate it from topic_label / signal-strength aggregates.
     ventureMetric: null,
     // TODO(phase-c.3): swap from [] once scoring picks an emphasis per founder.
     emphasis: [],
