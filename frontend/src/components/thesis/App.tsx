@@ -74,21 +74,24 @@ export function App() {
   const [revealed, setRevealed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Theme: SSR-safe. Mounted=false until the first effect, then resolve from
-  // localStorage / system preference. The TopBar reads `mounted` to skip
-  // rendering the theme-dependent icon during SSR.
-  const [theme, setTheme] = useState<Theme>("light");
+  // Theme: SSR-safe. The pre-paint inline <script> in layout.tsx writes
+  // data-theme on <html> from localStorage / system preference. We read it
+  // back via a lazy initializer so the first client render already has the
+  // right value — no setState-in-effect cascade, no flash of wrong theme.
+  // SSR uses "light" as a deterministic default; `mounted` gates any
+  // browser-only icon rendering in TopBar.
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document === "undefined") return "light";
+    const attr = document.documentElement.getAttribute("data-theme");
+    return attr === "dark" ? "dark" : "light";
+  });
   const [mounted, setMounted] = useState(false);
 
+  // First-paint detection: setState-in-effect IS the canonical React 19
+  // pattern for "did we hydrate yet". The new react-hooks/set-state-in-effect
+  // lint rule has no exception for this case.
   useEffect(() => {
-    const stored = localStorage.getItem("thesis-theme");
-    const resolved: Theme =
-      stored === "dark" || stored === "light"
-        ? stored
-        : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    setTheme(resolved);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -222,7 +225,6 @@ export function App() {
             focusedId={focusedId}
             setFocused={setFocusedId}
             gotoView={setView}
-            revealed={revealed}
             setRevealed={setRevealed}
           />
         )}
