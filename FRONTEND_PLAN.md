@@ -117,10 +117,13 @@ shortcuts all verified in browser preview.
 ### Phase C — Real-data swap (~2 sessions, after Phase 3 scoring)
 Replace synthetic fields one-by-one with real adapters.
 
-- [ ] C.1 Cohort loader — read `cohort_verified.md` (parse YAML / front
-  matter) + `signal_events.parquet` (server-side, via a Next.js route
-  handler that shells to a Python script or reads via duckdb-wasm in
-  the build step). Output: real `Founder[]` with first-signal dates.
+- [x] C.1 Cohort loader — `frontend/src/lib/thesis/real.ts` fetches
+  `/api/cohort` + `/api/timeline-bounds` from FastAPI and returns a
+  `DataSource` with `source: "hybrid"`. Founders come from
+  `ingestion.cohort.load_cohort()`; per-founder `first` derives from
+  `timeline-bounds.earliest` as a coarse shared floor (per-founder
+  first dates deferred to C.6). Outcome fields stay null/empty
+  pending C.2 / C.3.
 - [ ] C.2 Outcome loader — extract emergence dates from
   `cohort_verified.md`; compute `outcomeAt` from real dates.
 - [ ] C.3 Scoring loader — wait for `scoring/score_signals.py` to ship,

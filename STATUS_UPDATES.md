@@ -1075,3 +1075,55 @@ script each pass.
 
 **Cost incurred:** $0 (no LLM calls in this session).
 ---
+
+## 2026-05-19 — Phase C.1: real cohort loader → source flips to "hybrid"
+
+**What I did:**
+- Added `frontend/src/lib/thesis/config.ts` exposing `API_BASE_URL` (env-overridable via `NEXT_PUBLIC_API_BASE_URL`, default `http://localhost:8000`).
+- Rewrote `frontend/src/lib/thesis/real.ts` so `loadRealSource()` fetches `/api/cohort` + `/api/timeline-bounds`, maps the 20-row cohort to `Founder[]`, and returns a `DataSource` with `source: "hybrid"`. Re-implemented `rankAt`/`baseline*`/`precisionAt`/`outcomeAt` so they iterate the real cohort (delegating per-founder `curve`/`tier1`/`tier2` to synthetic). On fetch failure or empty cohort, falls back to synthetic with a `console.warn`.
+- Added `frontend/src/lib/thesis/context.tsx` (`ThesisProvider` + `useThesis()`) and switched every view component (`App`, `DateSlider`, `primitives`, `View1Replay`, `View2Outcome`, `View3Founder`) from the module-level `thesis` import to `useThesis()`. `App.tsx` now resolves the source in a `useEffect` and wraps children in the provider.
+- Added a "source" indicator (`data-testid="source-banner"`) to the Footer so the active source is visible in the UI.
+- Added `frontend/scripts/smoke_test_real.mts` + `npm run test:smoke` script (mocks `fetch` and asserts hybrid/fallback paths; 13 assertions, all pass). Excluded `scripts/**` from `tsconfig.json` so the runtime-only `.mts` script doesn't bloat `next build` typecheck.
+- Updated `frontend/README.md` with the `NEXT_PUBLIC_API_BASE_URL` doc + `npm run test:smoke` line.
+
+**Decisions made:**
+- **Founders' `first` date is a coarse approximation.** `/api/timeline-bounds.earliest` (global "YYYY-MM") is used as a shared floor for every founder in C.1. Per-founder first-signal dates require a `/api/founder/{id}` round-trip per member (20 calls), which is deferred to C.6 when signals are loaded anyway. This means the dev demo's per-founder curves all start at the global earliest, which is fine for the C.1 "founders only" milestone.
+- **`emerge`, `venture`, `ventureMetric`, `emphasis` deliberately stay null/empty** in the hybrid source (each is annotated with `// TODO(phase-c.2)` or c.3). The API does return `emergence_quarter` per cohort member, but mapping it here would conflate C.1 with C.2. Per the prompt, C.1 is founders-only.
+- **`rankAt` / `baseline*` / `precisionAt` are re-implemented in `real.ts`, not pure delegation.** Strict delegation would have ranked the synthetic 30-row cohort instead of the real 20-row one, defeating the verification step ("top picks show real names"). Per-founder scoring (`curve` / `tier1` / `tier2`) still calls synthetic.
+- **Vitest not introduced.** Wrote a tsx-runnable smoke script instead — keeps the C.1 dep surface flat. When the test suite grows beyond a handful of cases, swap to Vitest.
+- **In-memory cache in `real.ts`** (module-level promise). One fetch per page lifecycle; no `localStorage` per repo convention. Reset on full reload.
+- **Synchronous `thesis` export retained in `index.ts`.** Some module-level constants (`MAX`, `DEFAULT_T` in `App.tsx`) need a parser at import time; both synthetic and hybrid use the same `months()` parser, so reading off `syntheticSource` is safe.
+
+**Blockers:**
+- **Manual browser smoke partly blocked by a pre-existing Next.js 16 + Turbopack hydration bug**, NOT a C.1 regression. With `npm run dev` running and FastAPI up: the page renders the Suspense fallback ("Loading…") and parks the SSR'd App tree in a hidden `<div id="S:0">` (computed `display:none`). The streaming-reveal script `$RV` is defined in the page but never invoked, so hydration never completes — meaning `useEffect` never fires and the real-data fetch never reaches the network from the App tree. **Reproduced on origin/main without any C.1 changes** (stashed my work, hard-reloaded, same hung state). Likely a Next 16.2.6 + Turbopack + `useSearchParams` streaming-SSR edge case in the existing scaffold.
+- The C.1 data layer itself is verified working end-to-end:
+  - `npm run test:smoke` → 13/13 pass (happy path, fetch-failure fallback, empty-cohort fallback).
+  - Live integration test against running FastAPI via `tsx` → `source = hybrid`, 20 real founders, `rankAt` returns real names (Pieter Levels, Marc Lou, Jon Yongfook, Tony Dinh, Noah Bragg, …).
+  - Live FastAPI-down test → `source = synthetic` + `console.warn` with `[thesis] real data unavailable …`.
+  - `npm run lint` introduces 0 new warnings (3 pre-existing errors / 3 pre-existing warnings, same on baseline).
+  - `npm run build` succeeds, including TypeScript typecheck.
+
+**Next steps:**
+- **CC (next session):** investigate the Suspense / streaming-SSR hydration hang on the existing scaffold. Likely fixes to try: bump to Next 16 latest patch, swap `useSearchParams` for the async `searchParams` Page prop pattern, or drop Suspense in dev and gate it behind `process.env.NODE_ENV === "production"`. Once hydration completes, the C.1 browser smoke ("banner reads hybrid, real names in top-10") should pass without further code changes.
+- **CC (Phase C.2):** outcome loader — map `emergence_quarter` from `/api/cohort` (or a future `/api/founder/{id}` outcome field) into `Founder.emerge`. Will need a quarter-string parser (`"2018–2019"` and similar live ranges in the cohort data — discuss heuristic for non-quarter strings).
+- **Kris:** confirm C.1's choice to use `timeline-bounds.earliest` as a shared `first` date is acceptable, vs. paying the per-founder round-trip in C.1.
+
+**Files changed:**
+- `frontend/src/lib/thesis/config.ts` (new)
+- `frontend/src/lib/thesis/real.ts` (rewrite)
+- `frontend/src/lib/thesis/index.ts` (added `getThesisSource()`)
+- `frontend/src/lib/thesis/context.tsx` (new)
+- `frontend/src/components/thesis/App.tsx` (load source, provide context)
+- `frontend/src/components/thesis/DateSlider.tsx` (use context)
+- `frontend/src/components/thesis/primitives.tsx` (use context; Footer source banner)
+- `frontend/src/components/thesis/View1Replay.tsx` (use context)
+- `frontend/src/components/thesis/View2Outcome.tsx` (use context)
+- `frontend/src/components/thesis/View3Founder.tsx` (use context)
+- `frontend/scripts/smoke_test_real.mts` (new)
+- `frontend/package.json` (added `test:smoke` script)
+- `frontend/tsconfig.json` (excluded `scripts/**` from typecheck)
+- `frontend/README.md` (env var + tests docs)
+- `FRONTEND_PLAN.md` (checked off C.1)
+
+**Cost incurred:** $0 (no LLM calls in this session).
+---
