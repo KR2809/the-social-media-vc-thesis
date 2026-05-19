@@ -87,6 +87,42 @@ __resetRealSourceCacheForTests();
         body: { earliest: "2014-04-15T00:00:00+00:00", latest: "2026-05-12T00:00:00+00:00", n_signals: 1000 },
       };
     }
+    // /api/founder/levelsio — return a 2-signal sample with realistic shape
+    if (url.includes("/api/founder/levelsio")) {
+      return {
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        body: {
+          person_id: "levelsio",
+          cohort: { display_name: "Pieter Levels", venture: "Nomad List", niche: "Indie hacker" },
+          feature_row: {},
+          kg_features: {},
+          outcome: { emerged: 1, source: "cohort_verified.md" },
+          top_signals_at_t: [
+            {
+              signal_id: "hn_1", person_id: "levelsio", platform: "hackernews",
+              timestamp: "2018-09-01T12:00:00+00:00",
+              overall_signal_strength: 0.82,
+              s1_build_in_public: 0.95, s2_distribution_breadth: 0.4, s3_explicit_goal: 0.6,
+              s6_topic_label: "12 startups in 12 months",
+              raw_text: "Just shipped Nomad List v2 — paying customers from week 1",
+            },
+            {
+              signal_id: "hn_2", person_id: "levelsio", platform: "twitter",
+              timestamp: "2020-01-15T08:00:00+00:00",
+              overall_signal_strength: 0.71,
+              s1_build_in_public: 0.6, s4_operator_proximity: 0.85,
+              s6_topic_label: "Indie hacker movement",
+              raw_text: "RemoteOK MRR breakdown shared publicly",
+            },
+          ],
+          n_total_signals: 2,
+          partial: true,
+        },
+      };
+    }
+    // All other founders: 404 to exercise the per-founder fallback path.
     return { ok: false, status: 404, statusText: "Not Found", body: { error: "unknown route" } };
   });
 
@@ -131,6 +167,26 @@ __resetRealSourceCacheForTests();
   assert(levels.first === "2014-04", `levels.first === "2014-04" from first_signal_at (got "${levels.first}")`);
   assert(lou.first === "2020-02", `marclou.first === "2020-02" from first_signal_at (got "${lou.first}")`);
   assert(yong.first === "2014-04", `yongfook.first === "2014-04" (fallback to timeline.earliest; got "${yong.first}")`);
+
+  // C.6 partial: signalsFor uses real per-founder cache when populated,
+  // falls back to synthetic for cohort members without real signals.
+  // Cache for levelsio holds 2 signals timestamped 2018-09 and 2020-01.
+  // At slider t = 2019-Q1 (months=60), only the 2018 signal qualifies.
+  const tEarly = (2019 - 2014) * 12 + 0; // Jan 2019
+  const sigsEarly = src.signalsFor("levelsio", tEarly);
+  assert(sigsEarly.length === 1, `signalsFor(levelsio, 2019-01) returns 1 real signal (got ${sigsEarly.length})`);
+  if (sigsEarly.length === 1) {
+    assert(sigsEarly[0].cat === "S1", `signal cat dominates S1 build_in_public (got ${sigsEarly[0].cat})`);
+    assert(sigsEarly[0].raw.includes("Nomad List"), `signal raw text from API (got "${sigsEarly[0].raw.slice(0,50)}")`);
+    assert(sigsEarly[0].platform === "hackernews", `platform passed through (got ${sigsEarly[0].platform})`);
+  }
+  // At t = 2021, both real signals qualify.
+  const tLate = (2021 - 2014) * 12 + 0;
+  const sigsLate = src.signalsFor("levelsio", tLate);
+  assert(sigsLate.length === 2, `signalsFor(levelsio, 2021-01) returns 2 real signals (got ${sigsLate.length})`);
+  // Fallback path: marclou has no per-founder data → falls back to synthetic.
+  const sigsMarcLou = src.signalsFor("marclou", tLate);
+  assert(sigsMarcLou.length > 0, `signalsFor(marclou) falls back to synthetic (got ${sigsMarcLou.length} signals)`);
 
   restore();
 }

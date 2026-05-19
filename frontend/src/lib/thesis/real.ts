@@ -1,23 +1,25 @@
-// Real-data DataSource (Phase C.1 — cohort loader).
+// Real-data DataSource (Phases C.1 + C.2 + C.6 partial).
 //
-// Swaps the founder roster from a hardcoded list to the live cohort served
-// by FastAPI (/api/cohort + /api/timeline-bounds). Everything else still
-// delegates to the synthetic source — see TODO(phase-c.*) markers below.
+// Phase C.1 (cohort loader): founders() comes from /api/cohort, today
+// derives from /api/timeline-bounds.latest, source flips to "hybrid".
 //
-// What's swapped in C.1:
-//   * founders() → real cohort from /api/cohort
-//   * today      → derived from /api/timeline-bounds.latest
-//   * source     → "hybrid" (real founders, synthetic everything else)
+// Phase C.2 (outcome loader): Founder.emerge/venture/first parsed from
+// the cohort row (emergence_quarter free-text → "YYYY-MM" or "YYYY-QN"
+// via parseEmergenceQuarter; first ← first_signal_at fallback to
+// timeline.earliest).
 //
-// What's still synthetic (deliberately — out of C.1 scope):
-//   * curve / tier1 / tier2          (C.3 scoring loader)
-//   * baselineRandom / Volume / Recency (C.4 baseline loader)
-//   * precisionAt / bootCI           (C.4 baseline loader)
-//   * signalsFor                     (C.6 signals loader)
-//   * egoFor                         (C.5 KG loader)
-//   * paletteFor / taxonomy          (UI helpers, not swappable)
-//   * Founder.emerge / venture /
-//     ventureMetric / emphasis       (C.2 outcome loader)
+// Phase C.6 partial (signals loader): signalsFor() pulls real scored
+// signals from /api/founder/{id} top_signals_at_t. Pre-fetched at load
+// time so the sync DataSource interface still works; cache misses fall
+// back to synthetic. As the scoring backend completes more rows, the
+// next page reload picks up richer signal evidence with no code change.
+//
+// What's still synthetic (deliberately — separate C.* phases):
+//   * curve / tier1 / tier2 / rankAt   (C.3 scoring loader)
+//   * baselineRandom/Volume/Recency    (C.4 baselines — blocked on negs)
+//   * precisionAt                      (C.4 — blocked on negs)
+//   * egoFor                           (C.5 KG loader)
+//   * paletteFor / taxonomy            (UI helpers, not swappable)
 //
 // On fetch failure (FastAPI not running, network error, bad shape) this
 // module logs a console.warn and returns the synthetic source — the demo
@@ -28,9 +30,12 @@ import type {
   BaselinePick,
   DataSource,
   Founder,
+  FounderId,
   Outcome,
   PrecisionResult,
   RankedPick,
+  SignalEvidence,
+  TaxonomyCode,
 } from "./types";
 import { API_BASE_URL } from "./config";
 
@@ -51,6 +56,33 @@ interface TimelineBoundsResponse {
   earliest: string | null; // ISO timestamp (UTC)
   latest: string | null;
   n_signals: number;
+}
+
+// One row from /api/founder/{id}.top_signals_at_t. Mirrors the schema
+// produced by scoring/score_signals.py (s[1-6]_* sub-dim columns +
+// s6_topic_label + overall_signal_strength) plus the joined raw_text.
+interface ScoredSignalRow {
+  signal_id: string;
+  person_id: string;
+  platform: string;
+  timestamp: string; // ISO
+  overall_signal_strength: number;
+  s6_topic_label: string | null;
+  raw_text: string;
+  // Sub-dim score columns — Record<string, number>-ish, used to pick the
+  // dominant signal dimension for the SignalEvidence.dim summary line.
+  [k: string]: unknown;
+}
+
+interface FounderResponse {
+  person_id: string;
+  cohort: { display_name: string; venture: string | null; niche: string };
+  feature_row: Record<string, unknown>;
+  kg_features: Record<string, unknown>;
+  outcome: { emerged?: number; source?: string };
+  top_signals_at_t: ScoredSignalRow[];
+  n_total_signals: number;
+  partial: boolean;
 }
 
 function isoToMonthsSince2014(iso: string): number {
@@ -145,9 +177,50 @@ function mapCohortToFounders(
   }));
 }
 
+// Pick the highest-scoring sub-dim from a scored_signals row → "S1.3", "S2.4", etc.
+// scored_signals columns are named "s1_build_in_public", "s2_distribution_breadth",
+// etc; the leading "s[1-6]" maps onto the taxonomy code.
+function pickDominantDim(row: ScoredSignalRow): { dim: string; cat: TaxonomyCode } {
+  let bestKey: string | null = null;
+  let bestVal = -Infinity;
+  for (const [k, v] of Object.entries(row)) {
+    if (typeof v !== "number") continue;
+    if (!/^s[1-6]_/.test(k)) continue;
+    if (v > bestVal) {
+      bestVal = v;
+      bestKey = k;
+    }
+  }
+  if (!bestKey) {
+    return { dim: row.s6_topic_label ?? "signal", cat: "S6" };
+  }
+  const cat = bestKey[0].toUpperCase() + bestKey[1]; // "s1_..." → "S1"
+  // Replace the leading "sN_" with "SN.x " and humanise the sub-dim slug.
+  const subDim = bestKey.replace(/^s[1-6]_/, "").replace(/_/g, "-");
+  return { dim: `${cat}.${subDim}`, cat: cat as TaxonomyCode };
+}
+
+function mapScoredSignal(row: ScoredSignalRow, idx: number): SignalEvidence {
+  const { dim, cat } = pickDominantDim(row);
+  // Render timestamp as "MMM YYYY" using synthetic's fmtMonth, which expects a
+  // months-since-2014 integer. Compute it from the ISO string.
+  const d = new Date(row.timestamp);
+  const monthsSince2014 = (d.getUTCFullYear() - 2014) * 12 + d.getUTCMonth();
+  return {
+    id: idx,
+    dim,
+    cat,
+    score: row.overall_signal_strength,
+    raw: row.raw_text || row.s6_topic_label || "(no source text)",
+    platform: row.platform,
+    timestamp: syntheticSource.fmtMonth(monthsSince2014),
+  };
+}
+
 function buildHybridSource(
   founders: Founder[],
   today: number,
+  signalsByFounder: Map<FounderId, ScoredSignalRow[]>,
 ): DataSource {
   // Per-founder helpers delegate to synthetic — but list-iterating methods
   // (rankAt, baselines, precisionAt) re-implement with the real founder
@@ -243,6 +316,34 @@ function buildHybridSource(
     return { hits, k: evaluable, precision: evaluable ? hits / evaluable : 0 };
   }
 
+  function signalsFor(founderId: FounderId, t: number): SignalEvidence[] {
+    const cached = signalsByFounder.get(founderId);
+    // No real data yet for this founder (scoring still in flight, or the
+    // founder has no collected signals) — fall back to synthetic so the
+    // demo never goes blank.
+    if (!cached || cached.length === 0) {
+      return syntheticSource.signalsFor(founderId, t);
+    }
+    // Date-filter on the client (we have all the founder's scored signals
+    // cached): drop anything stamped AFTER the slider position t. Then
+    // sort by overall_signal_strength desc and take the top 5.
+    // t is months-since-2014-01; convert to Date at month start (UTC).
+    const year = 2014 + Math.floor(t / 12);
+    const month = t % 12; // 0-indexed; Date.UTC accepts 0-indexed month
+    const cutoff = new Date(Date.UTC(year, month, 1));
+    const filtered = cached.filter((s) => {
+      const ts = new Date(s.timestamp);
+      return ts <= cutoff;
+    });
+    if (filtered.length === 0) {
+      return syntheticSource.signalsFor(founderId, t);
+    }
+    filtered.sort(
+      (a, b) => b.overall_signal_strength - a.overall_signal_strength,
+    );
+    return filtered.slice(0, 5).map((row, i) => mapScoredSignal(row, i));
+  }
+
   return {
     source: "hybrid",
     today,
@@ -261,8 +362,7 @@ function buildHybridSource(
     baselineRecency,
     precisionAt,
     bootCI: syntheticSource.bootCI,
-    // TODO(phase-c.6): swap in real signal evidence per founder.
-    signalsFor: syntheticSource.signalsFor,
+    signalsFor,
     // TODO(phase-c.5): swap in real KG ego-network per founder.
     egoFor: syntheticSource.egoFor,
     paletteFor: syntheticSource.paletteFor,
@@ -295,7 +395,27 @@ export async function loadRealSource(): Promise<DataSource> {
         bounds.earliest != null ? isoToMonthString(bounds.earliest) : null;
 
       const founders = mapCohortToFounders(cohort, firstMonth);
-      return buildHybridSource(founders, today);
+
+      // Per-founder fetch in parallel. Cohort is small (~20), endpoint
+      // returns up to top_signals=20 signals per founder. Failures per
+      // founder are isolated — that founder just falls back to synthetic
+      // for signalsFor(); the rest still get real data.
+      const signalsByFounder = new Map<FounderId, ScoredSignalRow[]>();
+      await Promise.all(
+        founders.map(async (f) => {
+          try {
+            const r = await fetchJSON<FounderResponse>(
+              `/api/founder/${encodeURIComponent(f.id)}?top_signals=20`,
+            );
+            signalsByFounder.set(f.id, r.top_signals_at_t ?? []);
+          } catch {
+            // Cohort member with no data yet — leave the map slot empty.
+            signalsByFounder.set(f.id, []);
+          }
+        }),
+      );
+
+      return buildHybridSource(founders, today, signalsByFounder);
     } catch (err) {
       console.warn(
         "[thesis] real data unavailable — falling back to synthetic source:",
