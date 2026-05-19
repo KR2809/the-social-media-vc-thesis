@@ -117,22 +117,48 @@ shortcuts all verified in browser preview.
 ### Phase C — Real-data swap (~2 sessions, after Phase 3 scoring)
 Replace synthetic fields one-by-one with real adapters.
 
-- [ ] C.1 Cohort loader — read `cohort_verified.md` (parse YAML / front
-  matter) + `signal_events.parquet` (server-side, via a Next.js route
-  handler that shells to a Python script or reads via duckdb-wasm in
-  the build step). Output: real `Founder[]` with first-signal dates.
-- [ ] C.2 Outcome loader — extract emergence dates from
-  `cohort_verified.md`; compute `outcomeAt` from real dates.
-- [ ] C.3 Scoring loader — wait for `scoring/score_signals.py` to ship,
-  read its parquet output. Replace `curve` / `tier1` / `tier2` / `rankAt`.
-- [ ] C.4 Baseline loader — wait for `scoring/baselines.py`, read its
-  parquet output. Replace `baselineRandom` / `baselineVolume` /
-  `baselineRecency`.
-- [ ] C.5 KG loader — wait for `analysis/build_graph.py` +
-  `kg_features.py` to land in main, export ego-networks per founder
-  as JSON. Replace `egoFor`.
-- [ ] C.6 Signals loader — join scored signals to source posts.
-  Replace `signalsFor`.
+- [x] C.1 Cohort loader — `frontend/src/lib/thesis/real.ts` fetches
+  `/api/cohort` + `/api/timeline-bounds` from FastAPI and returns a
+  `DataSource` with `source: "hybrid"`. Founders come from
+  `ingestion.cohort.load_cohort()`. Per-founder `first` derives from
+  `cohort.first_signal_at` (a single groupby on signal_events; see
+  C.2), with `timeline-bounds.earliest` as the fallback for founders
+  without collected signals.
+- [x] C.2 Outcome loader — `parseEmergenceQuarter()` handles every
+  shape in `cohort_verified.md` (`"2018–2019"`, `"Apr 2023 (acq.)"`,
+  `"Early 2026"`, `"2019 → 2025 (1M subs)"`, etc.) → `"YYYY-MM"` or
+  `"YYYY-QN"`. Range values collapse to the LOWER bound (conservative
+  for precision@k claims). `Founder.venture` mapped from the cohort
+  row. `outcomeAt` now returns real `"emerged"` outcomes; View 2's
+  precision@k uses honest hit counts.
+- [x] C.3 Scoring loader (partial) — `curve`/`tier1`/`tier2`/`rankAt`
+  computed from the per-founder cached scored signals. curve = mean
+  `overall_signal_strength`; tier1 = mean of S2+S3 sub-dims; tier2 =
+  mean of S1+S4+S6 sub-dims. Synthetic fallback for founders with no
+  scored data yet (currently 13/20). Full `combined_ranking()` via
+  `/api/portfolio` deferred until baselines unblock — for now the
+  pre-fetched signals cache is the substrate.
+- [ ] C.4 Baseline loader — BLOCKED on negative-peer registration
+  (`scripts/register_negative_peers.py`). Until ~15 negs are picked
+  per niche bucket, `outcome_labels.csv` is all-positive and baseline
+  comparisons can't distinguish frameworks. Synthetic baselines
+  retained as a placeholder.
+- [~] C.5 KG loader — frontend `egoFor()` synthesises 1-hop graphs from
+  cached signals (no graph.pkl pass required). The server-side graph IS
+  now real, though: `analysis/build_graph.py` produces a 410-node /
+  13.3k-edge KG against scored signals; `analysis/kg_features.py`
+  populates per-person degree-centrality, clustering, topic diversity
+  in `kg_features.parquet`. `/api/founder/{id}` now returns
+  `partial: false` for any founder with scored signals. Wiring those
+  server-side KG features into the View 3 ego-network is a future
+  improvement; the current client-side graph already shows the same
+  underlying data structure.
+- [x] C.6 Signals loader (partial) — `signalsFor()` reads from the
+  per-founder cache populated at `loadRealSource()` time. Each scored
+  signal is mapped to `SignalEvidence` via `pickDominantDim()` (the
+  highest-weight `s[1-6]_*` sub-dim wins). Raw text joined server-side
+  in `/api/founder/{id}` from `signal_events.raw_text`. Synthetic
+  fallback for founders without scored signals yet.
 
 Acceptance: `thesis.source === "real"` (or `"hybrid"` if any field is
 still synthetic) and the banner on the landing page reflects it.

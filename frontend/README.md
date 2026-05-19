@@ -20,6 +20,29 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Configuration
+
+### `NEXT_PUBLIC_API_BASE_URL`
+
+The frontend's data layer (`src/lib/thesis/real.ts`) fetches the live cohort
+and timeline bounds from the FastAPI backend in `api/`. The base URL is
+read from `NEXT_PUBLIC_API_BASE_URL` at build time.
+
+- **Development** (default): `http://localhost:8000`. Start the API with
+  `DATA_SOURCE=local uvicorn api.main:app --port 8000` from the repo
+  root, then `npm run dev` here.
+- **Production**: set `NEXT_PUBLIC_API_BASE_URL` as a Vercel project env
+  var pointing at the deployed FastAPI URL (e.g. Fly.io / Railway / etc.).
+
+If the API is unreachable, `loadRealSource()` logs a `console.warn` and
+falls back to the synthetic source so the demo still renders.
+
+## Tests
+
+```bash
+npm run test:smoke    # smoke-test the real-data adapter against mocked fetch
+```
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

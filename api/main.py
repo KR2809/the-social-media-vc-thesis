@@ -204,17 +204,42 @@ def get_founder(
     date: str | None = Query(None, description="ISO date — defaults to now."),
     top_signals: int = Query(5, ge=1, le=20),
 ) -> dict:
+    """Founder card data with graceful degradation.
+
+    Returns 200 with a `partial: true` flag (and whichever pieces ARE
+    available) when person_features / kg_features are still empty —
+    common before the scoring + KG passes finish. 404 is reserved for
+    person_ids that aren't in the cohort at all.
+    """
+    from ingestion.cohort import load_cohort  # noqa: PLC0415
+
     src = get_source()
     flat = src.read_person_features()
     kg = src.read_kg_features()
     labels = src.read_outcome_labels()
     scored = src.read_scored_signals(person_id=person_id)
 
-    person_row = flat[flat["person_id"] == person_id] if len(flat) else flat
-    if len(person_row) == 0:
+    # Cohort row is the authoritative identity source — present for every
+    # cohort member regardless of scoring / KG state.
+    cohort_row: dict = {}
+    for m in load_cohort():
+        if m.x_handle.lower() == person_id:
+            cohort_row = {
+                "person_id": m.x_handle.lower(),
+                "display_name": m.founder_name,
+                "venture": m.venture,
+                "niche": m.niche,
+                "emergence_quarter": m.emergence_quarter,
+                "data_score": m.data_score,
+            }
+            break
+    if not cohort_row:
         raise HTTPException(
-            status_code=404, detail=f"no feature row for person_id={person_id}"
+            status_code=404, detail=f"person_id={person_id} not in cohort"
         )
+
+    person_row = flat[flat["person_id"] == person_id] if len(flat) else flat
+    feature_row = person_row.iloc[0].to_dict() if len(person_row) else {}
 
     if date is not None:
         try:
@@ -223,21 +248,30 @@ def get_founder(
             raise HTTPException(status_code=400, detail=f"bad date: {e}") from e
         import pandas as pd  # noqa: PLC0415
 
-        ts = pd.to_datetime(scored["timestamp"], utc=True) if len(scored) else None
-        until_ts = pd.Timestamp(date_t)
-        if until_ts.tzinfo is None:
-            until_ts = until_ts.tz_localize("UTC")
-        if ts is not None:
+        if len(scored):
+            ts = pd.to_datetime(scored["timestamp"], utc=True)
+            until_ts = pd.Timestamp(date_t)
+            if until_ts.tzinfo is None:
+                until_ts = until_ts.tz_localize("UTC")
             scored = scored[ts <= until_ts]
 
-    # Sort signals by overall_signal_strength desc, take top N.
+    # Sort signals by overall_signal_strength desc, take top N. Join the
+    # raw_text from signal_events so the frontend's founder card can quote
+    # source content (the scored parquet only carries scores + topic_label).
     if "overall_signal_strength" in scored.columns and len(scored):
         top = scored.sort_values("overall_signal_strength", ascending=False).head(top_signals)
-        top_rows = top.to_dict(orient="records")
+        events = src.read_signal_events(person_id=person_id)
+        if len(events) and "signal_id" in events.columns:
+            raw_by_id = dict(zip(events["signal_id"], events["raw_text"], strict=False))
+            top_rows = []
+            for row in top.to_dict(orient="records"):
+                row["raw_text"] = raw_by_id.get(row["signal_id"], "")
+                top_rows.append(row)
+        else:
+            top_rows = top.to_dict(orient="records")
     else:
         top_rows = []
 
-    feature_row = person_row.iloc[0].to_dict()
     kg_row = (
         kg[kg["person_id"] == person_id].iloc[0].to_dict()
         if len(kg) and (kg["person_id"] == person_id).any() else {}
@@ -247,13 +281,20 @@ def get_founder(
         if len(labels) and (labels["person_id"] == person_id).any() else {}
     )
 
+    # Tell the frontend the response is partial when downstream pipelines
+    # haven't populated person_features / kg_features yet. The cohort row
+    # and outcome are always populated.
+    partial = not feature_row or not kg_row
+
     return {
         "person_id": person_id,
+        "cohort": cohort_row,
         "feature_row": feature_row,
         "kg_features": kg_row,
         "outcome": outcome,
         "top_signals_at_t": top_rows,
         "n_total_signals": int(len(scored)),
+        "partial": partial,
     }
 
 
@@ -267,6 +308,24 @@ def get_cohort() -> dict:
     from ingestion.cohort import load_cohort  # noqa: PLC0415
 
     members = load_cohort()
+
+    # Per-founder first-signal date: a single groupby on signal_events.
+    # Founders without any collected signals yet get null and the
+    # frontend renders them with a sensible fallback. Cheaper than 20
+    # round-trips to /api/founder/{id}, and the data is already loaded
+    # by the source provider for /api/timeline-bounds.
+    src = get_source()
+    signals = src.read_signal_events()
+    first_by_person: dict[str, str] = {}
+    if len(signals) > 0:
+        import pandas as pd  # noqa: PLC0415
+
+        ts = pd.to_datetime(signals["timestamp"], utc=True)
+        first_by_person = {
+            pid: t.isoformat()
+            for pid, t in ts.groupby(signals["person_id"]).min().items()
+        }
+
     rows = [
         {
             "person_id": m.x_handle.lower(),
@@ -275,6 +334,7 @@ def get_cohort() -> dict:
             "niche": m.niche,
             "emergence_quarter": m.emergence_quarter,
             "data_score": m.data_score,
+            "first_signal_at": first_by_person.get(m.x_handle.lower()),
         }
         for m in members
     ]

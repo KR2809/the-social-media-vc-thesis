@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 import type { Outcome } from "@/lib/thesis";
 
 export function fmtPct(x: number, digits = 1): string {
@@ -33,6 +33,7 @@ export function OutcomeChip({ outcome }: { outcome: Outcome }) {
 }
 
 export function Avatar({ id, name, size = 28 }: { id: string; name: string; size?: number }) {
+  const thesis = useThesis();
   const p = thesis.paletteFor(id);
   const initials = name.split(/\s+/).map(x => x[0]).slice(0, 2).join("");
   return (
@@ -61,6 +62,7 @@ export function ScoreSpark({
   width?: number;
   height?: number;
 }) {
+  const thesis = useThesis();
   const points = useMemo(() => {
     const f = thesis.founders().find(x => x.id === founderId);
     if (!f) return [] as Array<[number, number]>;
@@ -75,7 +77,7 @@ export function ScoreSpark({
       pts.push([t, c]);
     }
     return pts;
-  }, [founderId, tNow]);
+  }, [founderId, tNow, thesis]);
   if (points.length < 2) return <svg width={width} height={height} />;
   const xs = points.map(p => p[0]);
   const xmin = Math.min(...xs);
@@ -159,6 +161,7 @@ export function ViewIntro({
 }
 
 export function Footer() {
+  const thesis = useThesis();
   return (
     <footer className="footer">
       <div>
@@ -169,7 +172,8 @@ export function Footer() {
         Code: <span className="mono">github.com/KR2809/the-social-media-vc-thesis</span>
       </div>
       <div className="muted">
-        Frozen <span className="mono">2026-05-31</span> · build <span className="mono">scaffold</span>
+        Frozen <span className="mono">2026-05-31</span> · source{" "}
+        <span className="mono" data-testid="source-banner">{thesis.source}</span>
       </div>
     </footer>
   );

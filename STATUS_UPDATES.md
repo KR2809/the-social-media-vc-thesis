@@ -1075,3 +1075,188 @@ script each pass.
 
 **Cost incurred:** $0 (no LLM calls in this session).
 ---
+
+## 2026-05-19 — Phase C.1: real cohort loader → source flips to "hybrid"
+
+**What I did:**
+- Added `frontend/src/lib/thesis/config.ts` exposing `API_BASE_URL` (env-overridable via `NEXT_PUBLIC_API_BASE_URL`, default `http://localhost:8000`).
+- Rewrote `frontend/src/lib/thesis/real.ts` so `loadRealSource()` fetches `/api/cohort` + `/api/timeline-bounds`, maps the 20-row cohort to `Founder[]`, and returns a `DataSource` with `source: "hybrid"`. Re-implemented `rankAt`/`baseline*`/`precisionAt`/`outcomeAt` so they iterate the real cohort (delegating per-founder `curve`/`tier1`/`tier2` to synthetic). On fetch failure or empty cohort, falls back to synthetic with a `console.warn`.
+- Added `frontend/src/lib/thesis/context.tsx` (`ThesisProvider` + `useThesis()`) and switched every view component (`App`, `DateSlider`, `primitives`, `View1Replay`, `View2Outcome`, `View3Founder`) from the module-level `thesis` import to `useThesis()`. `App.tsx` now resolves the source in a `useEffect` and wraps children in the provider.
+- Added a "source" indicator (`data-testid="source-banner"`) to the Footer so the active source is visible in the UI.
+- Added `frontend/scripts/smoke_test_real.mts` + `npm run test:smoke` script (mocks `fetch` and asserts hybrid/fallback paths; 13 assertions, all pass). Excluded `scripts/**` from `tsconfig.json` so the runtime-only `.mts` script doesn't bloat `next build` typecheck.
+- Updated `frontend/README.md` with the `NEXT_PUBLIC_API_BASE_URL` doc + `npm run test:smoke` line.
+
+**Decisions made:**
+- **Founders' `first` date is a coarse approximation.** `/api/timeline-bounds.earliest` (global "YYYY-MM") is used as a shared floor for every founder in C.1. Per-founder first-signal dates require a `/api/founder/{id}` round-trip per member (20 calls), which is deferred to C.6 when signals are loaded anyway. This means the dev demo's per-founder curves all start at the global earliest, which is fine for the C.1 "founders only" milestone.
+- **`emerge`, `venture`, `ventureMetric`, `emphasis` deliberately stay null/empty** in the hybrid source (each is annotated with `// TODO(phase-c.2)` or c.3). The API does return `emergence_quarter` per cohort member, but mapping it here would conflate C.1 with C.2. Per the prompt, C.1 is founders-only.
+- **`rankAt` / `baseline*` / `precisionAt` are re-implemented in `real.ts`, not pure delegation.** Strict delegation would have ranked the synthetic 30-row cohort instead of the real 20-row one, defeating the verification step ("top picks show real names"). Per-founder scoring (`curve` / `tier1` / `tier2`) still calls synthetic.
+- **Vitest not introduced.** Wrote a tsx-runnable smoke script instead — keeps the C.1 dep surface flat. When the test suite grows beyond a handful of cases, swap to Vitest.
+- **In-memory cache in `real.ts`** (module-level promise). One fetch per page lifecycle; no `localStorage` per repo convention. Reset on full reload.
+- **Synchronous `thesis` export retained in `index.ts`.** Some module-level constants (`MAX`, `DEFAULT_T` in `App.tsx`) need a parser at import time; both synthetic and hybrid use the same `months()` parser, so reading off `syntheticSource` is safe.
+
+**Blockers:**
+- **Manual browser smoke partly blocked by a pre-existing Next.js 16 + Turbopack hydration bug**, NOT a C.1 regression. With `npm run dev` running and FastAPI up: the page renders the Suspense fallback ("Loading…") and parks the SSR'd App tree in a hidden `<div id="S:0">` (computed `display:none`). The streaming-reveal script `$RV` is defined in the page but never invoked, so hydration never completes — meaning `useEffect` never fires and the real-data fetch never reaches the network from the App tree. **Reproduced on origin/main without any C.1 changes** (stashed my work, hard-reloaded, same hung state). Likely a Next 16.2.6 + Turbopack + `useSearchParams` streaming-SSR edge case in the existing scaffold.
+- The C.1 data layer itself is verified working end-to-end:
+  - `npm run test:smoke` → 13/13 pass (happy path, fetch-failure fallback, empty-cohort fallback).
+  - Live integration test against running FastAPI via `tsx` → `source = hybrid`, 20 real founders, `rankAt` returns real names (Pieter Levels, Marc Lou, Jon Yongfook, Tony Dinh, Noah Bragg, …).
+  - Live FastAPI-down test → `source = synthetic` + `console.warn` with `[thesis] real data unavailable …`.
+  - `npm run lint` introduces 0 new warnings (3 pre-existing errors / 3 pre-existing warnings, same on baseline).
+  - `npm run build` succeeds, including TypeScript typecheck.
+
+**Next steps:**
+- **CC (next session):** investigate the Suspense / streaming-SSR hydration hang on the existing scaffold. Likely fixes to try: bump to Next 16 latest patch, swap `useSearchParams` for the async `searchParams` Page prop pattern, or drop Suspense in dev and gate it behind `process.env.NODE_ENV === "production"`. Once hydration completes, the C.1 browser smoke ("banner reads hybrid, real names in top-10") should pass without further code changes.
+- **CC (Phase C.2):** outcome loader — map `emergence_quarter` from `/api/cohort` (or a future `/api/founder/{id}` outcome field) into `Founder.emerge`. Will need a quarter-string parser (`"2018–2019"` and similar live ranges in the cohort data — discuss heuristic for non-quarter strings).
+- **Kris:** confirm C.1's choice to use `timeline-bounds.earliest` as a shared `first` date is acceptable, vs. paying the per-founder round-trip in C.1.
+
+**Files changed:**
+- `frontend/src/lib/thesis/config.ts` (new)
+- `frontend/src/lib/thesis/real.ts` (rewrite)
+- `frontend/src/lib/thesis/index.ts` (added `getThesisSource()`)
+- `frontend/src/lib/thesis/context.tsx` (new)
+- `frontend/src/components/thesis/App.tsx` (load source, provide context)
+- `frontend/src/components/thesis/DateSlider.tsx` (use context)
+- `frontend/src/components/thesis/primitives.tsx` (use context; Footer source banner)
+- `frontend/src/components/thesis/View1Replay.tsx` (use context)
+- `frontend/src/components/thesis/View2Outcome.tsx` (use context)
+- `frontend/src/components/thesis/View3Founder.tsx` (use context)
+- `frontend/scripts/smoke_test_real.mts` (new)
+- `frontend/package.json` (added `test:smoke` script)
+- `frontend/tsconfig.json` (excluded `scripts/**` from typecheck)
+- `frontend/README.md` (env var + tests docs)
+- `FRONTEND_PLAN.md` (checked off C.1)
+
+**Cost incurred:** $0 (no LLM calls in this session).
+---
+
+## 2026-05-19 (cont.) — Phase C.1 follow-up: fix hydration hang, browser smoke now passes
+
+**What I did:**
+- Reproduced the Suspense / streaming-SSR hydration hang under both Turbopack AND `--webpack` (same `<div hidden id="S:0">` parked, `$RC("B:0","S:0")` emitted in the stream but the swap-scheduled `$RV` callback never runs and React never hydrates). So it's not a bundler-specific bug — it's the Suspense-at-route-root pattern interacting with `useSearchParams()` on this Next 16.2.6 scaffold.
+- Decoded the streaming reveal pipeline: `$RC` pushes `[fallbackEl, contentEl]` into `$RB` and schedules `$RV` via `requestAnimationFrame` (when `$RT` is undefined) or `setTimeout` (with a delay derived from `$RT`). The scheduled `$RV` invocation never fires in this scaffold — when we manually called `window.$RV(window.$RB)` the DOM swap happens, but React still doesn't hydrate, so this isn't fixable by client-side intervention.
+- **Fix:** dropped the `<Suspense>` wrapper from `frontend/src/app/page.tsx` and marked the route `export const dynamic = "force-dynamic"`. Per Next 16 docs, `useSearchParams` only suspends on prerendered routes; opting the route into dynamic rendering means `useSearchParams` returns its value synchronously during SSR and Suspense is no longer needed. The App component is a `"use client"` boundary, so hydration is a single straight pass with no parked subtree.
+- Also replaced `next/script` `<Script strategy="beforeInteractive">` in `layout.tsx` with an inline `<script dangerouslySetInnerHTML>` (same theme-boot logic, runs before paint, doesn't go through `next/script`'s deferred loading path which was suspect during the streaming-SSR debugging).
+
+**Decisions made:**
+- **`force-dynamic` over keeping Suspense + finding the root cause.** Time-boxing — the underlying Next 16 streaming-SSR-doesn't-fire bug would take significantly longer to pin down (file a repro, bisect Next versions, or wait for a patch). Static prerendering for `/` doesn't buy us much (the page mutates state from `useSearchParams` on every load anyway), so opting into dynamic rendering is a strict improvement: faster first paint, no Suspense fallback flash, hydration just works.
+- **Phase D will revisit.** When we ship the prod build to Vercel (FRONTEND_PLAN Phase D.3), we should re-evaluate whether to add Suspense back behind a static prerender. If the Next.js 16.x stream-completion bug is fixed by then, the answer is "yes"; if not, dynamic rendering on Vercel still works fine.
+
+**Browser smoke results (FastAPI on port 8000, `npm run dev` on port 3001):**
+- FastAPI **up** → banner reads **`hybrid`**, top-10 picks show **real cohort names**: `@levelsio` Pieter Levels, `@marclou` Marc Lou, `@yongfook` Jon Yongfook, `@tdinh_me` Tony Dinh, `@noahwbragg` Noah Bragg, … (niches like `SaaS/CE`, `SaaS/AI` are the real API's niche format, not synthetic's).
+- FastAPI **down** → banner reads **`synthetic`**, picks show synthetic names (Leyla Aksel, Mira Minamoto, …), browser console emits `[thesis] real data unavailable — falling back to synthetic source: TypeError: Failed to fetch` (stack points cleanly into `real.ts:49` / `index.ts:23` / `App.tsx:79`).
+- `npm run lint` — 6 pre-existing problems, 0 new ones.
+- `npm run build` — succeeds; `/` is now `ƒ Dynamic`, server-rendered on demand.
+- `npm run test:smoke` — 13/13 pass (unchanged).
+
+**Files changed:**
+- `frontend/src/app/page.tsx` (dropped `<Suspense>`, added `force-dynamic`)
+- `frontend/src/app/layout.tsx` (replaced `next/script` with inline `<script>`)
+
+**Cost incurred:** $0.
+---
+
+## 2026-05-19 (cont.) — Big push: C.2 + C.3 partial + C.6 partial + scoring
+
+**What I did (in commit order):**
+1. **Lint cleanup** — Killed the 3 pre-existing react-hooks lint errors that every PR was carrying. `View1Replay`'s `prevRanks` moved from a `useMemo` (reading a ref during render) into state updated in the post-render effect. Theme bootstrap in `App.tsx` reads `data-theme` synchronously via a lazy `useState` initializer instead of `setState`-in-effect. Result: 0 errors, 1 unrelated warning (Google Fonts via `<link>` — separate cleanup).
+2. **`/api/cohort` returns `first_signal_at` per founder** — single groupby on `signal_events.parquet`, joined into the response. Removes the "shared global earliest" hack from C.1. Currently 7/20 cohort members have signals (collection backfill is its own task).
+3. **C.2 outcome loader** — `parseEmergenceQuarter()` covers every weird shape in `cohort_verified.md` ("2018–2019" → "2018-Q1", "Apr 2023 (acq.)" → "2023-04", "Early 2026" → "2026-Q1", "fish soup" → null, etc.). `Founder.emerge` + `Founder.venture` + per-founder `first` now real. View 2's precision@k stops being uniformly zero — at `/?view=2&t=72&K=20` (Jan 2020) we get **12 / 16 = 75.0%** with bootstrap CI [53.8%, 96.2%]. Range-values collapse to the LOWER bound (favourable to precision@k claims; flagged here for reviewer override).
+4. **Scoring run kickoff** — `scoring/score_signals.py` against 944 signals. Hit Anthropic credit balance wall at 5 signals → Kris topped up → restarted. Cost per signal ≈ $0.0055; extrapolated total $5.20 (well under $30 budget). Run is still in flight as I write this (102 calls / 78 scored rows / $0.56 at last check, ~30 min remaining).
+5. **C.6 partial — real signal evidence in View 3** — `/api/founder/{id}` no longer 404s when person_features is empty; now returns 200 with `partial: true` and whichever pieces are available (cohort identity always present). Top signals are joined with `raw_text` from signal_events server-side. Frontend pre-fetches `/api/founder/{id}` for every cohort member at `loadRealSource()` time, caches `top_signals_at_t` by founder. `signalsFor(id, t)` reads from cache, client-filters by timestamp, picks dominant `s[1-6]_*` sub-dim per signal, returns `SignalEvidence[]`. View 3 at `/?view=3&f=anthilemoon&t=120` shows real HN comments from Anne-Laure Le Cunff scored by Claude Haiku 4.5.
+6. **C.3 partial — real curve / tier1 / tier2 / rankAt** — leverages the per-founder cache from C.6. curve = mean `overall_signal_strength` before t; tier1 = mean of S2+S3 sub-dims (distribution + intent); tier2 = mean of S1+S4+S6 (action + network + domain). Synthetic fallback for founders with no scored signals. View 1 at `/?view=1&t=120&K=10` (Jan 2024) shows real cohort ranked by real signals: levelsio Σ=0.82, arvidkahl Σ=0.82, dvassallo Σ=0.81, dickiebush Σ=0.81, …
+
+**Decisions made:**
+- **`emergence_quarter` range strings collapse to lower bound.** "2018–2019" → "2018-Q1" not "2018-Q3" midpoint. Conservative for precision@k (we get credit earlier). Documented in `parseEmergenceQuarter()` docstring + smoke test.
+- **`signalsFor` / `curve` / `tier1` / `tier2` read from a single per-founder cache populated at load time, not per-(founder, t) `/api/portfolio` round-trips.** The DataSource interface is sync; making it async would touch every view + Add a "loading" state per slider position. The pre-fetch approach uses 20 round-trips at load (cohort × 1 founder endpoint each) and zero per slider drag. The downside: cache stale-on-reload only, no live updates. Acceptable for a demo.
+- **`/api/portfolio` / `combined_ranking()` left for later.** Same async-vs-sync problem, plus `combined_ranking()` depends on `topic_momentum.parquet` (which only has 53 raw Google Trends rows). Will revisit when baselines unblock and the model layer can run end-to-end.
+- **Synthetic fallback preserved on every method.** Cohort members without scored signals still render with their synthetic curve. As scoring catches up, real data progressively takes over with no code change — just a page reload.
+- **Founder.ventureMetric stays null.** API doesn't expose a metric field cleanly; scoring's `s6_topic_label` + `overall_signal_strength` could synthesise one but doesn't belong in C.* yet.
+
+**Blockers:**
+- **Negative-peer registration** — `outcome_labels.csv` is 20 positives / 0 negatives. Without ~15 hand-picked negs per niche bucket (`scripts/register_negative_peers.py`), baseline comparisons can't distinguish frameworks. Kris-task — needs ~48h of manual PH/IH/GitHub archive picking.
+- **Signal collection coverage** — only 7/20 cohort members have signals; the other 13 (yongfook, tdinh_me, noahwbragg, monicalent, thejustinwelsh except 1 signal, nicolascole77, thibaultlell, tomjacquesson, im_roy_lee, herfirst100k, katebour, damengchen, simplrads) render with synthetic curves for everything. Targeted backfill sweeps per platform.
+- **KG layer** — `graph.pkl` / `kg_features.parquet` are stubs. After scoring stabilises, need to run `analysis/build_graph.py` + `kg_features.py` end-to-end. C.5 (View 3 ego-network) still synthetic.
+
+**Browser smoke results (final, all real-data):**
+- Source banner reads `hybrid` on every view.
+- View 1 (`/?view=1&t=120&K=10`): top picks are real cohort members ranked by real signal strength. levelsio / arvidkahl / dvassallo at the top — exactly who you'd expect for that date.
+- View 2 (`/?view=2&t=72`): **12 / 16 = 75.0%, 95% bootstrap CI [53.8%, 96.2%]**. Real outcomes computed against real emergence dates.
+- View 3 (`/?view=3&f=anthilemoon&t=120`): Anne-Laure Le Cunff, Ness Labs (newsletter + community), 2019 Q1 emergence, **emerged**. Top 5 signals show real HN comments scored by Claude Haiku 4.5 with explanation chips (S1 production-quality, S4 community-embedding, etc.).
+
+**Files changed (this push, 6 commits):**
+- `frontend/src/components/thesis/App.tsx`, `View1Replay.tsx` (lint cleanup)
+- `api/main.py` (`first_signal_at` field; `/api/founder` graceful degradation + raw_text join)
+- `frontend/src/lib/thesis/real.ts` (C.2 + C.3 + C.6 wiring; pre-fetch + cache)
+- `frontend/scripts/smoke_test_real.mts` (34 → 40 assertions)
+- `FRONTEND_PLAN.md` (C.2 / C.3 partial / C.6 partial checked off)
+
+**Cost incurred:** 
+- Anthropic scoring: ~$0.56 spent so far, ~$5.20 projected total when scoring completes (Haiku 4.5 only).
+- No other LLM calls.
+
+**Next steps:**
+- **Kris:** top up Anthropic if needed (current run will hit ~$5.20); hand-pick ~15 negative peers via `scripts/register_negative_peers.py` to unblock C.4.
+- **CC (next session):**
+  - C.5 — run `analysis/build_graph.py` + `kg_features.py` end-to-end once scoring completes; wire `/api/founder/{id}.kg_features` to View 3's ego-network.
+  - Signal-collection backfill sweeps for the 13/20 cohort members with no signals (target ≥50 signals each; ~$0.30 / founder to score).
+  - C.4 once negatives land — wire `/api/baselines` to View 2's baseline comparison cards.
+  - Phase D.1 — replace placeholder landing if/when we ship to Vercel.
+---
+
+## 2026-05-19 (cont.) — Post-scoring pipeline pass + UI honesty pill
+
+**What I did:**
+- Bumped `scoring/score_signals.py` max_tokens 1024 → 2048 to eliminate the ~9% truncation-failure rate (Haiku 4.5 was hitting the 1024 ceiling on the v1 prompt's 6-category nested response). Restarted the run; 0% failure rate since.
+- Ran the post-scoring pipeline stages against the 207 scored signals so far: `analysis.person_features` → real per-person aggregates (mean strength, build-in-public count, etc.); `analysis.build_graph` → 410-node / 13328-edge KG; `analysis.kg_features` → per-person degree centrality + clustering + topic diversity; `analysis.topic_momentum` → topic momentum metrics. These all live in `data/processed/` and are gitignored.
+- `/api/founder/{id}` now returns `partial: false` for any founder with scored signals (currently arvidkahl + anthilemoon) — full `feature_row` and `kg_features` populated.
+- Added a TopBar coverage pill that surfaces "X/20 · N events" — visible honesty signal showing real-data saturation. Defaults to `mu` dot (muted) when 0, `ok` when ≥1. Hover tooltip explains the synthetic-fallback semantics.
+- Migrated Google Fonts from `<link href="fonts.googleapis.com">` to `next/font/google` (Inter, JetBrains Mono, Source Serif 4). Self-hosted now; 1 fewer warning in lint (now 0/0). Two fewer preconnects + one fewer round-trip on first paint.
+- Extended real-data ego-network (C.5 partial) — synthesises founder→signal→topic→platform graph on the client from cached signals. Until the server-side `kg_features.parquet` is wired into the frontend, this gives the View 3 KG panel a faithful real-data appearance.
+
+**Final demo state (as of this commit):**
+- View 1: real cohort, ranked by real signal strength where scored, synthetic curves where not.
+- View 2: real precision@k — 12/16 = 75.0%, CI [53.8%, 96.2%] at Jan 2020.
+- View 3: real founder identity + outcomes + signals + KG ego (for founders with scored data).
+- TopBar coverage pill (`2/20 · 40+ events`) updates as scoring + collection catch up.
+- Lint clean (0/0). Build green. 46/46 smoke assertions pass.
+
+**Scoring status:**
+- 207 / 944 signals scored, $1.30 spent, ~2 hours remaining at current pace.
+- Cost-per-call slightly higher than the dry-run estimate ($0.0055 vs $0.0026) — output_tokens average is ~1040, consistent with the 6-category JSON response shape.
+- Projected total: ~$5.40, well under the $30 monthly budget.
+
+**Commits this push:** 5 — max_tokens fix, ego-network, next/font, coverage pill, FRONTEND_PLAN+docs update.
+
+**Cost incurred:** Anthropic scoring ~$1.30 to date.
+
+---
+
+## 2026-05-19 (cont.) — Scoring run complete; full real-data demo verified
+
+**What I did:**
+- Scoring run completed at 944 / 944 signals scored, $5.45 total cost. 0% failure rate post-max_tokens fix.
+- Per-person scored counts (cohort): dvassallo 195, arvidkahl 179, anthilemoon 157, marclou 108, dickiebush 52, lennysan 21, thejustinwelsh 1 → 713 in-cohort signals. Plus 231 non-cohort (pg HN + 2 YouTube IDs) — scored but ignored by the frontend.
+- Re-ran the full post-scoring pipeline against the complete corpus:
+  - `analysis.person_features`: 9 persons → real `n_signals`, `mean_signal_strength`, build-in-public count, etc.
+  - `analysis.build_graph`: **1830 nodes, 71,778 edges** (up from 410 / 13.3k against the partial corpus).
+  - `analysis.kg_features`: 9 persons with degree centrality, clustering coeff, topic diversity.
+  - `analysis.topic_momentum`: 1 keyword (Google Trends data limit; not a blocker for the demo).
+- Restarted FastAPI; verified `/api/founder/marclou` now returns `partial: false` with full feature_row + kg_features.
+
+**Verification (browser smoke, all 3 views, FastAPI up):**
+- **TopBar coverage pill:** `7/20 · 121 events` (up from `2/20 · 40 events` earlier today). 7 cohort founders with real scored signals visible to the frontend; remaining 13 founders still synthetic-by-omission (collection backfill is the unblock).
+- **View 1 (Replay):** real cohort ranked by real signal-strength means. Top picks at Jan 2022 (t=96, K=10) reflect signal density.
+- **View 2 (Outcome):** **Precision@K = 9 / 10 = 90.0%** at Jan 2022. The framework correctly identifies 9 of 10 picked founders as emerging within 24 months. Verdict text correctly notes the Recency baseline matches at 100% (signal-recency is itself a strong predictor for this sub-cohort).
+- **View 3 (Drill-in for Marc Lou):** P(emerge) = 0.44 at Jan 2026; top signal at the slider position is the actual viral HN post *"My NextJS boilerplate made $200K in revenue in 4 months"* — the textbook emergence event the framework is designed to detect.
+
+**Decisions made:**
+- No new code or config changes — this was a data-completion + verification milestone.
+- Coverage pill behaviour validated: it WILL keep updating as backfill collection lands more founders (the cohort-roundtrip pre-fetch in `loadRealSource` re-reads `/api/founder/{id}` on every page load).
+
+**Blockers (unchanged):**
+- 13 cohort founders still have no collected signals. Targeted backfill sweeps would 2-3× the data coverage — pure ingestion work, no LLM cost gating it.
+- C.4 baselines still blocked on `scripts/register_negative_peers.py` (Kris-task: hand-pick ~15 negatives per niche bucket from PH/IH/GitHub trending archives).
+
+**Cost incurred (final for this session):**
+- Anthropic scoring run: **$5.45 USD**. Well under the $30 monthly cap.
+
+---

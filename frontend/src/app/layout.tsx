@@ -1,6 +1,32 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+
+// Self-host the three font families via next/font/google. CSS variables
+// (--font-serif / --font-sans / --font-mono) are exposed on <body>;
+// demo.css picks them up. No external requests on first paint, no
+// next/no-page-custom-font lint warning.
+const sans = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-sans",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  display: "swap",
+  variable: "--font-mono",
+});
+
+const serif = Source_Serif_4({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-serif",
+});
 
 export const metadata: Metadata = {
   title: "From Social Signals to Pre-Seed Allocation — Thesis Demo",
@@ -17,17 +43,18 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${sans.variable} ${mono.variable} ${serif.variable}`}
+      suppressHydrationWarning
+    >
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
-          rel="stylesheet"
+        <script
+          id="theme-boot"
+          // Inlined synchronously so it runs before React hydrates and
+          // before first paint, avoiding a flash of wrong theme.
+          dangerouslySetInnerHTML={{ __html: themeBoot }}
         />
-        <Script id="theme-boot" strategy="beforeInteractive">
-          {themeBoot}
-        </Script>
       </head>
       <body>{children}</body>
     </html>

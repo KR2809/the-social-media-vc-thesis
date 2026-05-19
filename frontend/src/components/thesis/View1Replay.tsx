@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 import type { RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import {
@@ -271,7 +271,6 @@ interface Props {
   focusedId: string;
   setFocused: (id: string) => void;
   gotoView: (v: 1 | 2 | 3) => void;
-  revealed: boolean;
   setRevealed: (b: boolean) => void;
 }
 
@@ -282,17 +281,20 @@ export function View1Replay({
   focusedId,
   setFocused,
   gotoView,
-  revealed,
   setRevealed,
 }: Props) {
-  const rows = useMemo(() => thesis.rankAt(t, K), [t, K]);
+  const thesis = useThesis();
+  const rows = useMemo(() => thesis.rankAt(t, K), [t, K, thesis]);
   const prevRows = useRef(rows);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const prevRanks = useMemo(() => {
+  // prevRanks is the previous frame's rank map. Lives in state so the
+  // renderer (FounderRow) can read it without touching a ref during
+  // render — the ref is only mutated in the post-render effect below.
+  const [prevRanks, setPrevRanks] = useState<Record<string, number>>(() => {
     const m: Record<string, number> = {};
-    prevRows.current.forEach((r, i) => (m[r.id] = i));
+    rows.forEach((r, i) => (m[r.id] = i));
     return m;
-  }, [rows]);
+  });
 
   useEffect(() => {
     const prev = prevRows.current;
@@ -314,6 +316,9 @@ export function View1Replay({
     if (entries.length > 0) {
       setAudit(prevA => [...entries.slice(0, 6), ...prevA].slice(0, 12));
     }
+    const nextRanks: Record<string, number> = {};
+    prev.forEach((r, i) => (nextRanks[r.id] = i));
+    setPrevRanks(nextRanks);
     prevRows.current = rows;
   }, [t, rows]);
 

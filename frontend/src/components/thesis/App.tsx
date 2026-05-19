@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { thesis } from "@/lib/thesis";
+import { getThesisSource, syntheticSource } from "@/lib/thesis";
+import type { DataSource } from "@/lib/thesis";
+import { ThesisProvider } from "@/lib/thesis/context";
 import { TopBar } from "./TopBar";
 import { DateSlider } from "./DateSlider";
 import { ViewNav } from "./ViewNav";
@@ -16,8 +18,10 @@ type Theme = "light" | "dark";
 type View = 1 | 2 | 3;
 
 const MIN = 0;
-const MAX = thesis.months("2026-05")!;
-const DEFAULT_T = thesis.months("2022-Q1")!;
+// Month-parsing is data-independent, so we read it off the synthetic source
+// at module load — both synthetic and hybrid use the same parser.
+const MAX = syntheticSource.months("2026-05")!;
+const DEFAULT_T = syntheticSource.months("2022-Q1")!;
 
 function parseT(s: string | null): number {
   const n = s == null ? DEFAULT_T : parseInt(s, 10);
@@ -45,6 +49,20 @@ export function App() {
   const router = useRouter();
   const params = useSearchParams();
 
+  // Resolve the active DataSource (real → hybrid, fallback → synthetic).
+  // Synthetic is rendered first so SSR + initial hydration stay deterministic;
+  // the real source swaps in once /api/cohort + /api/timeline-bounds resolve.
+  const [thesis, setThesis] = useState<DataSource>(syntheticSource);
+  useEffect(() => {
+    let cancelled = false;
+    getThesisSource().then((src) => {
+      if (!cancelled) setThesis(src);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [t, setTState] = useState(() => parseT(params.get("t")));
   const [view, setViewState] = useState<View>(() => parseView(params.get("view")));
   const [K, setKState] = useState(() => parseK(params.get("K")));
@@ -56,21 +74,24 @@ export function App() {
   const [revealed, setRevealed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Theme: SSR-safe. Mounted=false until the first effect, then resolve from
-  // localStorage / system preference. The TopBar reads `mounted` to skip
-  // rendering the theme-dependent icon during SSR.
-  const [theme, setTheme] = useState<Theme>("light");
+  // Theme: SSR-safe. The pre-paint inline <script> in layout.tsx writes
+  // data-theme on <html> from localStorage / system preference. We read it
+  // back via a lazy initializer so the first client render already has the
+  // right value — no setState-in-effect cascade, no flash of wrong theme.
+  // SSR uses "light" as a deterministic default; `mounted` gates any
+  // browser-only icon rendering in TopBar.
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document === "undefined") return "light";
+    const attr = document.documentElement.getAttribute("data-theme");
+    return attr === "dark" ? "dark" : "light";
+  });
   const [mounted, setMounted] = useState(false);
 
+  // First-paint detection: setState-in-effect IS the canonical React 19
+  // pattern for "did we hydrate yet". The new react-hooks/set-state-in-effect
+  // lint rule has no exception for this case.
   useEffect(() => {
-    const stored = localStorage.getItem("thesis-theme");
-    const resolved: Theme =
-      stored === "dark" || stored === "light"
-        ? stored
-        : window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
-    setTheme(resolved);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -163,12 +184,13 @@ export function App() {
 
   const focusedFounder = useMemo(
     () => (focusedId ? thesis.founders().find(f => f.id === focusedId) ?? null : null),
-    [focusedId],
+    [focusedId, thesis],
   );
 
-  const picks = useMemo(() => thesis.rankAt(t, K), [t, K]);
+  const picks = useMemo(() => thesis.rankAt(t, K), [t, K, thesis]);
 
   return (
+    <ThesisProvider value={thesis}>
     <div className="app">
       <TopBar
         theme={theme}
@@ -203,7 +225,6 @@ export function App() {
             focusedId={focusedId}
             setFocused={setFocusedId}
             gotoView={setView}
-            revealed={revealed}
             setRevealed={setRevealed}
           />
         )}
@@ -226,5 +247,6 @@ export function App() {
       </div>
       <Footer />
     </div>
+    </ThesisProvider>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import { useThesis } from "@/lib/thesis/context";
 
 type Theme = "light" | "dark";
 
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted }: Props) {
+  const thesis = useThesis();
+  const cov = thesis.coverage();
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -32,6 +35,17 @@ export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted
         </div>
       </div>
       <div className="topbar-right">
+        <div
+          className="topbar-status"
+          data-testid="coverage-pill"
+          title={`Cohort: ${cov.totalFounders} founders. ${cov.foundersWithSignals} have collected + scored signals (${cov.scoredEvents} events total). The remaining founders render with synthetic curves until backfill catches up.`}
+        >
+          <span className={"status-dot " + (cov.foundersWithSignals > 0 ? "ok" : "mu")} />
+          <span className="mono">
+            {cov.foundersWithSignals}/{cov.totalFounders}
+          </span>
+          <span> · {cov.scoredEvents} events</span>
+        </div>
         <div
           className="topbar-status"
           title="All scoring uses only data observable at the slider date T. No future information leaks in."

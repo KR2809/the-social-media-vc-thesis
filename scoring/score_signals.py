@@ -257,7 +257,11 @@ def _call_anthropic(
     system_prompt: str,
     user_payload: str,
     model: str,
-    max_tokens: int = 1024,
+    # 1024 was too tight: ~5% of Haiku 4.5 responses got truncated mid-string
+    # (output_tokens hitting 990-1020 in the run log), producing
+    # "Unterminated string" JSON parse failures. 2048 leaves comfortable
+    # headroom for the v1 prompt's 6-category nested response.
+    max_tokens: int = 2048,
 ) -> tuple[str, int, int]:
     """Single call. Returns (text, input_tokens, output_tokens).
 

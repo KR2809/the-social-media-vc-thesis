@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { thesis } from "@/lib/thesis";
+import { useThesis } from "@/lib/thesis/context";
 import type { BaselinePick, RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import { CIBar, EpistemeBar, fmtPct, ViewIntro } from "./primitives";
 
 function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K: number }) {
+  const thesis = useThesis();
   const { hits, k, precision } = thesis.precisionAt(picks, t);
   const [lo, hi] = thesis.bootCI(hits, k);
   const evaluable = k > 0;
@@ -104,6 +105,7 @@ function BaselineCard({
   K: number;
   onFocusFounder?: (id: string) => void;
 }) {
+  const thesis = useThesis();
   const { hits, k, precision } = thesis.precisionAt(picks, t);
   const [lo, hi] = thesis.bootCI(hits, k);
   return (
@@ -160,6 +162,7 @@ function Verdict({
   t: number;
   K: number;
 }) {
+  const thesis = useThesis();
   const our = thesis.precisionAt(picks, t);
   if (our.k === 0) return null;
   let best: { name: string; precision: number } | null = null;
@@ -272,9 +275,10 @@ interface Props {
 }
 
 export function View2Outcome({ t, K, picks, onFocusFounder, gotoView }: Props) {
-  const baselineR = useMemo(() => thesis.baselineRandom(t, K, 42), [t, K]);
-  const baselineV = useMemo(() => thesis.baselineVolume(t, K), [t, K]);
-  const baselineY = useMemo(() => thesis.baselineRecency(t, K), [t, K]);
+  const thesis = useThesis();
+  const baselineR = useMemo(() => thesis.baselineRandom(t, K, 42), [t, K, thesis]);
+  const baselineV = useMemo(() => thesis.baselineVolume(t, K), [t, K, thesis]);
+  const baselineY = useMemo(() => thesis.baselineRecency(t, K), [t, K, thesis]);
   const t24 = t + 24;
   const canEval = t24 <= thesis.today;
   return (

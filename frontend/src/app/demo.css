@@ -25,9 +25,12 @@
   --shadow-sm:  0 1px 2px rgba(20, 24, 43, 0.04);
   --shadow-md:  0 4px 16px rgba(20, 24, 43, 0.06), 0 1px 2px rgba(20, 24, 43, 0.04);
   --shadow-lg:  0 8px 32px rgba(20, 24, 43, 0.08), 0 2px 4px rgba(20, 24, 43, 0.04);
-  --serif:      "Source Serif 4", "Source Serif Pro", "Lora", Georgia, serif;
-  --sans:       "Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
-  --mono:       "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* --font-serif / --font-sans / --font-mono are injected by next/font/google
+     in layout.tsx. Fallbacks cover the (impossible-in-practice) case where
+     the variable isn't bound. */
+  --serif:      var(--font-serif), "Source Serif Pro", "Lora", Georgia, serif;
+  --sans:       var(--font-sans), -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --mono:       var(--font-mono), "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --r-sm:       4px;
   --r-md:       8px;
   --r-lg:       12px;

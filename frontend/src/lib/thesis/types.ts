@@ -84,6 +84,12 @@ export interface Palette {
   c2: string;
 }
 
+export interface Coverage {
+  totalFounders: number;
+  foundersWithSignals: number;
+  scoredEvents: number;
+}
+
 // The DataSource is the seam between "synthetic" and "real" backends.
 // Components import this interface — never concrete loaders directly.
 export interface DataSource {
@@ -115,4 +121,11 @@ export interface DataSource {
   egoFor(founderId: FounderId): EgoNetwork;
 
   paletteFor(id: FounderId): Palette;
+
+  // Visible-honesty signal: how saturated is the real-data layer?
+  // For "synthetic" this is the synthetic cohort with 0 real events.
+  // For "hybrid" / "real" this counts how many cohort members have at
+  // least one scored signal in their cache, plus the total scored
+  // event count. Surfaces in the TopBar coverage pill.
+  coverage(): Coverage;
 }
