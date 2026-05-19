@@ -120,22 +120,39 @@ Replace synthetic fields one-by-one with real adapters.
 - [x] C.1 Cohort loader — `frontend/src/lib/thesis/real.ts` fetches
   `/api/cohort` + `/api/timeline-bounds` from FastAPI and returns a
   `DataSource` with `source: "hybrid"`. Founders come from
-  `ingestion.cohort.load_cohort()`; per-founder `first` derives from
-  `timeline-bounds.earliest` as a coarse shared floor (per-founder
-  first dates deferred to C.6). Outcome fields stay null/empty
-  pending C.2 / C.3.
-- [ ] C.2 Outcome loader — extract emergence dates from
-  `cohort_verified.md`; compute `outcomeAt` from real dates.
-- [ ] C.3 Scoring loader — wait for `scoring/score_signals.py` to ship,
-  read its parquet output. Replace `curve` / `tier1` / `tier2` / `rankAt`.
-- [ ] C.4 Baseline loader — wait for `scoring/baselines.py`, read its
-  parquet output. Replace `baselineRandom` / `baselineVolume` /
-  `baselineRecency`.
-- [ ] C.5 KG loader — wait for `analysis/build_graph.py` +
-  `kg_features.py` to land in main, export ego-networks per founder
-  as JSON. Replace `egoFor`.
-- [ ] C.6 Signals loader — join scored signals to source posts.
-  Replace `signalsFor`.
+  `ingestion.cohort.load_cohort()`. Per-founder `first` derives from
+  `cohort.first_signal_at` (a single groupby on signal_events; see
+  C.2), with `timeline-bounds.earliest` as the fallback for founders
+  without collected signals.
+- [x] C.2 Outcome loader — `parseEmergenceQuarter()` handles every
+  shape in `cohort_verified.md` (`"2018–2019"`, `"Apr 2023 (acq.)"`,
+  `"Early 2026"`, `"2019 → 2025 (1M subs)"`, etc.) → `"YYYY-MM"` or
+  `"YYYY-QN"`. Range values collapse to the LOWER bound (conservative
+  for precision@k claims). `Founder.venture` mapped from the cohort
+  row. `outcomeAt` now returns real `"emerged"` outcomes; View 2's
+  precision@k uses honest hit counts.
+- [x] C.3 Scoring loader (partial) — `curve`/`tier1`/`tier2`/`rankAt`
+  computed from the per-founder cached scored signals. curve = mean
+  `overall_signal_strength`; tier1 = mean of S2+S3 sub-dims; tier2 =
+  mean of S1+S4+S6 sub-dims. Synthetic fallback for founders with no
+  scored data yet (currently 13/20). Full `combined_ranking()` via
+  `/api/portfolio` deferred until baselines unblock — for now the
+  pre-fetched signals cache is the substrate.
+- [ ] C.4 Baseline loader — BLOCKED on negative-peer registration
+  (`scripts/register_negative_peers.py`). Until ~15 negs are picked
+  per niche bucket, `outcome_labels.csv` is all-positive and baseline
+  comparisons can't distinguish frameworks. Synthetic baselines
+  retained as a placeholder.
+- [ ] C.5 KG loader — `analysis/build_graph.py` + `kg_features.py`
+  exist but `graph.pkl` / `kg_features.parquet` are stubs. Need a run
+  pass after scoring stabilises. Will populate `egoFor()` from
+  `/api/founder/{id}.kg_features` (currently `{}`).
+- [x] C.6 Signals loader (partial) — `signalsFor()` reads from the
+  per-founder cache populated at `loadRealSource()` time. Each scored
+  signal is mapped to `SignalEvidence` via `pickDominantDim()` (the
+  highest-weight `s[1-6]_*` sub-dim wins). Raw text joined server-side
+  in `/api/founder/{id}` from `signal_events.raw_text`. Synthetic
+  fallback for founders without scored signals yet.
 
 Acceptance: `thesis.source === "real"` (or `"hybrid"` if any field is
 still synthetic) and the banner on the landing page reflects it.

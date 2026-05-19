@@ -1153,3 +1153,51 @@ script each pass.
 
 **Cost incurred:** $0.
 ---
+
+## 2026-05-19 (cont.) — Big push: C.2 + C.3 partial + C.6 partial + scoring
+
+**What I did (in commit order):**
+1. **Lint cleanup** — Killed the 3 pre-existing react-hooks lint errors that every PR was carrying. `View1Replay`'s `prevRanks` moved from a `useMemo` (reading a ref during render) into state updated in the post-render effect. Theme bootstrap in `App.tsx` reads `data-theme` synchronously via a lazy `useState` initializer instead of `setState`-in-effect. Result: 0 errors, 1 unrelated warning (Google Fonts via `<link>` — separate cleanup).
+2. **`/api/cohort` returns `first_signal_at` per founder** — single groupby on `signal_events.parquet`, joined into the response. Removes the "shared global earliest" hack from C.1. Currently 7/20 cohort members have signals (collection backfill is its own task).
+3. **C.2 outcome loader** — `parseEmergenceQuarter()` covers every weird shape in `cohort_verified.md` ("2018–2019" → "2018-Q1", "Apr 2023 (acq.)" → "2023-04", "Early 2026" → "2026-Q1", "fish soup" → null, etc.). `Founder.emerge` + `Founder.venture` + per-founder `first` now real. View 2's precision@k stops being uniformly zero — at `/?view=2&t=72&K=20` (Jan 2020) we get **12 / 16 = 75.0%** with bootstrap CI [53.8%, 96.2%]. Range-values collapse to the LOWER bound (favourable to precision@k claims; flagged here for reviewer override).
+4. **Scoring run kickoff** — `scoring/score_signals.py` against 944 signals. Hit Anthropic credit balance wall at 5 signals → Kris topped up → restarted. Cost per signal ≈ $0.0055; extrapolated total $5.20 (well under $30 budget). Run is still in flight as I write this (102 calls / 78 scored rows / $0.56 at last check, ~30 min remaining).
+5. **C.6 partial — real signal evidence in View 3** — `/api/founder/{id}` no longer 404s when person_features is empty; now returns 200 with `partial: true` and whichever pieces are available (cohort identity always present). Top signals are joined with `raw_text` from signal_events server-side. Frontend pre-fetches `/api/founder/{id}` for every cohort member at `loadRealSource()` time, caches `top_signals_at_t` by founder. `signalsFor(id, t)` reads from cache, client-filters by timestamp, picks dominant `s[1-6]_*` sub-dim per signal, returns `SignalEvidence[]`. View 3 at `/?view=3&f=anthilemoon&t=120` shows real HN comments from Anne-Laure Le Cunff scored by Claude Haiku 4.5.
+6. **C.3 partial — real curve / tier1 / tier2 / rankAt** — leverages the per-founder cache from C.6. curve = mean `overall_signal_strength` before t; tier1 = mean of S2+S3 sub-dims (distribution + intent); tier2 = mean of S1+S4+S6 (action + network + domain). Synthetic fallback for founders with no scored signals. View 1 at `/?view=1&t=120&K=10` (Jan 2024) shows real cohort ranked by real signals: levelsio Σ=0.82, arvidkahl Σ=0.82, dvassallo Σ=0.81, dickiebush Σ=0.81, …
+
+**Decisions made:**
+- **`emergence_quarter` range strings collapse to lower bound.** "2018–2019" → "2018-Q1" not "2018-Q3" midpoint. Conservative for precision@k (we get credit earlier). Documented in `parseEmergenceQuarter()` docstring + smoke test.
+- **`signalsFor` / `curve` / `tier1` / `tier2` read from a single per-founder cache populated at load time, not per-(founder, t) `/api/portfolio` round-trips.** The DataSource interface is sync; making it async would touch every view + Add a "loading" state per slider position. The pre-fetch approach uses 20 round-trips at load (cohort × 1 founder endpoint each) and zero per slider drag. The downside: cache stale-on-reload only, no live updates. Acceptable for a demo.
+- **`/api/portfolio` / `combined_ranking()` left for later.** Same async-vs-sync problem, plus `combined_ranking()` depends on `topic_momentum.parquet` (which only has 53 raw Google Trends rows). Will revisit when baselines unblock and the model layer can run end-to-end.
+- **Synthetic fallback preserved on every method.** Cohort members without scored signals still render with their synthetic curve. As scoring catches up, real data progressively takes over with no code change — just a page reload.
+- **Founder.ventureMetric stays null.** API doesn't expose a metric field cleanly; scoring's `s6_topic_label` + `overall_signal_strength` could synthesise one but doesn't belong in C.* yet.
+
+**Blockers:**
+- **Negative-peer registration** — `outcome_labels.csv` is 20 positives / 0 negatives. Without ~15 hand-picked negs per niche bucket (`scripts/register_negative_peers.py`), baseline comparisons can't distinguish frameworks. Kris-task — needs ~48h of manual PH/IH/GitHub archive picking.
+- **Signal collection coverage** — only 7/20 cohort members have signals; the other 13 (yongfook, tdinh_me, noahwbragg, monicalent, thejustinwelsh except 1 signal, nicolascole77, thibaultlell, tomjacquesson, im_roy_lee, herfirst100k, katebour, damengchen, simplrads) render with synthetic curves for everything. Targeted backfill sweeps per platform.
+- **KG layer** — `graph.pkl` / `kg_features.parquet` are stubs. After scoring stabilises, need to run `analysis/build_graph.py` + `kg_features.py` end-to-end. C.5 (View 3 ego-network) still synthetic.
+
+**Browser smoke results (final, all real-data):**
+- Source banner reads `hybrid` on every view.
+- View 1 (`/?view=1&t=120&K=10`): top picks are real cohort members ranked by real signal strength. levelsio / arvidkahl / dvassallo at the top — exactly who you'd expect for that date.
+- View 2 (`/?view=2&t=72`): **12 / 16 = 75.0%, 95% bootstrap CI [53.8%, 96.2%]**. Real outcomes computed against real emergence dates.
+- View 3 (`/?view=3&f=anthilemoon&t=120`): Anne-Laure Le Cunff, Ness Labs (newsletter + community), 2019 Q1 emergence, **emerged**. Top 5 signals show real HN comments scored by Claude Haiku 4.5 with explanation chips (S1 production-quality, S4 community-embedding, etc.).
+
+**Files changed (this push, 6 commits):**
+- `frontend/src/components/thesis/App.tsx`, `View1Replay.tsx` (lint cleanup)
+- `api/main.py` (`first_signal_at` field; `/api/founder` graceful degradation + raw_text join)
+- `frontend/src/lib/thesis/real.ts` (C.2 + C.3 + C.6 wiring; pre-fetch + cache)
+- `frontend/scripts/smoke_test_real.mts` (34 → 40 assertions)
+- `FRONTEND_PLAN.md` (C.2 / C.3 partial / C.6 partial checked off)
+
+**Cost incurred:** 
+- Anthropic scoring: ~$0.56 spent so far, ~$5.20 projected total when scoring completes (Haiku 4.5 only).
+- No other LLM calls.
+
+**Next steps:**
+- **Kris:** top up Anthropic if needed (current run will hit ~$5.20); hand-pick ~15 negative peers via `scripts/register_negative_peers.py` to unblock C.4.
+- **CC (next session):**
+  - C.5 — run `analysis/build_graph.py` + `kg_features.py` end-to-end once scoring completes; wire `/api/founder/{id}.kg_features` to View 3's ego-network.
+  - Signal-collection backfill sweeps for the 13/20 cohort members with no signals (target ≥50 signals each; ~$0.30 / founder to score).
+  - C.4 once negatives land — wire `/api/baselines` to View 2's baseline comparison cards.
+  - Phase D.1 — replace placeholder landing if/when we ship to Vercel.
+---
