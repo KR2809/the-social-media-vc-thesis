@@ -267,6 +267,24 @@ def get_cohort() -> dict:
     from ingestion.cohort import load_cohort  # noqa: PLC0415
 
     members = load_cohort()
+
+    # Per-founder first-signal date: a single groupby on signal_events.
+    # Founders without any collected signals yet get null and the
+    # frontend renders them with a sensible fallback. Cheaper than 20
+    # round-trips to /api/founder/{id}, and the data is already loaded
+    # by the source provider for /api/timeline-bounds.
+    src = get_source()
+    signals = src.read_signal_events()
+    first_by_person: dict[str, str] = {}
+    if len(signals) > 0:
+        import pandas as pd  # noqa: PLC0415
+
+        ts = pd.to_datetime(signals["timestamp"], utc=True)
+        first_by_person = {
+            pid: t.isoformat()
+            for pid, t in ts.groupby(signals["person_id"]).min().items()
+        }
+
     rows = [
         {
             "person_id": m.x_handle.lower(),
@@ -275,6 +293,7 @@ def get_cohort() -> dict:
             "niche": m.niche,
             "emergence_quarter": m.emergence_quarter,
             "data_score": m.data_score,
+            "first_signal_at": first_by_person.get(m.x_handle.lower()),
         }
         for m in members
     ]
