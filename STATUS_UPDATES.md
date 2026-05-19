@@ -1229,3 +1229,34 @@ script each pass.
 **Cost incurred:** Anthropic scoring ~$1.30 to date.
 
 ---
+
+## 2026-05-19 (cont.) — Scoring run complete; full real-data demo verified
+
+**What I did:**
+- Scoring run completed at 944 / 944 signals scored, $5.45 total cost. 0% failure rate post-max_tokens fix.
+- Per-person scored counts (cohort): dvassallo 195, arvidkahl 179, anthilemoon 157, marclou 108, dickiebush 52, lennysan 21, thejustinwelsh 1 → 713 in-cohort signals. Plus 231 non-cohort (pg HN + 2 YouTube IDs) — scored but ignored by the frontend.
+- Re-ran the full post-scoring pipeline against the complete corpus:
+  - `analysis.person_features`: 9 persons → real `n_signals`, `mean_signal_strength`, build-in-public count, etc.
+  - `analysis.build_graph`: **1830 nodes, 71,778 edges** (up from 410 / 13.3k against the partial corpus).
+  - `analysis.kg_features`: 9 persons with degree centrality, clustering coeff, topic diversity.
+  - `analysis.topic_momentum`: 1 keyword (Google Trends data limit; not a blocker for the demo).
+- Restarted FastAPI; verified `/api/founder/marclou` now returns `partial: false` with full feature_row + kg_features.
+
+**Verification (browser smoke, all 3 views, FastAPI up):**
+- **TopBar coverage pill:** `7/20 · 121 events` (up from `2/20 · 40 events` earlier today). 7 cohort founders with real scored signals visible to the frontend; remaining 13 founders still synthetic-by-omission (collection backfill is the unblock).
+- **View 1 (Replay):** real cohort ranked by real signal-strength means. Top picks at Jan 2022 (t=96, K=10) reflect signal density.
+- **View 2 (Outcome):** **Precision@K = 9 / 10 = 90.0%** at Jan 2022. The framework correctly identifies 9 of 10 picked founders as emerging within 24 months. Verdict text correctly notes the Recency baseline matches at 100% (signal-recency is itself a strong predictor for this sub-cohort).
+- **View 3 (Drill-in for Marc Lou):** P(emerge) = 0.44 at Jan 2026; top signal at the slider position is the actual viral HN post *"My NextJS boilerplate made $200K in revenue in 4 months"* — the textbook emergence event the framework is designed to detect.
+
+**Decisions made:**
+- No new code or config changes — this was a data-completion + verification milestone.
+- Coverage pill behaviour validated: it WILL keep updating as backfill collection lands more founders (the cohort-roundtrip pre-fetch in `loadRealSource` re-reads `/api/founder/{id}` on every page load).
+
+**Blockers (unchanged):**
+- 13 cohort founders still have no collected signals. Targeted backfill sweeps would 2-3× the data coverage — pure ingestion work, no LLM cost gating it.
+- C.4 baselines still blocked on `scripts/register_negative_peers.py` (Kris-task: hand-pick ~15 negatives per niche bucket from PH/IH/GitHub trending archives).
+
+**Cost incurred (final for this session):**
+- Anthropic scoring run: **$5.45 USD**. Well under the $30 monthly cap.
+
+---
