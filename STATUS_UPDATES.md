@@ -1294,3 +1294,41 @@ script each pass.
 **Cost incurred:** $0. Zero Anthropic API calls. PH dev token + public Wayback only.
 
 ---
+
+## 2026-05-20 01:30 — PH rate-limit hardening pass (PR #5 follow-up)
+
+**What I did:**
+- Hardened the B2 candidate-sourcing tool against PH rate-limiting in four pieces, all on the same PR #5 branch. The picker workflow is now resumable, observable, and idempotent: hitting a 429 is a no-op the next time you run the tool.
+- **Piece 1 — header-aware rate-limit governor** in `ingestion/producthunt_collect._gql`: parses PH's `X-Rate-Limit-{Limit,Remaining,Reset}` on every response, stores per-token state in a module-level `_RATE_LIMIT_BY_TOKEN` dict, self-throttles before crossing the floor (default 200 points remaining), and raises a new non-retryable `ProductHuntRateLimitedError(reset_seconds)` on actual 429s. Removed 429 from tenacity's retry set — retrying a 429 just burns more quota.
+- **Piece 2 — trim GraphQL query + page cap**: dropped `topics(first:10)`, `name`, `tagline`, `commentsCount`, `makers.id` from `_POSTS_BY_TOPIC_QUERY` (~30-40% complexity reduction). Added `_max_pages_for_cap(max_candidates)` so dense topics no longer paginate forever — `_iter_posts_by_topic` now stops at the smaller of `max_pages` or `hasNextPage=False`. Also handles `ProductHuntRateLimitedError` mid-fetch: sleeps once for the reset window, retries the same page exactly once, then bails (without polluting the cache).
+- **Piece 3 — persistent PH response cache**: new `_iter_posts_by_topic_cached` wrapper persists `(topic, start, end) → list[post]` to `data/interim/negative_peer_candidates/.ph_cache.json`. `_iter_posts_by_topic` now returns `(posts, complete)` so the cache only stores clean completions; partial fetches after a 429 are visible to the current run but never cached. New CLI flag `--refresh-ph` parallels `--refresh-wayback`.
+- **Piece 4 — optional dual-token round-robin**: `_require_tokens()` returns a list (primary + optional secondary from `PRODUCTHUNT_DEV_TOKEN_2`). `_pick_token()` picks the token with the most observed headroom (untouched tokens are preferred). `_require_token()` kept as a thin shim so `collect_producthunt` stays backward-compatible.
+- **Docs**: `scripts/README.md` got a new "Repeatable workflow (rate-limit-safe)" section covering cold-start, iterate, refresh, 429-recovery, quota observability, dual-token boost, and cache-invalidation rules. `.env.example` documents the optional 2nd token. New `DECISION_LOG.md` Iteration 16 captures the rationale.
+- **Tests**: 22 new unit tests across `test_producthunt_collect.py` (10) and `test_find_negative_peer_candidates.py` (12). Total now 54 in the two files combined; full suite 217 pass, 3 pre-existing `test_api.py` failures unrelated to this work.
+
+**Decisions made:**
+- **Cache on clean completions only.** The `(posts, complete)` tuple lets the cache wrapper distinguish "we fetched everything for this window" from "we bailed early on a transient error". Partial-fetch results are returned to the caller for this run, but never written to disk — so the next run re-fetches just the missing windows. Important for honesty: a partial cache that looks complete would silently corrupt the candidate longlist.
+- **Self-throttle floor at 200 remaining points.** PH's 15-min budget is 6,250 points; 200 is ~3% headroom — enough to absorb one big query, small enough not to waste budget waiting. Tunable via `_RATE_LIMIT_FLOOR` if needed.
+- **Token state is module-level, not per-call.** Lets the rate-limit governor learn across the full run; the dual-token round-robin reads the same state to pick the better token. Acceptable singleton: this script is a one-shot CLI, not a long-running service.
+- **No offline topic dumps.** Considered as Option 7 — pre-fetch full topic dumps overnight and serve the tool from disk. Decided against: the cache (Piece 3) plus header-aware throttling (Piece 1) already make rate-limiting a non-issue at picker-workflow scale. The dump option stays available if Kris ever needs it for a much larger sweep.
+
+**Blockers:**
+- PH dev token may still be in the 429 backoff window from the earlier debugging session today. **Kris: wait until the bucket resets (≤15 min from the last 429), then re-run.** First clean run will populate the cache; subsequent runs are near-instant.
+
+**Next steps:**
+- Smoke-test the hardened tool against the live PH API once the token quota resets (still attempting tonight; if it works, will commit the smoke output evidence to the PR).
+- After picker workflow succeeds: Kris hand-picks 3 per niche × 15 niches = 45 PH picks, plus 3 × 4 = 12 Perplexity picks for Substack niches, fills `register_negative_peers.py`, runs it, and B2 closes.
+- Unblocked pipeline: `python pipeline.py seed-labels eval backtest allocate`.
+
+**Files changed (this session):**
+- `ingestion/producthunt_collect.py` (rate-limit governor + dual-token support + `ProductHuntRateLimitedError`)
+- `tests/test_producthunt_collect.py` (10 new tests for governor + token round-robin)
+- `scripts/find_negative_peer_candidates.py` (trimmed query, page cap, PH cache, `_iter_posts_by_topic_cached`, observability prints in `main`)
+- `tests/test_find_negative_peer_candidates.py` (12 new tests for cache + page cap + 429 retry path)
+- `scripts/README.md` (new "Repeatable workflow (rate-limit-safe)" section)
+- `.env.example` (documents optional `PRODUCTHUNT_DEV_TOKEN_2`)
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/DECISION_LOG.md` (Iteration 16 entry)
+
+**Cost incurred:** $0. Zero Anthropic API calls.
+
+---

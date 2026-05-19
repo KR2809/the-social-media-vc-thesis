@@ -82,7 +82,76 @@ python scripts/find_negative_peer_candidates.py --niche all --max-upvotes 50
 # Raise the per-niche cap (default 25 — the bottom of the upvotes
 # distribution after filtering, which is what the picker wants).
 python scripts/find_negative_peer_candidates.py --niche all --max-candidates 50
+
+# Force-refresh the PH topic cache (default reuses cache).
+python scripts/find_negative_peer_candidates.py --niche all --refresh-ph
 ```
+
+### Repeatable workflow (rate-limit-safe)
+
+The tool is designed to be **resumable, observable, and idempotent**.
+You can stop it, hit a 429, lose your network, or change your mind — and
+the next invocation picks up exactly where it left off without burning
+more API budget.
+
+1. **Cold first run** (~3 min for all 15 niches):
+   ```
+   python scripts/find_negative_peer_candidates.py --niche all
+   ```
+   Caches PH topic responses to `.ph_cache.json` and Wayback CDX lookups
+   to `.wayback_cache.json`. Both files live under
+   `data/interim/negative_peer_candidates/`. Both are gitignored.
+
+2. **Iterate while picking** (~5 sec, served from cache):
+   ```
+   python scripts/find_negative_peer_candidates.py --niche dev-tooling-boilerplate
+   ```
+   Rerun the same niche after tweaking `--max-upvotes` or
+   `--max-candidates` — no PH calls, no Wayback calls.
+
+3. **Refresh stale data** when launches age out or Wayback updates:
+   - `--refresh-ph` re-queries Product Hunt for all topics.
+   - `--refresh-wayback` re-queries Wayback for all candidates.
+
+4. **If you hit 429**: just rerun. The script:
+   - Reads PH's `X-Rate-Limit-Remaining` + `X-Rate-Limit-Reset` headers
+     on every response and **self-throttles** before exhausting the
+     budget (sleeps until the 15-min window resets).
+   - If a 429 still slips through, it sleeps once for the `Retry-After`
+     duration and retries the same page exactly once. Failing that, it
+     bails *without polluting the cache with a partial result*. The
+     next run re-fetches just the missing topics.
+
+5. **Quota observability**: every run ends with a per-token budget
+   summary:
+   ```
+   PH dev-token quota after run:
+     token_1     remaining=5640/6250  reset_in=12.3min
+     token_2     untouched
+   ```
+
+6. **Dual-token boost** (optional): if rate limits become a recurring
+   problem, create a second PH OAuth app at
+   <https://api.producthunt.com/v2/oauth/applications> and set
+   `PRODUCTHUNT_DEV_TOKEN_2` in `.env`. The tool round-robins between
+   the two tokens, picking the one with the most headroom before each
+   niche.
+
+### When the cache is wrong
+
+The cache is keyed on `(topic_slug, start_date, end_date)`. The niche
+quarters are anchored historical windows (2019–2026), so the underlying
+PH data for a given window is effectively immutable — once cached, it
+stays correct. The two cases where you'd want to refresh:
+
+- **`--refresh-ph`**: if you change `NICHE_MAP` (added a topic, changed
+  a quarter) or you suspect PH backfilled posts into a past window.
+- **`--refresh-wayback`**: if you want updated Wayback dormancy status
+  on an existing candidate set (e.g. you ran the tool a month ago and
+  want to know if a borderline candidate has since gone dormant).
+
+Both flags bypass the cache for that run *and* overwrite it with the
+fresh result, so the next non-`--refresh` run benefits.
 
 ### How to use the output CSVs
 
