@@ -530,6 +530,21 @@ function buildHybridSource(
     // graph.pkl pass needed). Falls back to synthetic when no signals.
     egoFor: realEgoFor,
     paletteFor: syntheticSource.paletteFor,
+    coverage: () => {
+      let withSignals = 0;
+      let scored = 0;
+      for (const rows of signalsByFounder.values()) {
+        if (rows.length > 0) {
+          withSignals++;
+          scored += rows.length;
+        }
+      }
+      return {
+        totalFounders: founders.length,
+        foundersWithSignals: withSignals,
+        scoredEvents: scored,
+      };
+    },
   };
 }
 

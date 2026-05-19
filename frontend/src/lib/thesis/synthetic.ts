@@ -299,4 +299,10 @@ export const syntheticSource: DataSource = {
   signalsFor,
   egoFor,
   paletteFor,
+  // Synthetic source is honest about being synthetic: 0 real events.
+  coverage: () => ({
+    totalFounders: FOUNDERS.length,
+    foundersWithSignals: 0,
+    scoredEvents: 0,
+  }),
 };
