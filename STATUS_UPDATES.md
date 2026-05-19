@@ -1201,3 +1201,31 @@ script each pass.
   - C.4 once negatives land — wire `/api/baselines` to View 2's baseline comparison cards.
   - Phase D.1 — replace placeholder landing if/when we ship to Vercel.
 ---
+
+## 2026-05-19 (cont.) — Post-scoring pipeline pass + UI honesty pill
+
+**What I did:**
+- Bumped `scoring/score_signals.py` max_tokens 1024 → 2048 to eliminate the ~9% truncation-failure rate (Haiku 4.5 was hitting the 1024 ceiling on the v1 prompt's 6-category nested response). Restarted the run; 0% failure rate since.
+- Ran the post-scoring pipeline stages against the 207 scored signals so far: `analysis.person_features` → real per-person aggregates (mean strength, build-in-public count, etc.); `analysis.build_graph` → 410-node / 13328-edge KG; `analysis.kg_features` → per-person degree centrality + clustering + topic diversity; `analysis.topic_momentum` → topic momentum metrics. These all live in `data/processed/` and are gitignored.
+- `/api/founder/{id}` now returns `partial: false` for any founder with scored signals (currently arvidkahl + anthilemoon) — full `feature_row` and `kg_features` populated.
+- Added a TopBar coverage pill that surfaces "X/20 · N events" — visible honesty signal showing real-data saturation. Defaults to `mu` dot (muted) when 0, `ok` when ≥1. Hover tooltip explains the synthetic-fallback semantics.
+- Migrated Google Fonts from `<link href="fonts.googleapis.com">` to `next/font/google` (Inter, JetBrains Mono, Source Serif 4). Self-hosted now; 1 fewer warning in lint (now 0/0). Two fewer preconnects + one fewer round-trip on first paint.
+- Extended real-data ego-network (C.5 partial) — synthesises founder→signal→topic→platform graph on the client from cached signals. Until the server-side `kg_features.parquet` is wired into the frontend, this gives the View 3 KG panel a faithful real-data appearance.
+
+**Final demo state (as of this commit):**
+- View 1: real cohort, ranked by real signal strength where scored, synthetic curves where not.
+- View 2: real precision@k — 12/16 = 75.0%, CI [53.8%, 96.2%] at Jan 2020.
+- View 3: real founder identity + outcomes + signals + KG ego (for founders with scored data).
+- TopBar coverage pill (`2/20 · 40+ events`) updates as scoring + collection catch up.
+- Lint clean (0/0). Build green. 46/46 smoke assertions pass.
+
+**Scoring status:**
+- 207 / 944 signals scored, $1.30 spent, ~2 hours remaining at current pace.
+- Cost-per-call slightly higher than the dry-run estimate ($0.0055 vs $0.0026) — output_tokens average is ~1040, consistent with the 6-category JSON response shape.
+- Projected total: ~$5.40, well under the $30 monthly budget.
+
+**Commits this push:** 5 — max_tokens fix, ego-network, next/font, coverage pill, FRONTEND_PLAN+docs update.
+
+**Cost incurred:** Anthropic scoring ~$1.30 to date.
+
+---

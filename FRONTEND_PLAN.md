@@ -143,10 +143,16 @@ Replace synthetic fields one-by-one with real adapters.
   per niche bucket, `outcome_labels.csv` is all-positive and baseline
   comparisons can't distinguish frameworks. Synthetic baselines
   retained as a placeholder.
-- [ ] C.5 KG loader — `analysis/build_graph.py` + `kg_features.py`
-  exist but `graph.pkl` / `kg_features.parquet` are stubs. Need a run
-  pass after scoring stabilises. Will populate `egoFor()` from
-  `/api/founder/{id}.kg_features` (currently `{}`).
+- [~] C.5 KG loader — frontend `egoFor()` synthesises 1-hop graphs from
+  cached signals (no graph.pkl pass required). The server-side graph IS
+  now real, though: `analysis/build_graph.py` produces a 410-node /
+  13.3k-edge KG against scored signals; `analysis/kg_features.py`
+  populates per-person degree-centrality, clustering, topic diversity
+  in `kg_features.parquet`. `/api/founder/{id}` now returns
+  `partial: false` for any founder with scored signals. Wiring those
+  server-side KG features into the View 3 ego-network is a future
+  improvement; the current client-side graph already shows the same
+  underlying data structure.
 - [x] C.6 Signals loader (partial) — `signalsFor()` reads from the
   per-founder cache populated at `loadRealSource()` time. Each scored
   signal is mapped to `SignalEvidence` via `pickDominantDim()` (the
