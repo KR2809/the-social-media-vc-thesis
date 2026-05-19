@@ -23,10 +23,17 @@
 // back to synthetic. As the scoring backend completes more rows, the
 // next page reload picks up richer signal evidence with no code change.
 //
+// Phase C.5 partial (KG loader): egoFor() synthesises a per-founder
+// 1-hop ego graph from the same cached signals — nodes = founder + top
+// 5 signals + their s6_topic_label topics + platforms; edges weighted
+// by overall_signal_strength. Once analysis/build_graph.py produces a
+// populated graph.pkl + kg_features.parquet, we'll swap this for the
+// server-side graph; until then this is a faithful client-side view of
+// the same data the scorer produces.
+//
 // What's still synthetic (deliberately — separate C.* phases):
 //   * baselineRandom/Volume/Recency    (C.4 baselines — blocked on negs)
 //   * precisionAt                      (C.4 — blocked on negs)
-//   * egoFor                           (C.5 KG loader)
 //   * paletteFor / taxonomy            (UI helpers, not swappable)
 //
 // On fetch failure (FastAPI not running, network error, bad shape) this
@@ -37,8 +44,11 @@ import { syntheticSource } from "./synthetic";
 import type {
   BaselinePick,
   DataSource,
+  EgoNetwork,
   Founder,
   FounderId,
+  KGEdge,
+  KGNode,
   Outcome,
   PrecisionResult,
   RankedPick,
@@ -419,6 +429,84 @@ function buildHybridSource(
     return filtered.slice(0, 5).map((row, i) => mapScoredSignal(row, i));
   }
 
+  // ────────────────────────────── C.5 partial ──────────────────────────────
+  // Real ego-network from cached scored signals. Until analysis/build_graph.py
+  // produces a populated graph.pkl + kg_features.parquet, we synthesise a
+  // 1-hop ego graph on the fly:
+  //   nodes:  founder F, top-5 signals (by overall_signal_strength),
+  //           up to 4 topics (s6_topic_label clusters), platforms touched
+  //   edges:  F → each signal (weight = strength)
+  //           signal → its topic
+  //           signal → its platform
+  //
+  // For founders without scored data, fall back to synthetic so the
+  // ego-network panel never goes blank.
+  function realEgoFor(founderId: FounderId): EgoNetwork {
+    const cached = signalsByFounder.get(founderId);
+    const f = foundersById.get(founderId);
+    if (!cached || cached.length === 0 || !f) {
+      return syntheticSource.egoFor(founderId);
+    }
+    // Take the top-N strongest signals to keep the graph readable.
+    const ranked = [...cached].sort(
+      (a, b) => b.overall_signal_strength - a.overall_signal_strength,
+    );
+    const sigs = ranked.slice(0, 5);
+
+    const center: KGNode = { id: "F", kind: "founder", label: f.name };
+    const sigNodes: KGNode[] = sigs.map((s, i) => {
+      const { dim } = pickDominantDim(s);
+      return {
+        id: `S${i}`,
+        kind: "signal",
+        label: dim.split(".")[0], // "S1" / "S4" / ... short label
+        weight: s.overall_signal_strength,
+      };
+    });
+
+    // Topic nodes: dedup by s6_topic_label across the picked signals.
+    // Truncate labels so the graph remains visually compact.
+    const topicMap = new Map<string, KGNode>();
+    sigs.forEach((s, i) => {
+      const raw = (s.s6_topic_label ?? "").trim();
+      if (!raw) return;
+      const truncated = raw.length > 22 ? raw.slice(0, 20) + "…" : raw;
+      if (!topicMap.has(truncated)) {
+        topicMap.set(truncated, { id: `T${topicMap.size}`, kind: "topic", label: truncated });
+      }
+      // tag the signal's topic node id for the edge pass below
+      (sigNodes[i] as KGNode & { _topicId?: string })._topicId = topicMap.get(truncated)!.id;
+    });
+    const topicNodes = Array.from(topicMap.values());
+
+    // Platform nodes: dedup by platform name.
+    const platformMap = new Map<string, KGNode>();
+    sigs.forEach((s, i) => {
+      const p = (s.platform ?? "unknown").toLowerCase();
+      // Short label for the graph chip.
+      const short = p === "hackernews" ? "HN" : p === "twitter" ? "X" : p === "reddit" ? "RD" : p === "youtube" ? "YT" : p.slice(0, 3).toUpperCase();
+      if (!platformMap.has(p)) {
+        platformMap.set(p, { id: `P${platformMap.size}`, kind: "platform", label: short });
+      }
+      (sigNodes[i] as KGNode & { _platformId?: string })._platformId = platformMap.get(p)!.id;
+    });
+    const platformNodes = Array.from(platformMap.values());
+
+    const edges: KGEdge[] = [];
+    sigNodes.forEach((sNode, i) => {
+      edges.push({ a: "F", b: sNode.id, w: sigs[i].overall_signal_strength });
+      const tid = (sNode as KGNode & { _topicId?: string })._topicId;
+      if (tid) edges.push({ a: sNode.id, b: tid, w: 0.6 });
+      const pid = (sNode as KGNode & { _platformId?: string })._platformId;
+      if (pid) edges.push({ a: sNode.id, b: pid, w: 0.4 });
+    });
+
+    return {
+      nodes: [center, ...sigNodes, ...topicNodes, ...platformNodes],
+      edges,
+    };
+  }
+
   return {
     source: "hybrid",
     today,
@@ -438,8 +526,9 @@ function buildHybridSource(
     precisionAt,
     bootCI: syntheticSource.bootCI,
     signalsFor,
-    // TODO(phase-c.5): swap in real KG ego-network per founder.
-    egoFor: syntheticSource.egoFor,
+    // C.5 partial: ego-network synthesised from cached signals (no
+    // graph.pkl pass needed). Falls back to synthetic when no signals.
+    egoFor: realEgoFor,
     paletteFor: syntheticSource.paletteFor,
   };
 }

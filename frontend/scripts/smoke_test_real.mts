@@ -188,6 +188,28 @@ __resetRealSourceCacheForTests();
   const sigsMarcLou = src.signalsFor("marclou", tLate);
   assert(sigsMarcLou.length > 0, `signalsFor(marclou) falls back to synthetic (got ${sigsMarcLou.length} signals)`);
 
+  // C.5 partial: egoFor builds a real KG from cached signals when present,
+  // falls back to synthetic when not.
+  const ego = src.egoFor("levelsio");
+  const founderNode = ego.nodes.find((n) => n.kind === "founder");
+  assert(founderNode?.label === "Pieter Levels", `egoFor center labels founder name (got ${JSON.stringify(founderNode)})`);
+  const sigNodes = ego.nodes.filter((n) => n.kind === "signal");
+  assert(sigNodes.length === 2, `egoFor includes 2 signal nodes (one per cached signal; got ${sigNodes.length})`);
+  const topicNodes = ego.nodes.filter((n) => n.kind === "topic");
+  assert(topicNodes.length === 2, `egoFor extracts 2 distinct topics (12 startups…, Indie hacker movement; got ${topicNodes.length})`);
+  const platformNodes = ego.nodes.filter((n) => n.kind === "platform");
+  assert(
+    platformNodes.length === 2 && platformNodes.some((n) => n.label === "HN") && platformNodes.some((n) => n.label === "X"),
+    `egoFor maps platforms hackernews+twitter → HN, X (got ${JSON.stringify(platformNodes.map(n => n.label))})`,
+  );
+  // Center → each signal edge weighted by overall_signal_strength.
+  const fEdges = ego.edges.filter((e) => e.a === "F");
+  assert(fEdges.length === 2, `2 founder→signal edges (got ${fEdges.length})`);
+  assert(
+    fEdges.some((e) => Math.abs(e.w - 0.82) < 0.001) && fEdges.some((e) => Math.abs(e.w - 0.71) < 0.001),
+    `edge weights match signal strengths (got ${fEdges.map(e => e.w).join(", ")})`,
+  );
+
   restore();
 }
 
