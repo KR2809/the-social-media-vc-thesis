@@ -34,6 +34,7 @@ import csv
 import json
 import logging
 import re
+import time
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -51,7 +52,12 @@ from ingestion.producthunt_collect import (
     _require_tokens,
     rate_limit_state,
 )
-from ingestion.twitter_collect import _CDX_ENDPOINT, _rate_limited_get
+from ingestion.twitter_collect import _CDX_ENDPOINT
+
+# Politeness sleep between Wayback CDX hits — 1 req/s is well below their
+# published limit. We use this directly (not via tenacity) so failures fail
+# fast instead of blowing the per-call budget on backoff.
+_WAYBACK_POLITENESS_SEC = 1.0
 
 logger = logging.getLogger(__name__)
 
@@ -426,7 +432,7 @@ def _launch_window_to_wayback_range(launch: date) -> tuple[date, date]:
 # get the real product URL before any CDX lookup. Results are cached.
 # ---------------------------------------------------------------------------
 
-_REDIRECT_TIMEOUT_SEC = 15
+_REDIRECT_TIMEOUT_SEC = 8
 
 
 def _resolve_ph_redirect(url: str, *, _session: requests.Session | None = None) -> str | None:
@@ -546,14 +552,26 @@ def _normalize_url_for_wayback(url: str) -> str | None:
     return u or None
 
 
+# Wayback CDX is the picker tool's slowest dependency. We deliberately use a
+# fail-fast policy here:
+#   - 25s hard timeout per call (Wayback often returns in 1-5s; calls that
+#     take longer are usually broken proxies on their side, not slow data).
+#   - No tenacity retries. A failed CDX call yields "no_wayback_data" for
+#     that candidate; the picker can rerun with `--refresh-wayback` if they
+#     want to retry only the failures later. This is much better than
+#     burning 14+ seconds × N candidates on retries that mostly never recover.
+#   - Polite 1s rate-limit between calls (kept from the shared helper).
+_CDX_HARD_TIMEOUT_SEC = 25
+
+
 def _fetch_cdx_for_website(
     website_url: str, start: date, end: date
 ) -> list[str]:
     """Return Wayback timestamps for `website_url` in [start, end).
 
-    Short-circuits on SSL/access errors so we don't burn the tenacity retry
-    budget — Wayback denies archiving of some hosts (e.g. PH /r/* redirects)
-    and the error is permanent for that URL.
+    Fail-fast: a single attempt, 25s timeout, no retries. Errors (SSL,
+    timeout, 5xx, malformed JSON) all yield an empty list so the caller
+    classifies the website as `no_wayback_data` and moves on.
     """
     normalized = _normalize_url_for_wayback(website_url)
     if not normalized:
@@ -566,18 +584,22 @@ def _fetch_cdx_for_website(
         "limit": "200",
         "filter": "statuscode:200",
     }
+    # Politeness sleep (matches the shared helper's behaviour) without the
+    # tenacity retry chain that makes failures expensive.
+    time.sleep(_WAYBACK_POLITENESS_SEC)
     try:
-        r = _rate_limited_get(_CDX_ENDPOINT, params=params, timeout=120)
+        r = requests.get(_CDX_ENDPOINT, params=params, timeout=_CDX_HARD_TIMEOUT_SEC)
+        r.raise_for_status()
     except requests.exceptions.SSLError as exc:
         logger.debug("CDX SSL-denied for %s: %s", website_url, exc)
         return []
     except requests.RequestException as exc:
-        logger.warning("CDX request failed for %s: %s", website_url, exc)
+        logger.debug("CDX failed (fail-fast) for %s: %s", website_url, exc)
         return []
     try:
         rows = r.json()
-    except json.JSONDecodeError:
-        logger.warning("CDX returned non-JSON for %s", website_url)
+    except (json.JSONDecodeError, ValueError):
+        logger.debug("CDX returned non-JSON for %s", website_url)
         return []
     if not rows or len(rows) < 2:
         return []
@@ -1094,6 +1116,18 @@ def main(
         logger.info("  → %d candidates → %s", len(rows), out_path)
         summary.append((niche_slug, len(rows), str(out_path)))
 
+        # Persist caches AFTER each niche so a kill / crash / Ctrl+C mid-run
+        # doesn't lose the (expensive) Wayback + PH lookups we already did.
+        _save_wayback_cache(wayback_cache)
+        _save_ph_cache(ph_cache)
+        # Flush log handlers so a `tail -f` of the output sees progress lines
+        # in real time, not just at process exit.
+        for h in logging.getLogger().handlers:
+            h.flush()
+        import sys as _sys
+        _sys.stdout.flush()
+
+    # Final save (no-op after the last incremental save, but cheap).
     _save_wayback_cache(wayback_cache)
     _save_ph_cache(ph_cache)
 
