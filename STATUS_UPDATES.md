@@ -1332,3 +1332,37 @@ script each pass.
 **Cost incurred:** $0. Zero Anthropic API calls.
 
 ---
+
+## 2026-05-20 09:30 — Full --niche all sweep completed; B2.a (rate-limit blocker) closed
+
+**What I did:**
+- Ran `python scripts/find_negative_peer_candidates.py --niche all` end-to-end after the hardening pass. Runtime: ~30 min cold. Token budget: 18% used (5150 of 6250 remaining at end of run). Caches now persist incrementally after every niche so a Ctrl+C / crash / kill mid-sweep never re-spends API budget.
+- Produced **283 candidate rows** across 12 of 15 PH-applicable niches. 12 of the 15 niches hit the `--max-candidates 25` cap or close to it; 3 niches returned 0 rows (the newsletter ones — Substack-native, expected).
+- Wayback-status distribution: 183 `gone` (likely abandoned, no archive), 72 `no_wayback_data` (PH /r/ redirect didn't resolve), 8 `live`, **6 `dormant`** (the strongest negative-peer signal — archived early then disappeared by 18-30mo post-launch).
+- Outcome-class-guess distribution: 189 `abandoned`, 80 `low_traction`. 0 candidates have an X handle linked from PH (`public_signals_available=False` across the board) — PH makers rarely fill the Twitter field; the picker should pivot to the `maker_handle_ph` column + the PH profile link to find handles.
+- Added two more durability fixes that emerged from the sweep (commit `6ffd20a` on PR #5):
+  - **Wayback CDX fail-fast**: replaced the shared `_rate_limited_get` (3× tenacity retries with up-to-14s backoff) with a single `requests.get` at a 25s hard timeout. Failures yield `no_wayback_data` immediately instead of blocking the niche for minutes. PH redirect HEAD timeout also dropped from 15s to 8s.
+  - **Incremental cache saves**: `_save_wayback_cache` + `_save_ph_cache` now run after each niche, not just at end-of-run. Combined with logger flushing, `tail -f` of the output now shows live progress.
+- Wrote `data/interim/negative_peer_candidates/README.md` documenting the per-niche counts, the 7 niches that need Perplexity instead of PH (3 newsletter + 4 research-Substack), the picker workflow, and how to refresh the caches.
+
+**Decisions made:**
+- **Wayback fail-fast over retry.** A flaky CDX endpoint that retries 3× with 2/4/8s backoff can hold a niche hostage for minutes. With fail-fast, a failure for one candidate doesn't bleed into the next 24. The picker can use `--refresh-wayback` to retry just the failures on a follow-up run when CDX is less flaky.
+- **Incremental cache saves are non-negotiable for any sweep that takes more than ~5 min.** First sweep wasted ~10 min of Wayback lookups when I killed it mid-niche-2. Now every niche's expensive work is durable.
+- **0 X handles in CSVs is a feature, not a bug.** PH's `twitterUsername` is rarely populated by makers. The CSV still has `maker_handle_ph`, which is enough — picker opens the PH profile page and finds the X handle one click away. Documented this in the candidates folder README so it doesn't surprise Kris.
+
+**Blockers (status update):**
+- **B2.a — rate-limit headroom for the sweep** → **CLOSED** ✅. Tool ran end-to-end, used 18% of budget, all caches persist on disk, re-runs are <2 sec.
+- **B2.b — Kris hand-picks 3 candidates per niche** → still open. ~3 hours of researcher judgement work across 15 PH niches (12 with CSVs, 3 needing Perplexity for newsletters) + 4 research-Substack niches via Perplexity. After B2.b: B2 closed, eval/backtest/allocation/May-31 lock all unblocked.
+
+**Next steps:**
+- Kris: open `data/interim/negative_peer_candidates/README.md`, then pick 3 candidates per CSV (sort ascending by upvotes already done; lead with `dormant` and `gone` rows). Fill `scripts/register_negative_peers.py` per the spec there.
+- Kris: run the 7-niche Perplexity sweep (3 newsletter + 4 research-Substack) using the prompt template in `AI_DELEGATION_PLAYBOOK.md` §1.5b. Save outputs to `04_RETROSPECTIVE_CASES/perplexity_runs/`.
+- Once ≥15 peers registered: `python pipeline.py seed-labels eval backtest allocate` → B2 closes.
+
+**Files changed (this session):**
+- `scripts/find_negative_peer_candidates.py` (Wayback fail-fast + incremental cache saves + logger flush)
+- `data/interim/negative_peer_candidates/README.md` (new, sweep-results doc — gitignored folder, local only)
+
+**Cost incurred:** $0. Zero Anthropic API calls.
+
+---
