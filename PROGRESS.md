@@ -281,7 +281,8 @@ budget-guard plumbing is verified via mocked token counts.
 | # | Blocker | Owner | Unblocks |
 |---|---|---|---|
 | B1 | `ANTHROPIC_API_KEY` in `.env` | Kris | First real LLM scoring run (~$1.50, well under the $30 budget) |
-| B2 | Negative-peer registrations via `ingestion.negative_peers.register_peer()` | Kris | eval, backtest, allocation, May-31 lock — all require ≥1 negative to fit |
+| B2.a | ~~Candidate-longlist tool hits PH rate-limits~~ — **CLOSED 2026-05-20**. `scripts/find_negative_peer_candidates.py` produced 283 candidates across 12/15 PH niches in 30 min using 18% of the PH budget; caches persist incrementally on disk. CSVs sit in `data/interim/negative_peer_candidates/` (see folder README). | — | — |
+| B2.b | Kris hand-picks 3 candidates per niche from the CSVs + runs the 7-niche Perplexity sweep for newsletter / research-Substack niches that don't launch on PH | Kris (~3h) | eval, backtest, allocation, May-31 lock — all require ≥1 negative to fit |
 | B3 | Reddit + ProductHunt API credentials | Kris | Re-running the cohort sweep with these roughly doubles per-founder data coverage |
 | B4 | YouTube channel-ID overrides for cohort (most aren't YouTube-first) | Kris | YouTube coverage in the KG |
 | B5 | Twitter Wayback density sweep | CC, manual | X coverage gap for pre-2023 cases |

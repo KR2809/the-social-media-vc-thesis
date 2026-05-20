@@ -1260,3 +1260,109 @@ script each pass.
 - Anthropic scoring run: **$5.45 USD**. Well under the $30 monthly cap.
 
 ---
+
+## 2026-05-19 21:30 — B2 tooling: negative-peer candidate longlist generator
+
+**What I did:**
+- Built `scripts/find_negative_peer_candidates.py` — a CLI tool that surfaces 15–25 PH launches per niche/quarter bucket, ranked by least engagement first, with Wayback dormancy flags. Output is one CSV per niche in `data/interim/negative_peer_candidates/<niche-slug>.csv` for Kris to hand-pick 3 per niche into `register_negative_peers.py`.
+- Hard-coded the niche → PH-topic mapping at the top of the file: 15 PH-applicable niches (each with a rationale + `requires_review` flag where the mapping is fuzzy) + 4 research-Substack niches explicitly marked out-of-scope (the tool logs an info message and skips them; Perplexity is the right tool for those, see new `AI_DELEGATION_PLAYBOOK.md` §1.5b).
+- Added `tests/test_find_negative_peer_candidates.py` — 33 unit tests covering mapping exhaustiveness, positives-cohort exclusion, the 4 Wayback paths (live / dormant / gone / no_wayback_data), the `candidate_outcome_class_guess` decision tree, CSV schema integrity, idempotency cache, redirect resolution, and the `--max-candidates` cap.
+- Documented usage in `scripts/README.md` § Negative-peer candidate-sourcing tool and added a Perplexity prompt template in `AI_DELEGATION_PLAYBOOK.md` §1.5b for the 4 Substack niches.
+
+**Decisions made:**
+- **Reuse, don't reimplement.** The PH GraphQL client (`ingestion.producthunt_collect._gql`) and Wayback CDX helpers (`ingestion.twitter_collect._rate_limited_get` + `_CDX_ENDPOINT`) are imported directly. Per the prompt: "no LLM calls, deterministic API stitching."
+- **PH-tracking-URL resolution.** PH's GraphQL `website` field returns a `producthunt.com/r/<id>?utm_*` tracking redirect. Wayback denies archiving of PH /r/* paths (SSL access denied). The tool follows the redirect with a `HEAD` request once and caches the resolved URL; only then queries Wayback. This was a surprise from the first smoke run.
+- **Single Wayback CDX query per candidate**, bucketing snapshots in-memory across the launch → launch+30mo window — 2× faster than my first cut which queried pre-window and in-window separately.
+- **`--max-candidates` cap (default 25).** Dense topics (developer-tools, marketing) return hundreds of posts per quarter; the spec asks for 15–25 per niche, and the cap also keeps the all-15-niches sweep target of <5 minutes realistic.
+- **Idempotent cache.** Wayback responses + PH-redirect resolutions live in `data/interim/negative_peer_candidates/.wayback_cache.json`; re-runs are near-instant unless `--refresh-wayback` is passed.
+- **Never auto-fills the canvas.** The tool only writes CSVs; `register_negative_peers.py` is untouched. Picking remains researcher judgement per DECISION_LOG iter-6.
+
+**Blockers:**
+- **PH dev token rate-limited (429) during smoke.** My session's PH GraphQL hourly budget was exhausted by an earlier slow run before I optimised the redirect step. The tool ran end-to-end on `dev-tooling-boilerplate` and `testimonials-social-proof` after the optimisation — both wrote schema-correct CSVs but with 0 data rows because every PH GraphQL call returned 429. **Kris: wait for the PH dev-token quota to reset (typically hourly), then run `python scripts/find_negative_peer_candidates.py --niche all`. Expected runtime: ~3 minutes if the cache is cold, ~30 seconds warm.** The script is correct; the 0-row output is purely an external rate-limit, not a code bug.
+- If a niche genuinely has zero PH candidates under <100 upvotes after the rate-limit resets, raise `--max-upvotes` to 200, or for newsletter / solo-creator niches (already flagged `requires_review=True` in the mapping) fall back to Perplexity per `AI_DELEGATION_PLAYBOOK.md` §1.5b.
+
+**Next steps:**
+- Kris: wait for PH rate-limit reset, then run the tool, hand-pick 3 candidates per niche, fill `register_negative_peers.py`, and run `python scripts/register_negative_peers.py` to register them. Once ≥15 peers, the B2 blocker in `PROGRESS.md` §5 clears.
+- Kris: spot-check 2–3 rows per CSV by hand (open the PH URL, verify upvote count, check Wayback status).
+
+**Files changed:**
+- `scripts/find_negative_peer_candidates.py` (new, ~600 lines)
+- `tests/test_find_negative_peer_candidates.py` (new, 33 tests)
+- `scripts/README.md` (added § Negative-peer candidate-sourcing tool)
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/AI_DELEGATION_PLAYBOOK.md` (added §1.5b — Perplexity prompt for research-Substack negative-peer sourcing)
+
+**Cost incurred:** $0. Zero Anthropic API calls. PH dev token + public Wayback only.
+
+---
+
+## 2026-05-20 01:30 — PH rate-limit hardening pass (PR #5 follow-up)
+
+**What I did:**
+- Hardened the B2 candidate-sourcing tool against PH rate-limiting in four pieces, all on the same PR #5 branch. The picker workflow is now resumable, observable, and idempotent: hitting a 429 is a no-op the next time you run the tool.
+- **Piece 1 — header-aware rate-limit governor** in `ingestion/producthunt_collect._gql`: parses PH's `X-Rate-Limit-{Limit,Remaining,Reset}` on every response, stores per-token state in a module-level `_RATE_LIMIT_BY_TOKEN` dict, self-throttles before crossing the floor (default 200 points remaining), and raises a new non-retryable `ProductHuntRateLimitedError(reset_seconds)` on actual 429s. Removed 429 from tenacity's retry set — retrying a 429 just burns more quota.
+- **Piece 2 — trim GraphQL query + page cap**: dropped `topics(first:10)`, `name`, `tagline`, `commentsCount`, `makers.id` from `_POSTS_BY_TOPIC_QUERY` (~30-40% complexity reduction). Added `_max_pages_for_cap(max_candidates)` so dense topics no longer paginate forever — `_iter_posts_by_topic` now stops at the smaller of `max_pages` or `hasNextPage=False`. Also handles `ProductHuntRateLimitedError` mid-fetch: sleeps once for the reset window, retries the same page exactly once, then bails (without polluting the cache).
+- **Piece 3 — persistent PH response cache**: new `_iter_posts_by_topic_cached` wrapper persists `(topic, start, end) → list[post]` to `data/interim/negative_peer_candidates/.ph_cache.json`. `_iter_posts_by_topic` now returns `(posts, complete)` so the cache only stores clean completions; partial fetches after a 429 are visible to the current run but never cached. New CLI flag `--refresh-ph` parallels `--refresh-wayback`.
+- **Piece 4 — optional dual-token round-robin**: `_require_tokens()` returns a list (primary + optional secondary from `PRODUCTHUNT_DEV_TOKEN_2`). `_pick_token()` picks the token with the most observed headroom (untouched tokens are preferred). `_require_token()` kept as a thin shim so `collect_producthunt` stays backward-compatible.
+- **Docs**: `scripts/README.md` got a new "Repeatable workflow (rate-limit-safe)" section covering cold-start, iterate, refresh, 429-recovery, quota observability, dual-token boost, and cache-invalidation rules. `.env.example` documents the optional 2nd token. New `DECISION_LOG.md` Iteration 16 captures the rationale.
+- **Tests**: 22 new unit tests across `test_producthunt_collect.py` (10) and `test_find_negative_peer_candidates.py` (12). Total now 54 in the two files combined; full suite 217 pass, 3 pre-existing `test_api.py` failures unrelated to this work.
+
+**Decisions made:**
+- **Cache on clean completions only.** The `(posts, complete)` tuple lets the cache wrapper distinguish "we fetched everything for this window" from "we bailed early on a transient error". Partial-fetch results are returned to the caller for this run, but never written to disk — so the next run re-fetches just the missing windows. Important for honesty: a partial cache that looks complete would silently corrupt the candidate longlist.
+- **Self-throttle floor at 200 remaining points.** PH's 15-min budget is 6,250 points; 200 is ~3% headroom — enough to absorb one big query, small enough not to waste budget waiting. Tunable via `_RATE_LIMIT_FLOOR` if needed.
+- **Token state is module-level, not per-call.** Lets the rate-limit governor learn across the full run; the dual-token round-robin reads the same state to pick the better token. Acceptable singleton: this script is a one-shot CLI, not a long-running service.
+- **No offline topic dumps.** Considered as Option 7 — pre-fetch full topic dumps overnight and serve the tool from disk. Decided against: the cache (Piece 3) plus header-aware throttling (Piece 1) already make rate-limiting a non-issue at picker-workflow scale. The dump option stays available if Kris ever needs it for a much larger sweep.
+
+**Blockers:**
+- PH dev token may still be in the 429 backoff window from the earlier debugging session today. **Kris: wait until the bucket resets (≤15 min from the last 429), then re-run.** First clean run will populate the cache; subsequent runs are near-instant.
+
+**Next steps:**
+- Smoke-test the hardened tool against the live PH API once the token quota resets (still attempting tonight; if it works, will commit the smoke output evidence to the PR).
+- After picker workflow succeeds: Kris hand-picks 3 per niche × 15 niches = 45 PH picks, plus 3 × 4 = 12 Perplexity picks for Substack niches, fills `register_negative_peers.py`, runs it, and B2 closes.
+- Unblocked pipeline: `python pipeline.py seed-labels eval backtest allocate`.
+
+**Files changed (this session):**
+- `ingestion/producthunt_collect.py` (rate-limit governor + dual-token support + `ProductHuntRateLimitedError`)
+- `tests/test_producthunt_collect.py` (10 new tests for governor + token round-robin)
+- `scripts/find_negative_peer_candidates.py` (trimmed query, page cap, PH cache, `_iter_posts_by_topic_cached`, observability prints in `main`)
+- `tests/test_find_negative_peer_candidates.py` (12 new tests for cache + page cap + 429 retry path)
+- `scripts/README.md` (new "Repeatable workflow (rate-limit-safe)" section)
+- `.env.example` (documents optional `PRODUCTHUNT_DEV_TOKEN_2`)
+- `~/Documents/Claude/Projects/Thesis/00_PLANNING/DECISION_LOG.md` (Iteration 16 entry)
+
+**Cost incurred:** $0. Zero Anthropic API calls.
+
+---
+
+## 2026-05-20 09:30 — Full --niche all sweep completed; B2.a (rate-limit blocker) closed
+
+**What I did:**
+- Ran `python scripts/find_negative_peer_candidates.py --niche all` end-to-end after the hardening pass. Runtime: ~30 min cold. Token budget: 18% used (5150 of 6250 remaining at end of run). Caches now persist incrementally after every niche so a Ctrl+C / crash / kill mid-sweep never re-spends API budget.
+- Produced **283 candidate rows** across 12 of 15 PH-applicable niches. 12 of the 15 niches hit the `--max-candidates 25` cap or close to it; 3 niches returned 0 rows (the newsletter ones — Substack-native, expected).
+- Wayback-status distribution: 183 `gone` (likely abandoned, no archive), 72 `no_wayback_data` (PH /r/ redirect didn't resolve), 8 `live`, **6 `dormant`** (the strongest negative-peer signal — archived early then disappeared by 18-30mo post-launch).
+- Outcome-class-guess distribution: 189 `abandoned`, 80 `low_traction`. 0 candidates have an X handle linked from PH (`public_signals_available=False` across the board) — PH makers rarely fill the Twitter field; the picker should pivot to the `maker_handle_ph` column + the PH profile link to find handles.
+- Added two more durability fixes that emerged from the sweep (commit `6ffd20a` on PR #5):
+  - **Wayback CDX fail-fast**: replaced the shared `_rate_limited_get` (3× tenacity retries with up-to-14s backoff) with a single `requests.get` at a 25s hard timeout. Failures yield `no_wayback_data` immediately instead of blocking the niche for minutes. PH redirect HEAD timeout also dropped from 15s to 8s.
+  - **Incremental cache saves**: `_save_wayback_cache` + `_save_ph_cache` now run after each niche, not just at end-of-run. Combined with logger flushing, `tail -f` of the output now shows live progress.
+- Wrote `data/interim/negative_peer_candidates/README.md` documenting the per-niche counts, the 7 niches that need Perplexity instead of PH (3 newsletter + 4 research-Substack), the picker workflow, and how to refresh the caches.
+
+**Decisions made:**
+- **Wayback fail-fast over retry.** A flaky CDX endpoint that retries 3× with 2/4/8s backoff can hold a niche hostage for minutes. With fail-fast, a failure for one candidate doesn't bleed into the next 24. The picker can use `--refresh-wayback` to retry just the failures on a follow-up run when CDX is less flaky.
+- **Incremental cache saves are non-negotiable for any sweep that takes more than ~5 min.** First sweep wasted ~10 min of Wayback lookups when I killed it mid-niche-2. Now every niche's expensive work is durable.
+- **0 X handles in CSVs is a feature, not a bug.** PH's `twitterUsername` is rarely populated by makers. The CSV still has `maker_handle_ph`, which is enough — picker opens the PH profile page and finds the X handle one click away. Documented this in the candidates folder README so it doesn't surprise Kris.
+
+**Blockers (status update):**
+- **B2.a — rate-limit headroom for the sweep** → **CLOSED** ✅. Tool ran end-to-end, used 18% of budget, all caches persist on disk, re-runs are <2 sec.
+- **B2.b — Kris hand-picks 3 candidates per niche** → still open. ~3 hours of researcher judgement work across 15 PH niches (12 with CSVs, 3 needing Perplexity for newsletters) + 4 research-Substack niches via Perplexity. After B2.b: B2 closed, eval/backtest/allocation/May-31 lock all unblocked.
+
+**Next steps:**
+- Kris: open `data/interim/negative_peer_candidates/README.md`, then pick 3 candidates per CSV (sort ascending by upvotes already done; lead with `dormant` and `gone` rows). Fill `scripts/register_negative_peers.py` per the spec there.
+- Kris: run the 7-niche Perplexity sweep (3 newsletter + 4 research-Substack) using the prompt template in `AI_DELEGATION_PLAYBOOK.md` §1.5b. Save outputs to `04_RETROSPECTIVE_CASES/perplexity_runs/`.
+- Once ≥15 peers registered: `python pipeline.py seed-labels eval backtest allocate` → B2 closes.
+
+**Files changed (this session):**
+- `scripts/find_negative_peer_candidates.py` (Wayback fail-fast + incremental cache saves + logger flush)
+- `data/interim/negative_peer_candidates/README.md` (new, sweep-results doc — gitignored folder, local only)
+
+**Cost incurred:** $0. Zero Anthropic API calls.
+
+---

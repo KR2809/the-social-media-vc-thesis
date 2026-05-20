@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import logging
 import os
+import time
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -42,9 +44,68 @@ _GQL_ENDPOINT = "https://api.producthunt.com/v2/api/graphql"
 _TIMEOUT_SEC = 30
 _PAGE_SIZE = 50
 
+# PH dev tokens get 6,250 complexity points per 15-minute window. When the
+# remaining budget falls below this threshold, gate the next call until the
+# window resets — self-throttling so we never actually hit 429.
+_RATE_LIMIT_FLOOR = 200
+# Headers returned on every PH GraphQL response.
+_HEADER_LIMIT = "X-Rate-Limit-Limit"
+_HEADER_REMAINING = "X-Rate-Limit-Remaining"
+_HEADER_RESET = "X-Rate-Limit-Reset"
+
 
 class ProductHuntAuthError(RuntimeError):
     """PRODUCTHUNT_DEV_TOKEN missing or rejected."""
+
+
+class ProductHuntRateLimitedError(RuntimeError):
+    """PH returned 429. The `reset_seconds` attribute carries the retry-after.
+
+    Deliberately NOT a subclass of HTTPError — that's what tenacity retries on,
+    and retrying a 429 burns more budget for nothing. Callers should catch this
+    explicitly, sleep, and try again from the top.
+    """
+
+    def __init__(self, reset_seconds: int) -> None:
+        self.reset_seconds = max(reset_seconds, 1)
+        super().__init__(
+            f"PH GraphQL rate-limited; reset in ~{self.reset_seconds}s"
+        )
+
+
+@dataclass
+class _RateLimitState:
+    """Latest rate-limit headers parsed from a PH response, per token."""
+
+    limit: int = 6250
+    remaining: int = 6250
+    reset_at_epoch: float = 0.0
+    last_seen_epoch: float = 0.0
+
+    def parse_response(self, resp: requests.Response, now: float) -> None:
+        try:
+            self.limit = int(resp.headers.get(_HEADER_LIMIT, self.limit))
+            self.remaining = int(resp.headers.get(_HEADER_REMAINING, self.remaining))
+            reset_in = int(resp.headers.get(_HEADER_RESET, 0))
+            if reset_in > 0:
+                self.reset_at_epoch = now + reset_in
+        except (TypeError, ValueError):
+            # Headers absent or malformed — leave state as-is.
+            pass
+        self.last_seen_epoch = now
+
+    def seconds_until_reset(self, now: float) -> int:
+        return max(int(self.reset_at_epoch - now), 0)
+
+
+# Module-level rate-limit state keyed by token string. Per-token, so the dual-
+# token round-robin can pick whichever has more headroom.
+_RATE_LIMIT_BY_TOKEN: dict[str, _RateLimitState] = {}
+
+
+def rate_limit_state(token: str) -> _RateLimitState:
+    """Public accessor — used by tests + observability prints in CLIs."""
+    return _RATE_LIMIT_BY_TOKEN.setdefault(token, _RateLimitState())
 
 
 _MADE_POSTS_QUERY = """
@@ -96,24 +157,82 @@ query MadeComments($username: String!, $after: String) {
 """
 
 
-def _require_token() -> str:
+def _require_tokens() -> list[str]:
+    """Return all configured PH dev tokens (primary + optional secondary).
+
+    Reads `PRODUCTHUNT_DEV_TOKEN` (required) and `PRODUCTHUNT_DEV_TOKEN_2`
+    (optional). A second token doubles the per-15-minute complexity budget
+    when the candidate-longlist tool round-robins between them.
+    """
     # override=True: see note in youtube_collect._require_api_key.
     load_dotenv(override=True)
-    tok = os.environ.get("PRODUCTHUNT_DEV_TOKEN")
-    if not tok:
+    primary = os.environ.get("PRODUCTHUNT_DEV_TOKEN")
+    if not primary:
         raise ProductHuntAuthError(
             "PRODUCTHUNT_DEV_TOKEN missing — populate .env from .env.example."
         )
-    return tok
+    tokens = [primary]
+    secondary = os.environ.get("PRODUCTHUNT_DEV_TOKEN_2")
+    if secondary:
+        tokens.append(secondary)
+    return tokens
+
+
+def _require_token() -> str:
+    """Back-compat shim for callers that don't care about the second token."""
+    return _require_tokens()[0]
+
+
+def _pick_token(tokens: list[str], now: float | None = None) -> str:
+    """Pick the token with the most remaining budget.
+
+    Ties broken in favour of the first token (primary), so single-token
+    callers behave identically to before.
+    """
+    if len(tokens) == 1:
+        return tokens[0]
+    now = now if now is not None else time.time()
+    return max(
+        tokens,
+        key=lambda t: rate_limit_state(t).remaining
+        if rate_limit_state(t).last_seen_epoch > 0
+        else 10**9,  # untouched tokens look "fresh" — try them first
+    )
+
+
+def _gate_before_call(token: str) -> None:
+    """If the token's remaining budget is below floor, sleep until reset.
+
+    Self-throttle so we never actually hit 429.
+    """
+    state = rate_limit_state(token)
+    now = time.time()
+    if state.last_seen_epoch == 0:
+        # Never made a call on this token — let it rip; we'll learn the
+        # window from the first response.
+        return
+    if state.remaining >= _RATE_LIMIT_FLOOR:
+        return
+    wait = state.seconds_until_reset(now) + 1
+    if wait <= 0:
+        return
+    logger.warning(
+        "PH dev token near quota (remaining=%d, floor=%d); sleeping %ds until reset",
+        state.remaining, _RATE_LIMIT_FLOOR, wait,
+    )
+    time.sleep(wait)
 
 
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type((requests.HTTPError, requests.ConnectionError)),
+    # IMPORTANT: ProductHuntRateLimitedError is NOT in this list — retrying a 429
+    # burns more quota. Caller decides whether to sleep + retry.
+    retry=retry_if_exception_type((requests.ConnectionError, requests.Timeout)),
     reraise=True,
 )
 def _gql(query: str, variables: dict, token: str) -> dict:
+    _gate_before_call(token)
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -125,6 +244,17 @@ def _gql(query: str, variables: dict, token: str) -> dict:
         headers=headers,
         timeout=_TIMEOUT_SEC,
     )
+    # Parse rate-limit headers BEFORE handling status, so the governor learns
+    # the window state even on errors.
+    rate_limit_state(token).parse_response(r, time.time())
+    if r.status_code == 429:
+        # PH sometimes returns Retry-After; fall back to the window reset.
+        retry_after = r.headers.get("Retry-After")
+        try:
+            reset_seconds = int(retry_after) if retry_after else rate_limit_state(token).seconds_until_reset(time.time())
+        except ValueError:
+            reset_seconds = 60
+        raise ProductHuntRateLimitedError(reset_seconds)
     if r.status_code in (401, 403):
         raise ProductHuntAuthError(f"GraphQL rejected: {r.status_code} {r.text[:200]}")
     r.raise_for_status()
