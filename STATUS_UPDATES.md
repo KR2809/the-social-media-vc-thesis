@@ -1366,3 +1366,33 @@ script each pass.
 **Cost incurred:** $0. Zero Anthropic API calls.
 
 ---
+
+## 2026-05-23 03:00 — PR1 raw-archive layer
+
+**What I did:**
+- Built `ingestion/raw_archive.py` (verbatim HTTP-payload archive: SHA-256-addressed gzipped JSON envelopes + parquet index, with `flock`-guarded read-modify-write so parallel collectors stay safe).
+- Added `ingestion/config.py` with the three knobs (`RAW_ARCHIVE_DIR`, `RAW_ARCHIVE_ENABLED`, `RAW_ARCHIVE_MAX_BYTES`).
+- Integrated `persist()` into all 5 existing collectors (twitter/wayback, hn, youtube, reddit/praw, producthunt/gql). Patch site is the lowest-level fetch wrapper in each, so every HTTP call is captured automatically. Reddit's PRAW abstracts HTTP, so we persist a JSON-dumped attribute dict of each submission/comment object instead.
+- Added `scripts/raw_archive_report.py` to emit the Markdown summary the thesis appendix cites.
+- Added `tests/test_raw_archive.py` (7 tests: writes_gz_and_index, idempotent, max_bytes_skip, filters_headers, disabled, handle_scope, summarise_aggregates) — all green.
+- Added `tests/conftest.py` autouse fixture that disables raw archive during non-raw-archive tests, so existing collector tests don't pollute `data/raw_archive/` on every run.
+- Updated `.gitignore` to ignore `data/raw_archive/` and `PROGRESS.md` §2.1 to document the two new modules.
+
+**Decisions made:**
+- API-key redaction: `youtube_collect` archives a URL string built from `params` *without* the `key=` query param, so the persisted index is safe to share even though the live request includes the key.
+- PRAW handling: PRAW does not expose the raw HTTP response, so for Reddit we persist a JSON serialisation of each PRAW object's public (`!_`-prefixed) attribute dict. URL is the synthetic `praw://submission/<id>` form so the index column stays meaningful.
+- Error containment: `persist()` is wrapped in `try/except` at every call site (`logger.warning(...)`), so archiving failures never break a collection run.
+- Index dtype hardening: nullable Int64 for size + status, pandas StringDtype for text columns, so per-call read-modify-write doesn't flip dtypes between writes.
+- Crash safety: gz files are written to `<sha>.json.gz.tmp` then atomically renamed.
+
+**Blockers:** None for PR1. Three test_api.py tests are failing on this branch, but they fail identically on `main` (verified) — they're pre-existing breakage from the in-flight `ranking/` + `models/monte_carlo.py` WIP in the working tree, not caused by anything in this PR.
+
+**Next steps:** Push the branch and open PR1. After PR1 merges, start PR2 (expanded collectors) on `feature/expanded-collectors` off the merged `main`.
+
+**Files changed:**
+- New: `ingestion/config.py`, `ingestion/raw_archive.py`, `scripts/raw_archive_report.py`, `tests/test_raw_archive.py`, `tests/conftest.py`
+- Modified: `ingestion/twitter_collect.py`, `ingestion/hackernews_collect.py`, `ingestion/youtube_collect.py`, `ingestion/reddit_collect.py`, `ingestion/producthunt_collect.py`, `.gitignore`, `PROGRESS.md`
+
+**Cost incurred:** $0. Zero Anthropic API calls.
+
+---
