@@ -13,6 +13,7 @@ purposes we keep stories and comments. Stories carry `score` and
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
@@ -177,9 +178,18 @@ def _collect_hackernews_inner(
     submitted = _fetch_user_submitted(username)
     logger.info("HN user %s: %d submitted items", username, len(submitted))
 
+    # contextvars do not propagate to ThreadPoolExecutor workers by
+    # default. For each submission we copy the parent's context (cheap —
+    # it's a snapshot, not a deep copy) and run the worker inside it, so
+    # the raw_archive handle scope is visible inside _fetch_item. A
+    # fresh copy per task is required because Context.run() rejects
+    # concurrent re-entry.
     items: list[dict] = []
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
-        futures = {pool.submit(_fetch_item, iid): iid for iid in submitted}
+        futures = {
+            pool.submit(contextvars.copy_context().run, _fetch_item, iid): iid
+            for iid in submitted
+        }
         for fut in as_completed(futures):
             item = fut.result()
             if item is not None:
