@@ -1366,3 +1366,47 @@ script each pass.
 **Cost incurred:** $0. Zero Anthropic API calls.
 
 ---
+## 2026-05-26 21:45 — Tier-1 + Tier-2 auto-discovery + ranking pipeline shipped
+
+**What I did:**
+- **PR1 (`ranking/`, commit `5198f25`):** built the per-handle Σ ranking layer. New `ranking/rank_handles.py` computes T1 (mean of numeric s6_*) + T2 (mean of s1_..s4_) → Σ = 0.4·T1 + 0.6·T2 per handle, with a 5th/95th-pct bootstrap CI over the per-signal contribution vector and a `{tracked, watchlist, pass}` verdict. Best-effort Haiku-generated rationale gated by the existing $25 cost ceiling. CLI: `--cohort-only / --handles / --input-file / --collect`. Real cohort smoke run: 4 tracked (dvassallo, arvidkahl, dickiebush, marclou), 3 watchlist (pg, anthilemoon, ucx6...), 2 pass (lennysan, thejustinwelsh). Output at `data/processed/handle_verdicts.parquet`.
+- **`models.monte_carlo.bootstrap_score_ci`:** new thin wrapper alongside the existing sklearn-metric bootstrap. Handles empty / singleton edge cases; reuses `_summary`.
+- **API endpoints (PR1):** `GET /api/rank/{handle}` (200 hot path, 404 cold path unless `RANK_API_ALLOW_COLLECT=1`, 202+job_id over 30s budget), `POST /api/rank/batch`, `GET /api/rank/jobs/{job_id}`. Single-process in-memory `JOBS` dict, 1h TTL — fine for the thesis demo.
+- **PR2 (`discovery/`, commit `28bfa2a`):** built the forward-looking topic + candidate discovery layer. New `discovery/topic_discovery.py` wraps `analysis.topic_discovery` with Haiku-driven clustering (5-15 thematic groups), then harvests candidate handles from Reddit's public JSON search + HN's Algolia API (no auth, no praw on this path). Aggregates with cross-platform bonus: `strength = n_appearances × (1 + 0.5·(n_platforms-1))`. Offline smoke run (no API key, single-cluster fallback) pulled 91 real candidate handles across 3 seed topics — confirms the live HTTP path works.
+- **API endpoints (PR2):** `GET /api/discover/topics`, `GET /api/discover/candidates/{cluster_id}` (read-only over cached parquet/CSV).
+- **Tests:** 15 new in `tests/test_rank_handles.py` (1 skipped pending B2.b) + 13 new in `tests/test_discovery_topic_discovery.py`. All 28 new tests pass; `ruff check` clean. Full repo: 245 pass + 3 pre-existing API-test failures (FakeSource issue on this branch baseline, not introduced by this work).
+
+**Decisions made:**
+- **Package name `ranking/` (not `pipeline/` as the spec said)** — the root-level `pipeline.py` orchestrator already exists; a `pipeline/` package would shadow it.
+- **Bootstrap wrapper, not signature change.** The existing `bootstrap_metric_ci(predictions, outcomes, metric_fn)` is for sklearn-style metrics on labeled data. Per-handle Σ resampling is a different shape (single-vector aggregate), so I added `bootstrap_score_ci(contributions, aggregator)` alongside rather than reshaping the existing one.
+- **Empirical thresholds.** Spec asked for `SIGMA_TRACKED=0.65 / SIGMA_WATCHLIST=0.45` derived from positive medians. Reality: max Σ in the current 9-person cohort is 0.294 (sub-scores cluster low; spec assumed a different scale). I derived thresholds from the actual cohort quantile distribution: TRACKED=0.15 (≈ p50), WATCHLIST=0.085 (≈ p25). All thresholds are constants in `ranking/config.py` with a `TODO(B2.b)` block specifying how to re-derive once negatives land: `SIGMA_TRACKED ← (positive_median + negative_median) / 2`, `SIGMA_WATCHLIST ← negative_p75`.
+- **Reddit harvest via direct JSON, not praw.** PRAW's per-user collector doesn't support per-subreddit-search-by-keyword cleanly. The public JSON listing endpoint is auth-free and exactly what we need. Both Reddit + HN go through indirection seams that tests mock.
+- **PR2 keeps `analysis/topic_discovery.py` untouched.** New module imports its `cohort_topic_ranking` for Pass A seeds, adds clustering + harvesting on top. Two-layer separation lets the existing `/api/discovered-topics` endpoint continue working unchanged.
+- **Cold-handle API path gated by `RANK_API_ALLOW_COLLECT=1` env var** so accidental hits on stranger handles can't kick off a full sweep + LLM-scoring run on the public endpoint. CLI separately gated by `--collect`.
+
+**Blockers:**
+- **B2.b still open** (negative-peer hand-picking by Kris). PR1 ships with placeholder thresholds derived from positive-only data. The `tracked / watchlist / pass` split would be more meaningful with negatives. Test `test_known_negative_scores_below_tracked` is intentionally skipped until then.
+- **Schema drift risk for T1.** Today `s6_*` has one numeric column (`s6_topic_specificity`). If iter-11+ adds more (e.g. `s6_topic_momentum`), `_t1_columns` picks them up automatically via dtype introspection — no code change needed.
+
+**Next steps:**
+- **Kris:** review draft PR on `feature/auto-discovery` → `main` (commits `5198f25` + `28bfa2a`). The 3 pre-existing api/test failures should not be a blocker — they're on the baseline.
+- **Kris:** when B2.b negatives land, re-derive thresholds in `ranking/config.py` per the `TODO(B2.b)` block and re-run `python -m ranking.rank_handles --cohort-only`.
+- **Cowork:** the discovery → rank UX (Stream D) can now wire frontend buttons to `POST /api/rank/batch` with the handle list from `GET /api/discover/candidates/{cluster_id}`.
+- **Future:** auto-trigger discovery refresh from the API when cached parquet > 24h old (deliberately omitted to keep LLM spend predictable in v1).
+
+**Files changed:**
+- `ranking/__init__.py`, `ranking/config.py`, `ranking/rank_handles.py`, `ranking/prompts/v1/verdict_rationale.md` (new)
+- `discovery/__init__.py`, `discovery/topic_discovery.py`, `discovery/prompts/v1/cluster_topics.md` (new)
+- `models/monte_carlo.py` (+ `bootstrap_score_ci`)
+- `api/main.py` (+ /api/rank/* and /api/discover/* endpoints; CORS POST allow; in-memory JOBS dict)
+- `tests/test_rank_handles.py`, `tests/test_discovery_topic_discovery.py` (new)
+- `data/processed/handle_verdicts.parquet` (gitignored — output)
+
+**Cost incurred:** $0 added this session. All LLM calls in tests are mocked through indirection seams (`RATIONALE_CALL_FN`, `CLUSTER_CALL_FN`); the cohort smoke ran with `--skip-rationale`, the discovery smoke ran with `ANTHROPIC_API_KEY=""` triggering the offline fallback path. Running cost ledger unchanged at $5.45 / $30 monthly cap (≈ $24.55 headroom).
+
+**Open questions for Kris:**
+1. Confirm threshold placeholders (TRACKED=0.15, WATCHLIST=0.085) are sensible until B2.b lands, or override now with hand-picked values.
+2. Should the `/api/rank/{handle}` cold-path env gate (`RANK_API_ALLOW_COLLECT`) be on by default in dev, or always require explicit opt-in?
+3. PR2's offline-fallback single-cluster path is intentionally degraded but functional. Acceptable for the defence demo, or should it raise instead so we never silently ship 1-cluster discovery?
+
+---
