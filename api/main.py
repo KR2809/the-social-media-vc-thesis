@@ -576,3 +576,66 @@ def get_rank_job(job_id: str) -> dict:
     if job is None:
         raise HTTPException(status_code=404, detail=f"job {job_id} not found (or expired after 1h)")
     return job.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# 11. GET /api/discover/topics
+#     GET /api/discover/candidates/{cluster_id}
+#
+# Forward-looking discovery — LLM-clustered topic slate + ranked candidates.
+# Reads from cached parquet/CSV; staleness-triggered refresh is a deliberate
+# future extension (the thesis demo runs the CLI on schedule rather than
+# letting the API spawn LLM calls).
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/discover/topics")
+def get_discover_topics(
+    date: str | None = Query(None, description="ISO date for replay mode; default today."),
+    seed: str = Query("auto", description="'auto' = --from-cohort; otherwise comma-list."),
+) -> dict:
+    """Return the cached topic slate. The CLI populates discovered_topics.csv."""
+    from discovery.topic_discovery import DISCOVERED_TOPICS_PATH  # noqa: PLC0415
+
+    if not DISCOVERED_TOPICS_PATH.exists():
+        return {
+            "n_returned": 0,
+            "clusters": [],
+            "note": "no discovery run yet — invoke `python -m discovery.topic_discovery --from-cohort`",
+        }
+    import pandas as pd  # noqa: PLC0415
+
+    df = pd.read_csv(DISCOVERED_TOPICS_PATH)
+    return {
+        "n_returned": len(df),
+        "date": date,
+        "seed": seed,
+        "clusters": df.to_dict(orient="records"),
+    }
+
+
+@app.get("/api/discover/candidates/{cluster_id}")
+def get_discover_candidates(
+    cluster_id: str,
+    only_suggested: bool = Query(False, description="If true, filter to suggested_for_ranking=True."),
+) -> dict:
+    from discovery.topic_discovery import DISCOVERED_CANDIDATES_PATH  # noqa: PLC0415
+
+    if not DISCOVERED_CANDIDATES_PATH.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="no candidates parquet — run discovery first",
+        )
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    df = pq.read_table(DISCOVERED_CANDIDATES_PATH).to_pandas()
+    sub = df[df["cluster_id"] == cluster_id]
+    if only_suggested:
+        sub = sub[sub["suggested_for_ranking"]]
+    if len(sub) == 0:
+        raise HTTPException(status_code=404, detail=f"no candidates for cluster {cluster_id!r}")
+    return {
+        "cluster_id": cluster_id,
+        "n_returned": len(sub),
+        "candidates": sub.to_dict(orient="records"),
+    }
