@@ -102,6 +102,7 @@ class ClusterRow:
     rationale: str
     momentum_signal_strength: float
     suggested_subreddits: list[str]
+    degraded: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -205,8 +206,9 @@ def cluster_topics(
 
     if not os.environ.get("ANTHROPIC_API_KEY") and CLUSTER_CALL_FN is None:
         logger.warning(
-            "ANTHROPIC_API_KEY unset and no CLUSTER_CALL_FN override; emitting "
-            "single-cluster fallback (degraded)."
+            "DISCOVERY DEGRADED — ANTHROPIC_API_KEY unset and no CLUSTER_CALL_FN "
+            "override; emitting single-cluster fallback. Downstream candidates will "
+            "carry degraded_mode=True. Set ANTHROPIC_API_KEY to restore clustering."
         )
         return [
             ClusterRow(
@@ -216,6 +218,7 @@ def cluster_topics(
                 rationale="LLM clustering unavailable; all seeds lumped together.",
                 momentum_signal_strength=0.5,
                 suggested_subreddits=list(DEFAULT_REDDIT_FALLBACK_SUBS),
+                degraded=True,
             )
         ]
 
@@ -437,12 +440,13 @@ def _rank_candidates(
     discovery_strength = n_appearances × (1 + 0.5 * (n_platforms - 1)).
     """
     cluster_label_by_id = {c.cluster_id: c.representative_label for c in clusters}
+    cluster_degraded_by_id = {c.cluster_id: c.degraded for c in clusters}
     if len(raw) == 0:
         return pd.DataFrame(
             columns=[
                 "cluster_id", "cluster_label", "handle", "source_platforms",
                 "n_appearances", "n_platforms", "discovery_strength",
-                "suggested_for_ranking",
+                "suggested_for_ranking", "degraded_mode",
             ]
         )
 
@@ -461,6 +465,7 @@ def _rank_candidates(
     )
     grouped = grouped.rename(columns={"author": "handle"})
     grouped["cluster_label"] = grouped["cluster_id"].map(cluster_label_by_id)
+    grouped["degraded_mode"] = grouped["cluster_id"].map(cluster_degraded_by_id).fillna(False).astype(bool)
 
     # Per-cluster top-N% qualifies, OR discovery_strength >= rank_threshold.
     grouped = grouped.sort_values(
@@ -478,7 +483,7 @@ def _rank_candidates(
         [
             "cluster_id", "cluster_label", "handle", "source_platforms",
             "n_appearances", "n_platforms", "discovery_strength",
-            "suggested_for_ranking",
+            "suggested_for_ranking", "degraded_mode",
         ]
     ].reset_index(drop=True)
 
@@ -498,6 +503,7 @@ _CANDIDATES_SCHEMA = pa.schema(
         ("n_platforms", pa.int32()),
         ("discovery_strength", pa.float64()),
         ("suggested_for_ranking", pa.bool_()),
+        ("degraded_mode", pa.bool_()),
     ]
 )
 
@@ -511,6 +517,7 @@ def write_candidates(df: pd.DataFrame, out_path: Path = DISCOVERED_CANDIDATES_PA
         df["n_appearances"] = df["n_appearances"].astype("int32")
         df["n_platforms"] = df["n_platforms"].astype("int32")
         df["suggested_for_ranking"] = df["suggested_for_ranking"].astype(bool)
+        df["degraded_mode"] = df["degraded_mode"].astype(bool)
         table = pa.Table.from_pandas(df, schema=_CANDIDATES_SCHEMA, preserve_index=False)
     pq.write_table(table, out_path)
     logger.info("wrote %d candidates to %s", len(df), out_path)

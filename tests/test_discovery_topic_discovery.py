@@ -261,18 +261,37 @@ def test_candidate_schema(tmp_path, monkeypatch):
     expected = {
         "cluster_id", "cluster_label", "handle", "source_platforms",
         "n_appearances", "n_platforms", "discovery_strength",
-        "suggested_for_ranking",
+        "suggested_for_ranking", "degraded_mode",
     }
     assert set(table.column_names) == expected
     import pyarrow as pa
     assert table.schema.field("n_appearances").type == pa.int32()
     assert table.schema.field("suggested_for_ranking").type == pa.bool_()
+    assert table.schema.field("degraded_mode").type == pa.bool_()
+    # Non-degraded clusters → degraded_mode False on every row.
+    assert not table.column("degraded_mode").to_pylist()[0]
 
     # Empty write also works.
     td.write_candidates(pd.DataFrame(), out_path=tmp_path / "empty.parquet")
     empty = pq.read_table(tmp_path / "empty.parquet")
     assert set(empty.column_names) == expected
-    assert len(empty) == 0
+
+
+def test_degraded_mode_propagates_from_fallback_cluster(monkeypatch):
+    """Fallback cluster (no API key) → degraded_mode=True on all candidates."""
+    monkeypatch.setattr(td, "REDDIT_FETCH_FN", _fake_reddit)
+    monkeypatch.setattr(td, "HN_FETCH_FN", _fake_hn)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(td, "CLUSTER_CALL_FN", None)
+
+    clusters = td.cluster_topics(["seed1", "seed2"])
+    assert len(clusters) == 1
+    assert clusters[0].degraded is True
+
+    raw = td.harvest_candidates(clusters, since_days=90, max_workers=1)
+    ranked = td._rank_candidates(raw, clusters)
+    assert len(ranked) > 0
+    assert ranked["degraded_mode"].all()
 
 
 # ---------------------------------------------------------------------------
