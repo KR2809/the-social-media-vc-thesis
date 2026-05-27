@@ -34,6 +34,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ingestion import raw_archive
 from ingestion.schema import (
     SignalEvent,
     handle_to_person_id,
@@ -68,6 +69,24 @@ class YouTubeAuthError(RuntimeError):
 def _api_get(path: str, params: dict, api_key: str) -> dict:
     full_params = {**params, "key": api_key}
     r = requests.get(f"{_API_BASE}/{path}", params=full_params, timeout=_TIMEOUT_SEC)
+    # NB: archive the URL WITHOUT the api_key query param, so the persisted
+    # index is safe to share. requests builds the final URL with the key in
+    # the querystring; we reconstruct a redacted version here.
+    redacted_url = f"{_API_BASE}/{path}"
+    if params:
+        from urllib.parse import urlencode
+        redacted_url = f"{redacted_url}?{urlencode(params)}"
+    try:
+        raw_archive.persist(
+            source="youtube",
+            url=redacted_url,
+            response_body=r.content,
+            response_status=r.status_code,
+            response_headers=dict(r.headers),
+            fetch_method="requests",
+        )
+    except Exception as exc:
+        logger.warning("raw_archive.persist failed (youtube): %s", exc)
     if r.status_code in (401, 403):
         raise YouTubeAuthError(f"{path} rejected: {r.status_code} {r.text[:200]}")
     r.raise_for_status()
@@ -302,6 +321,21 @@ def collect_youtube(
     if api_key is None:
         api_key = _require_api_key()
 
+    with raw_archive.handle_scope(channel_id):
+        return _collect_youtube_inner(
+            channel_id, person_id, start, end, collected_at, out_dir, api_key
+        )
+
+
+def _collect_youtube_inner(
+    channel_id: str,
+    person_id: str,
+    start: date,
+    end: date,
+    collected_at: datetime,
+    out_dir: Path,
+    api_key: str,
+) -> Path:
     uploads_pl = _get_uploads_playlist_id(channel_id, api_key)
     if uploads_pl is None:
         logger.warning("channel %s has no uploads playlist", channel_id)

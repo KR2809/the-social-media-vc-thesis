@@ -32,6 +32,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ingestion import raw_archive
 from ingestion.schema import (
     SignalEvent,
     handle_to_person_id,
@@ -247,6 +248,25 @@ def _gql(query: str, variables: dict, token: str) -> dict:
     # Parse rate-limit headers BEFORE handling status, so the governor learns
     # the window state even on errors.
     rate_limit_state(token).parse_response(r, time.time())
+    # Archive the response. For GraphQL the *request* body (query + vars)
+    # matters as much as the response, so we stash both in extra_metadata
+    # — the response body itself remains the canonical reproducibility
+    # artifact (hashed for the index).
+    try:
+        raw_archive.persist(
+            source="ph",
+            url=_GQL_ENDPOINT,
+            response_body=r.content,
+            response_status=r.status_code,
+            response_headers=dict(r.headers),
+            fetch_method="gql",
+            extra_metadata={
+                "request_query": query,
+                "request_variables": variables,
+            },
+        )
+    except Exception as exc:
+        logger.warning("raw_archive.persist failed (ph): %s", exc)
     if r.status_code == 429:
         # PH sometimes returns Retry-After; fall back to the window reset.
         retry_after = r.headers.get("Retry-After")
@@ -398,6 +418,21 @@ def collect_producthunt(
     if token is None:
         token = _require_token()
 
+    with raw_archive.handle_scope(username):
+        return _collect_producthunt_inner(
+            username, person_id, start, end, collected_at, out_dir, token
+        )
+
+
+def _collect_producthunt_inner(
+    username: str,
+    person_id: str,
+    start: date,
+    end: date,
+    collected_at: datetime,
+    out_dir: Path,
+    token: str,
+) -> Path:
     events: list[SignalEvent] = []
     n_posts_seen = 0
     n_comments_seen = 0

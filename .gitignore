@@ -17,6 +17,7 @@ venv/
 
 # Data — never commit raw or processed data; gitkeep preserves folder structure
 data/raw/*
+data/raw_archive/
 data/interim/*
 data/processed/*
 data/snapshots/*

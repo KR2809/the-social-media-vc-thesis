@@ -32,6 +32,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ingestion import raw_archive
 from ingestion.schema import (
     SignalEvent,
     handle_to_person_id,
@@ -153,6 +154,20 @@ def _rate_limited_get(url: str, *, params: dict | None = None, timeout: int = 30
     """
     time.sleep(_WAYBACK_RATE_LIMIT_SEC)
     r = requests.get(url, params=params, timeout=timeout)
+    # Persist the verbatim response BEFORE raise_for_status: even 404/500
+    # bodies are reproducibility evidence (they tell us *what* Wayback
+    # served for a given URL at a given moment).
+    try:
+        raw_archive.persist(
+            source="wayback",
+            url=r.url,  # final URL after redirects + query string
+            response_body=r.content,
+            response_status=r.status_code,
+            response_headers=dict(r.headers),
+            fetch_method="requests",
+        )
+    except Exception as exc:  # never let archiving break the collector
+        logger.warning("raw_archive.persist failed (wayback): %s", exc)
     r.raise_for_status()
     return r
 
@@ -415,12 +430,13 @@ def collect_twitter(
     person_id = handle_to_person_id(handle)
     collected_at = datetime.now(UTC)
 
-    sns_events, sns_ok = _try_snscrape(handle, start, end, collected_at)
+    with raw_archive.handle_scope(handle.lstrip("@")):
+        sns_events, sns_ok = _try_snscrape(handle, start, end, collected_at)
 
-    if not sns_ok or len(sns_events) == 0:
-        wb_events, wb_tally = _try_wayback(handle, start, end, collected_at)
-    else:
-        wb_events, wb_tally = [], _WaybackTally()
+        if not sns_ok or len(sns_events) == 0:
+            wb_events, wb_tally = _try_wayback(handle, start, end, collected_at)
+        else:
+            wb_events, wb_tally = [], _WaybackTally()
 
     combined = _dedupe_prefer_snscrape(sns_events + wb_events)
     # Date-window filter — defensive; snscrape and Wayback can both leak
