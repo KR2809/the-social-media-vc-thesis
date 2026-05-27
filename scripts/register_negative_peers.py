@@ -36,6 +36,7 @@ from __future__ import annotations
 
 from ingestion.negative_peers import (
     NegativePeer,
+    materialise_features,
     materialise_for_outcome_labels,
     register_peer,
     write_protocol_summary,
@@ -647,6 +648,7 @@ def main() -> None:
 
     if filled:
         materialise_for_outcome_labels()
+        materialise_features()
         write_protocol_summary()
 
 
