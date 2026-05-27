@@ -17,6 +17,7 @@ extra throttling.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import UTC, date, datetime
@@ -27,6 +28,7 @@ import praw
 from dotenv import load_dotenv
 from prawcore.exceptions import NotFound, PrawcoreException
 
+from ingestion import raw_archive
 from ingestion.schema import (
     SignalEvent,
     handle_to_person_id,
@@ -71,9 +73,44 @@ def _require_reddit_client() -> praw.Reddit:
     )
 
 
+def _archive_praw_object(obj, kind: str) -> None:
+    """Persist the PRAW-returned object's public fields to the raw archive.
+
+    PRAW does not expose the underlying HTTP response, so we serialise the
+    object's attribute dict — that's the closest reproducible record of
+    what Reddit's API returned at fetch time.
+    """
+    try:
+        # PRAW objects expose `_fetched` data via `__dict__`; we filter out
+        # private (`_`-prefixed) keys and non-JSON-serialisable values.
+        payload: dict = {}
+        for k, v in vars(obj).items():
+            if k.startswith("_"):
+                continue
+            try:
+                json.dumps(v)
+            except (TypeError, ValueError):
+                payload[k] = repr(v)
+            else:
+                payload[k] = v
+        body = json.dumps(payload, sort_keys=True).encode("utf-8")
+        url = f"praw://{kind}/{getattr(obj, 'id', 'unknown')}"
+        raw_archive.persist(
+            source="reddit",
+            url=url,
+            response_body=body,
+            response_status=200,  # PRAW only yields successfully-resolved objects
+            response_headers={"content-type": "application/json"},
+            fetch_method="praw",
+        )
+    except Exception as exc:
+        logger.warning("raw_archive.persist failed (reddit %s): %s", kind, exc)
+
+
 def _submission_to_event(
     sub, person_id: str, collected_at: datetime
 ) -> SignalEvent:
+    _archive_praw_object(sub, "submission")
     title = getattr(sub, "title", "") or ""
     selftext = getattr(sub, "selftext", "") or ""
     raw_text = f"{title}\n\n{selftext}".strip()
@@ -105,6 +142,7 @@ def _submission_to_event(
 def _comment_to_event(
     comment, person_id: str, collected_at: datetime
 ) -> SignalEvent:
+    _archive_praw_object(comment, "comment")
     raw_text = getattr(comment, "body", "") or ""
     return SignalEvent(
         signal_id=f"reddit_comment_{comment.id}",
@@ -182,6 +220,21 @@ def collect_reddit(
     if reddit_client is None:
         reddit_client = _require_reddit_client()
 
+    with raw_archive.handle_scope(username):
+        return _collect_reddit_inner(
+            username, person_id, start, end, collected_at, out_dir, reddit_client
+        )
+
+
+def _collect_reddit_inner(
+    username: str,
+    person_id: str,
+    start: date,
+    end: date,
+    collected_at: datetime,
+    out_dir: Path,
+    reddit_client: praw.Reddit,
+) -> Path:
     redditor = reddit_client.redditor(username)
 
     sub_events, sub_truncated = _collect_listing(

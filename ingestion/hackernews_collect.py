@@ -13,6 +13,7 @@ purposes we keep stories and comments. Stories carry `score` and
 
 from __future__ import annotations
 
+import contextvars
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, date, datetime
@@ -27,6 +28,7 @@ from tenacity import (
     wait_exponential,
 )
 
+from ingestion import raw_archive
 from ingestion.schema import (
     SignalEvent,
     handle_to_person_id,
@@ -48,6 +50,17 @@ _MAX_WORKERS = 10
 )
 def _get_json(url: str) -> dict | list | None:
     r = requests.get(url, timeout=_HN_TIMEOUT_SEC)
+    try:
+        raw_archive.persist(
+            source="hn",
+            url=url,
+            response_body=r.content,
+            response_status=r.status_code,
+            response_headers=dict(r.headers),
+            fetch_method="requests",
+        )
+    except Exception as exc:
+        logger.warning("raw_archive.persist failed (hn): %s", exc)
     r.raise_for_status()
     return r.json()
 
@@ -148,12 +161,35 @@ def collect_hackernews(
     person_id = handle_to_person_id(username)
     collected_at = datetime.now(UTC)
 
+    with raw_archive.handle_scope(username):
+        return _collect_hackernews_inner(
+            username, person_id, start, end, collected_at, out_dir
+        )
+
+
+def _collect_hackernews_inner(
+    username: str,
+    person_id: str,
+    start: date,
+    end: date,
+    collected_at: datetime,
+    out_dir: Path,
+) -> Path:
     submitted = _fetch_user_submitted(username)
     logger.info("HN user %s: %d submitted items", username, len(submitted))
 
+    # contextvars do not propagate to ThreadPoolExecutor workers by
+    # default. For each submission we copy the parent's context (cheap —
+    # it's a snapshot, not a deep copy) and run the worker inside it, so
+    # the raw_archive handle scope is visible inside _fetch_item. A
+    # fresh copy per task is required because Context.run() rejects
+    # concurrent re-entry.
     items: list[dict] = []
     with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
-        futures = {pool.submit(_fetch_item, iid): iid for iid in submitted}
+        futures = {
+            pool.submit(contextvars.copy_context().run, _fetch_item, iid): iid
+            for iid in submitted
+        }
         for fut in as_completed(futures):
             item = fut.result()
             if item is not None:

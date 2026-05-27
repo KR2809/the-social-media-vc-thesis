@@ -87,7 +87,8 @@ This sentence is the load-bearing claim — it goes on the cover page, in the ab
 | `sweep.py` | Cohort-wide orchestrator (parallel platforms) | ✅ shipped | — |
 | `clean.py` | Concatenates raw parquets → `signal_events.parquet` (601 rows on real data) | ✅ shipped | — |
 | `negative_peers.py` | Anonymous project-level negative registry + materialiser | ✅ shipped | **Kris hand-picks matched negatives** |
-| `raw_archive.py` | Raw HTTP-payload archive layer — preserves original API responses to `data/raw_archive/` for reproducibility + future re-parsing | ✅ shipped (PR #6, merged 2026-05-27) | — |
+| `raw_archive.py` | Verbatim HTTP-payload archive: SHA-256-addressed gz files + parquet index. Every collector calls `persist()` once per fetch. Powers the thesis reproducibility appendix via `scripts/raw_archive_report.py`. | ✅ shipped (PR #6, merged 2026-05-27) | — |
+| `config.py` | Three knobs for the raw-archive subsystem (`RAW_ARCHIVE_DIR`, `RAW_ARCHIVE_ENABLED`, `RAW_ARCHIVE_MAX_BYTES`). | ✅ shipped | — |
 
 ### 2.2 `scoring/` — LLM signal scoring
 
