@@ -17,10 +17,12 @@ venv/
 
 # Data — never commit raw or processed data; gitkeep preserves folder structure
 data/raw/*
+data/raw_archive/*
 data/interim/*
 data/processed/*
 data/snapshots/*
 !data/raw/.gitkeep
+!data/raw_archive/.gitkeep
 !data/interim/.gitkeep
 !data/processed/.gitkeep
 !data/snapshots/.gitkeep
@@ -44,6 +46,9 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# Claude Code worktrees (local-only)
+.claude/worktrees/
 
 # Build
 dist/

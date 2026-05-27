@@ -1,8 +1,8 @@
 # PROGRESS.md — Build status for Cowork
 
-**Last updated:** 2026-05-14
-**Branch:** `claude/exciting-booth-09e286` (active development; merge target = `main`)
-**Tests:** 134/134 pass · **Ruff:** clean · **Cost incurred:** $0
+**Last updated:** 2026-05-27
+**Branch:** `feature/auto-discovery` (active development; merge target = `main`); `feature/raw-archive` open as PR #6
+**Tests:** 245 pass + 3 pre-existing API failures on baseline · **Ruff:** clean · **Cost incurred:** $5.45 / $30 monthly cap
 
 This file is the single source of truth Cowork should consult to understand what
 has been built, what remains, and what's blocked. For decision rationale see
@@ -87,6 +87,7 @@ This sentence is the load-bearing claim — it goes on the cover page, in the ab
 | `sweep.py` | Cohort-wide orchestrator (parallel platforms) | ✅ shipped | — |
 | `clean.py` | Concatenates raw parquets → `signal_events.parquet` (601 rows on real data) | ✅ shipped | — |
 | `negative_peers.py` | Anonymous project-level negative registry + materialiser | ✅ shipped | **Kris hand-picks matched negatives** |
+| `raw_archive.py` *(PR #6, open)* | Raw HTTP-payload archive layer — preserves original API responses to `data/raw_archive/` for reproducibility + future re-parsing | 🟡 in review on `feature/raw-archive` | PR #6 merge decision |
 
 ### 2.2 `scoring/` — LLM signal scoring
 
@@ -125,6 +126,33 @@ per signal + topic label + flags).
 | `monte_carlo.py` | **Monte Carlo simulation**, full cc_prompt spec: `bootstrap_metric_ci`, `simulate_founder_emergence`, `simulate_topic_trajectory` (mainstream/niche/faded), `simulate_portfolio` (Gaussian-copula correlated Bernoullis). Every function carries the "framework demonstration" epistemic claim in its docstring | ✅ shipped, 25 tests | — |
 | `allocation_framework/combine.py` | **Two-tier framework** (iter-4). Combines Tier-1 topic momentum + Tier-2 founder emergence into ranked (person, topic) pairs with the `alpha` knob. Lookahead-bias filter on both tiers | ✅ shipped, 4 tests | scored signals + trends |
 | `allocation_framework/backtest.py` | **Phase 4 backtest**. Applies the framework at retrospective dates against three baselines (random / signal_volume / recency). Writes CSV + markdown report | ✅ shipped, 2 tests | labels + scored signals |
+
+### 2.4b `ranking/` — Per-handle Σ scoring + verdicts (iter-14, 2026-05-26, on `feature/auto-discovery`)
+
+| Module | Purpose | Status | Needs |
+|---|---|---|---|
+| `rank_handles.py` | Per-handle Σ = 0.4·T1 + 0.6·T2 (T1 = mean of numeric `s6_*`, T2 = mean of `s1_..s4_`). 5/95 pct bootstrap CI over per-signal contribution vector. Emits `{tracked, watchlist, pass}` verdict with optional Haiku rationale. CLI: `--cohort-only / --handles / --input-file / --collect`. Output → `data/processed/handle_verdicts.parquet` | ✅ shipped, 15 tests (1 skipped pending B2.b) | thresholds re-derived after B2.b lands |
+| `config.py` | Σ thresholds (TRACKED=0.15, WATCHLIST=0.085 — placeholders derived from cohort quantiles; `TODO(B2.b)` block specifies re-derivation formula) | ✅ shipped | B2.b negatives |
+| `prompts/v1/verdict_rationale.md` | Haiku rationale template (best-effort, gated by $25 cost ceiling) | ✅ shipped | — |
+
+### 2.4c `discovery/` — Forward-looking topic + candidate discovery (iter-14, 2026-05-26, on `feature/auto-discovery`)
+
+| Module | Purpose | Status | Needs |
+|---|---|---|---|
+| `topic_discovery.py` | Wraps `analysis.topic_discovery` Pass-A seeds with Haiku-driven clustering (5–15 thematic groups), then harvests candidate handles from Reddit public JSON + HN Algolia (no auth). Aggregates with cross-platform bonus: `strength = n_appearances × (1 + 0.5·(n_platforms - 1))`. Offline fallback returns single cluster | ✅ shipped, 13 tests | — |
+| `prompts/v1/cluster_topics.md` | Cluster-naming prompt | ✅ shipped | — |
+
+### 2.4d `api/main.py` — FastAPI surface (extended iter-14)
+
+| Endpoint | Purpose | Status |
+|---|---|---|
+| `GET /api/rank/{handle}` | 200 hot-path; 404 cold-path unless `RANK_API_ALLOW_COLLECT=1`; 202+job_id over 30s budget | ✅ shipped |
+| `POST /api/rank/batch` | Batch handle ranking | ✅ shipped |
+| `GET /api/rank/jobs/{job_id}` | Async job status (1h TTL in-memory `JOBS` dict) | ✅ shipped |
+| `GET /api/discover/topics` | Read-only over cached parquet | ✅ shipped |
+| `GET /api/discover/candidates/{cluster_id}` | Read-only over cached CSV | ✅ shipped |
+
+**Frontend wiring (Stream D):** the discovery → rank UX (buttons calling `POST /api/rank/batch` with `GET /api/discover/candidates/{cluster_id}` payloads) is **not yet wired**.
 
 ### 2.5 `pipeline.py` — End-to-end CLI
 
