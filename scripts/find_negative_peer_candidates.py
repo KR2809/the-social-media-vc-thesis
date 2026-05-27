@@ -324,9 +324,12 @@ CSV_FIELDS = [
 # PH GraphQL query for posts in a topic within a date window.
 #
 # Trimmed for complexity-budget efficiency:
-#   - Drops `topics(first: 10)`, `name`, `tagline`, `commentsCount`, `makers.id`
-#     — the candidate tool never reads them. PH bills complexity per field
-#     requested per connection edge, so trimming makes us ~30-40% lighter.
+#   - Drops `topics(first: 10)`, `commentsCount`, `makers.id` — the candidate
+#     tool never reads them. PH bills complexity per field requested per
+#     connection edge, so trimming keeps us light.
+#   - Keeps `name` and `tagline` because the keyword filter (see
+#     `_post_matches_keywords`) needs them to narrow broad PH topics down
+#     to on-niche posts (e.g. "productivity" → Notion-adjacent only).
 #   - Keeps `order: NEWEST` because PH's `order: VOTES` is descending (we want
 #     least-engagement first, so server-side sort won't help). The CLI caps
 #     pagination after `_max_pages_for_cap()` pages instead — see callers.
@@ -352,6 +355,8 @@ query PostsByTopic(
       node {
         id
         slug
+        name
+        tagline
         createdAt
         votesCount
         website
@@ -886,6 +891,21 @@ def _positive_handle_set() -> set[str]:
     return out
 
 
+def _post_matches_keywords(post: dict, keywords: list[str]) -> bool:
+    """Case-insensitive substring match of any keyword against name/tagline.
+
+    Empty `keywords` ⇒ match everything (no-op filter). Posts missing both
+    `name` and `tagline` (e.g. stale cache entries from before these fields
+    were fetched) match nothing — re-run with --refresh-ph to repopulate.
+    """
+    if not keywords:
+        return True
+    haystack = f"{post.get('name') or ''} {post.get('tagline') or ''}".lower()
+    if not haystack.strip():
+        return False
+    return any(kw.lower() in haystack for kw in keywords)
+
+
 def _post_makers_intersect_positives(post: dict, positives: set[str]) -> bool:
     for maker in post.get("makers") or []:
         ph = (maker.get("username") or "").lower()
@@ -904,6 +924,7 @@ def find_candidates_for_niche(
     max_candidates: int = DEFAULT_MAX_CANDIDATES,
     refresh_wayback: bool = False,
     refresh_ph: bool = False,
+    keyword_filter: bool = True,
     token: str | None = None,
     positives: set[str] | None = None,
     wayback_cache: dict[str, list[str | None]] | None = None,
@@ -933,8 +954,13 @@ def find_candidates_for_niche(
 
     # Collect candidate posts across all mapped topics, de-duping by post id.
     # Page cap is sized to `max_candidates` so dense topics don't burn budget
-    # paginating posts we'll never use.
+    # paginating posts we'll never use. When the keyword filter is active we
+    # widen the cap because the per-page yield drops sharply (e.g. Notion
+    # keywords match ~5% of productivity-topic posts).
     max_pages = _max_pages_for_cap(max_candidates)
+    keywords = spec.get("search_keywords") or []
+    if keyword_filter and keywords:
+        max_pages = max(max_pages, 6)
     posts_by_id: dict[str, dict] = {}
     if spec["ph_topic_slugs"]:
         for topic_slug in spec["ph_topic_slugs"]:
@@ -954,12 +980,20 @@ def find_candidates_for_niche(
     # If no PH topic slugs mapped (newsletters, etc.) we still emit a
     # zero-row CSV — downstream surfaces this as "use Perplexity".
 
-    # Filter: low upvotes, exclude positives.
+    # Filter: keyword (name/tagline), low upvotes, exclude positives.
+    apply_keywords = keyword_filter and bool(keywords)
+    pre_kw_count = len(posts_by_id)
     filtered = [
         p for p in posts_by_id.values()
         if int(p.get("votesCount") or 0) < max_upvotes
         and not _post_makers_intersect_positives(p, positives)
+        and (not apply_keywords or _post_matches_keywords(p, keywords))
     ]
+    if apply_keywords:
+        logger.info(
+            "  keyword filter (%s): %d → %d posts",
+            ", ".join(keywords), pre_kw_count, len(filtered),
+        )
     filtered.sort(key=lambda p: (int(p.get("votesCount") or 0), p.get("createdAt") or ""))
 
     # Cap at max_candidates BEFORE the expensive Wayback + redirect loop.
@@ -1053,12 +1087,19 @@ def write_csv(niche_slug: str, rows: list[CandidateRow]) -> Path:
     default=False,
     help="Re-query Product Hunt for all topics (default reuses cache).",
 )
+@click.option(
+    "--no-keyword-filter",
+    is_flag=True,
+    default=False,
+    help="Skip the name/tagline keyword filter (PR #7 behaviour: broad PH-topic hits).",
+)
 def main(
     niche: str,
     max_upvotes: int,
     max_candidates: int,
     refresh_wayback: bool,
     refresh_ph: bool,
+    no_keyword_filter: bool,
 ) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -1107,6 +1148,7 @@ def main(
             max_candidates=max_candidates,
             refresh_wayback=refresh_wayback,
             refresh_ph=refresh_ph,
+            keyword_filter=not no_keyword_filter,
             token=token,
             positives=positives,
             wayback_cache=wayback_cache,

@@ -53,28 +53,28 @@ PEERS: list[NegativePeer] = [
     #                  did not cross $5k MRR / 10k followers in 24mo.
     # ------------------------------------------------------------------
     NegativePeer(
-        peer_id="NEG_dev-tooling-boilerplate_2023Q3_01",  # TODO(kris): confirm slug
+        peer_id="NEG_dev-tooling-boilerplate_2023Q3_01",
         matched_positive_niche="Indie SaaS — boilerplate / dev-tooling",
         matched_emergence_quarter="2023-Q3",
-        public_signals_available=False,  # TODO(kris): set True/False after picking
-        outcome_class="<FILL>",  # TODO(kris): low_traction | no_launch | abandoned | drifted
-        notes=_UNFILLED_NOTES,  # TODO(kris): replace with 1-line summary + private-CSV row
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="fixhero (PH Nov-2023, 1 upvote, fixherotheme.com); Wayback gone — theme/boilerplate, closest niche fit",
     ),
     NegativePeer(
-        peer_id="NEG_dev-tooling-boilerplate_2023Q3_02",  # TODO(kris)
+        peer_id="NEG_dev-tooling-boilerplate_2023Q3_02",
         matched_positive_niche="Indie SaaS — boilerplate / dev-tooling",
         matched_emergence_quarter="2023-Q3",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="backendforth (PH Nov-2023, 5 upvotes, jin-kwon.com); Wayback gone — backend framework",
     ),
     NegativePeer(
-        peer_id="NEG_dev-tooling-boilerplate_2023Q3_03",  # TODO(kris)
+        peer_id="NEG_dev-tooling-boilerplate_2023Q3_03",
         matched_positive_niche="Indie SaaS — boilerplate / dev-tooling",
         matched_emergence_quarter="2023-Q3",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="scim.dev (PH Nov-2023, 1 upvote, SCIM playground); Wayback gone — dev-tool playground",
     ),
     # ------------------------------------------------------------------
     # 2. Indie SaaS — image / video generation API
@@ -143,28 +143,28 @@ PEERS: list[NegativePeer] = [
     #    Search frame: Q2-2021 Twitter-tools launches.
     # ------------------------------------------------------------------
     NegativePeer(
-        peer_id="NEG_twitter-growth-tools_2021Q2_01",  # TODO(kris)
+        peer_id="NEG_twitter-growth-tools_2021Q2_01",
         matched_positive_niche="Indie SaaS — Twitter growth tools",
         matched_emergence_quarter="2021-Q2",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="sign-wars (PH Aug-2021, 80 upvotes); Wayback gone — Twitter-themed launch",
     ),
     NegativePeer(
-        peer_id="NEG_twitter-growth-tools_2021Q2_02",  # TODO(kris)
+        peer_id="NEG_twitter-growth-tools_2021Q2_02",
         matched_positive_niche="Indie SaaS — Twitter growth tools",
         matched_emergence_quarter="2021-Q2",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="twitter-for-livechat (PH Jul-2021, 82 upvotes); Wayback gone — Twitter livechat integration",
     ),
     NegativePeer(
-        peer_id="NEG_twitter-growth-tools_2021Q2_03",  # TODO(kris)
+        peer_id="NEG_twitter-growth-tools_2021Q2_03",
         matched_positive_niche="Indie SaaS — Twitter growth tools",
         matched_emergence_quarter="2021-Q2",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="low_traction",
+        notes="birdflow-for-twitter (PH Aug-2021, 97 upvotes); no Wayback data — Twitter-growth product",
     ),
     # ------------------------------------------------------------------
     # 5. Indie SaaS — testimonials / social-proof
@@ -326,28 +326,28 @@ PEERS: list[NegativePeer] = [
     #     Search frame: Q3-2020 writing-cohort launches.
     # ------------------------------------------------------------------
     NegativePeer(
-        peer_id="NEG_newsletter-cohort-writing_2020Q3_01",  # TODO(kris)
+        peer_id="NEG_newsletter-cohort-writing_2020Q3_01",
         matched_positive_niche="Newsletter / cohort writing",
         matched_emergence_quarter="2020-Q3",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="franklinwrite (PH Nov-2020, 75 upvotes); Wayback dormant by Dec 2020 — clear on-niche writing tool",
     ),
     NegativePeer(
-        peer_id="NEG_newsletter-cohort-writing_2020Q3_02",  # TODO(kris)
+        peer_id="NEG_newsletter-cohort-writing_2020Q3_02",
         matched_positive_niche="Newsletter / cohort writing",
         matched_emergence_quarter="2020-Q3",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="on-the-mind (PH Nov-2020, 2 upvotes, onthemind.substack.com); Wayback gone — Substack newsletter, no traction",
     ),
     NegativePeer(
-        peer_id="NEG_newsletter-cohort-writing_2020Q3_03",  # TODO(kris)
+        peer_id="NEG_newsletter-cohort-writing_2020Q3_03",
         matched_positive_niche="Newsletter / cohort writing",
         matched_emergence_quarter="2020-Q3",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="capslock-2 (PH Nov-2020, 1 upvote, capslock.ac); Wayback gone — stretch pick, .ac TLD suggests academic/writing context",
     ),
     # ------------------------------------------------------------------
     # 11. Creator-economy education / finance
@@ -387,28 +387,28 @@ PEERS: list[NegativePeer] = [
     #                   LinkedIn / X.
     # ------------------------------------------------------------------
     NegativePeer(
-        peer_id="NEG_solo-creator-content-business_2022Q1_01",  # TODO(kris)
+        peer_id="NEG_solo-creator-content-business_2022Q1_01",
         matched_positive_niche="Solo-creator content business",
         matched_emergence_quarter="2022-Q1",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="linkedin-content-planner (PH 2022, 3 upvotes); Wayback gone — LinkedIn creator tool",
     ),
     NegativePeer(
-        peer_id="NEG_solo-creator-content-business_2022Q1_02",  # TODO(kris)
+        peer_id="NEG_solo-creator-content-business_2022Q1_02",
         matched_positive_niche="Solo-creator content business",
         matched_emergence_quarter="2022-Q1",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="linkedin-pronoun-remover (PH 2022, 3 upvotes); Wayback gone — LinkedIn micro-tool",
     ),
     NegativePeer(
-        peer_id="NEG_solo-creator-content-business_2022Q1_03",  # TODO(kris)
+        peer_id="NEG_solo-creator-content-business_2022Q1_03",
         matched_positive_niche="Solo-creator content business",
         matched_emergence_quarter="2022-Q1",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="low_traction",
+        notes="thread-to-carousel-by-posted (PH 2022, 97 upvotes); no Wayback data — X-to-LinkedIn creator tool",
     ),
     # ------------------------------------------------------------------
     # (Section 13 — Build-in-public indie portfolio / Pieter Levels —
@@ -423,28 +423,28 @@ PEERS: list[NegativePeer] = [
     #                   entrepreneurship.
     # ------------------------------------------------------------------
     NegativePeer(
-        peer_id="NEG_community-led-education_2021Q4_01",  # TODO(kris)
+        peer_id="NEG_community-led-education_2021Q4_01",
         matched_positive_niche="Community-led education",
         matched_emergence_quarter="2021-Q4",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="european-startup-universe (PH Feb-2022, 5 upvotes); Wayback dormant by Jun 2022",
     ),
     NegativePeer(
-        peer_id="NEG_community-led-education_2021Q4_02",  # TODO(kris)
+        peer_id="NEG_community-led-education_2021Q4_02",
         matched_positive_niche="Community-led education",
         matched_emergence_quarter="2021-Q4",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="growth-buddies (PH Feb-2022, 13 upvotes, Patreon-based); Wayback dormant by Mar 2022",
     ),
     NegativePeer(
-        peer_id="NEG_community-led-education_2021Q4_03",  # TODO(kris)
+        peer_id="NEG_community-led-education_2021Q4_03",
         matched_positive_niche="Community-led education",
         matched_emergence_quarter="2021-Q4",
-        public_signals_available=False,  # TODO(kris)
-        outcome_class="<FILL>",  # TODO(kris)
-        notes=_UNFILLED_NOTES,  # TODO(kris)
+        public_signals_available=False,
+        outcome_class="abandoned",
+        notes="unlearning-labs (PH Feb-2022, 3 upvotes); Wayback dormant by Jun 2022",
     ),
     # ------------------------------------------------------------------
     # 15. Mental models / behavioural-science newsletter

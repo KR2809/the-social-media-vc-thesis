@@ -1440,3 +1440,35 @@ script each pass.
 3. PR2's offline-fallback single-cluster path is intentionally degraded but functional. Acceptable for the defence demo, or should it raise instead so we never silently ship 1-cluster discovery?
 
 ---
+
+---
+## 2026-05-27 21:13 — fix(discovery): keyword filter for negative-peer candidate longlists
+
+**What I did:**
+- `find_negative_peer_candidates.py`: the per-niche `search_keywords` was declared in `NICHE_MAP` but never applied. Wired it in — case-insensitive substring match against PH `name` + `tagline`, applied after fetching, before the upvote/positives filter. Added `--no-keyword-filter` for PR #7 backward-compat.
+- Re-added `name`/`tagline` to the PH GraphQL query (had been dropped for complexity-budget reasons; needed for the filter).
+- Widened pagination to ≥6 pages when keyword-filtering is active (per-page hit rate drops sharply when filtering).
+- 5 new unit tests covering the filter (substring/case-insensitive, empty keywords, missing fields, narrow-by-keyword, `--no-keyword-filter` keeps all). All 45 tests pass.
+- README updated with the new flag + filter caveats.
+
+**Decisions made:**
+- Stale `.ph_cache.json` entries lack `name`/`tagline` — chose to treat them as non-matches rather than crash. The user re-runs the affected niche with `--refresh-ph` to repopulate. Logged in README.
+- Did not bump the cache key (e.g. add a version suffix) — re-fetching is cheap, the cache survives the change, and silent invalidation would risk a much larger re-spend than the explicit refresh.
+- Widened `max_pages` to 6 only when the keyword filter is active. Keeps the all-niche sweep budget unchanged for keyword-less niches and the `--no-keyword-filter` path.
+
+**Blockers:** none.
+
+**Next steps:**
+- Kris: pick 3 negative peers from the now-clean `notion-adjacent-tooling.csv` (1 row) and `solo-creator-content-business.csv` (9 rows) per the README workflow. `creator-economy-education-finance.csv` came back with 0 rows — PH education+finance Q2 2021 genuinely doesn't surface creator-economy launches; use Perplexity (`AI_DELEGATION_PLAYBOOK.md` §1.5b) instead.
+- Other niches with `requires_review: True` (testimonials-social-proof, ai-creator-ads-automation, newsletter-cohort-writing, mental-models-newsletter, multi-product-indie-twitter-tooling) — Kris may want to re-run with `--refresh-ph` to see how the keyword filter trims them; the older cached CSVs are not yet re-filtered.
+
+**Files changed:**
+- `scripts/find_negative_peer_candidates.py`
+- `tests/test_find_negative_peer_candidates.py`
+- `data/interim/negative_peer_candidates/README.md`
+- `data/interim/negative_peer_candidates/notion-adjacent-tooling.csv` (regenerated, 20 → 1 row — only ComfyNotion was actually Notion-adjacent within the upvote threshold)
+- `data/interim/negative_peer_candidates/creator-economy-education-finance.csv` (regenerated, → 0 rows)
+- `data/interim/negative_peer_candidates/solo-creator-content-business.csv` (regenerated, 25 → 9 rows; LinkedIn-focused tools)
+
+**Cost incurred:** $0 (PH dev token only; no LLM calls).
+---
