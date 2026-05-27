@@ -1,7 +1,7 @@
 # PROGRESS.md — Build status for Cowork
 
 **Last updated:** 2026-05-27
-**Branch:** `feature/auto-discovery` (active development; merge target = `main`); `feature/raw-archive` open as PR #6
+**Branch:** `feature/auto-discovery` (active development; merge target = `main`); PR #6 raw-archive merged 2026-05-27
 **Tests:** 245 pass + 3 pre-existing API failures on baseline · **Ruff:** clean · **Cost incurred:** $5.45 / $30 monthly cap
 
 This file is the single source of truth Cowork should consult to understand what
@@ -87,7 +87,7 @@ This sentence is the load-bearing claim — it goes on the cover page, in the ab
 | `sweep.py` | Cohort-wide orchestrator (parallel platforms) | ✅ shipped | — |
 | `clean.py` | Concatenates raw parquets → `signal_events.parquet` (601 rows on real data) | ✅ shipped | — |
 | `negative_peers.py` | Anonymous project-level negative registry + materialiser | ✅ shipped | **Kris hand-picks matched negatives** |
-| `raw_archive.py` *(PR #6, open)* | Raw HTTP-payload archive layer — preserves original API responses to `data/raw_archive/` for reproducibility + future re-parsing | 🟡 in review on `feature/raw-archive` | PR #6 merge decision |
+| `raw_archive.py` | Raw HTTP-payload archive layer — preserves original API responses to `data/raw_archive/` for reproducibility + future re-parsing | ✅ shipped (PR #6, merged 2026-05-27) | — |
 
 ### 2.2 `scoring/` — LLM signal scoring
 
