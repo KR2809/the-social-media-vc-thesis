@@ -167,6 +167,92 @@ def bootstrap_metric_ci(
 
 
 # ---------------------------------------------------------------------------
+# Function 1b — bootstrap_score_ci (single-vector aggregate resample)
+# ---------------------------------------------------------------------------
+
+
+def bootstrap_score_ci(
+    contributions: np.ndarray,
+    aggregator: Callable[[np.ndarray], float] = np.mean,
+    n_iter: int = 1_000,
+    ci_pct: float = 0.90,
+    random_seed: int = 42,
+) -> tuple[np.ndarray, dict[str, float]]:
+    """Bootstrap CI for a single-vector aggregate (e.g. per-handle Σ over signals).
+
+    Where `bootstrap_metric_ci` resamples (predictions, outcomes) pairs and applies a
+    sklearn-style metric, this resamples a single 1-D contribution vector and applies
+    an aggregator (default: mean). Used by `pipeline.rank_handles` to put a CI on a
+    handle's composite Σ score by resampling its per-signal contributions.
+
+    Mathematical description.
+        For n_iter iterations, resample `contributions` with replacement to a vector
+        of the same length, apply `aggregator`, collect. Returns the trace plus a
+        standard `_summary` dict (mean / median / lower_ci / upper_ci / std /
+        approximate mode). With ci_pct=0.90 the lower/upper percentiles are the
+        5th/95th, matching the per-handle CI spec.
+
+    Edge cases.
+        - If `contributions` is empty, returns (empty array, _summary(empty)) with
+          summary["degenerate"]=True. A single warning is emitted (not raised).
+        - If `contributions` has length 1, the bootstrap is degenerate (every
+          resample is identical); we short-circuit to (single-element trace,
+          summary with mean=median=lower_ci=upper_ci=value, "degenerate"=True).
+        - If aggregator raises on a particular resample, that iteration is skipped
+          and counted under summary["n_skipped"].
+
+    Example.
+        >>> import numpy as np
+        >>> rng = np.random.default_rng(0)
+        >>> x = rng.beta(2, 5, 30)
+        >>> traces, summary = bootstrap_score_ci(x, n_iter=500, random_seed=0)
+        >>> summary["lower_ci"] <= summary["mean"] <= summary["upper_ci"]
+        True
+    """
+    contributions = np.asarray(contributions, dtype=float)
+    n = len(contributions)
+
+    if n == 0:
+        warnings.warn(
+            "bootstrap_score_ci called with empty contributions; returning degenerate summary",
+            stacklevel=2,
+        )
+        traces = np.array([], dtype=float)
+        summary = _summary(traces, ci_pct=ci_pct)
+        summary.update({"n_skipped": 0, "ci_pct": ci_pct, "degenerate": True})
+        return traces, summary
+
+    if n == 1:
+        v = float(contributions[0])
+        traces = np.array([v], dtype=float)
+        summary = {
+            "mean": v, "median": v, "lower_ci": v, "upper_ci": v,
+            "std": 0.0, "mode_approx": v, "n": 1,
+            "n_skipped": 0, "ci_pct": ci_pct, "degenerate": True,
+        }
+        return traces, summary
+
+    rng = np.random.default_rng(random_seed)
+    samples: list[float] = []
+    n_skipped = 0
+    for _ in range(n_iter):
+        idx = rng.integers(0, n, size=n)
+        resampled = contributions[idx]
+        try:
+            samples.append(float(aggregator(resampled)))
+        except (ValueError, ZeroDivisionError):
+            n_skipped += 1
+            continue
+
+    traces = np.asarray(samples, dtype=float)
+    summary = _summary(traces, ci_pct=ci_pct)
+    summary["n_skipped"] = n_skipped
+    summary["ci_pct"] = ci_pct
+    summary["degenerate"] = False
+    return traces, summary
+
+
+# ---------------------------------------------------------------------------
 # Function 2 — simulate_founder_emergence
 # ---------------------------------------------------------------------------
 

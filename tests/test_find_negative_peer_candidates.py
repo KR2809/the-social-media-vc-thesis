@@ -27,6 +27,7 @@ from scripts.find_negative_peer_candidates import (
     _outcome_class_guess,
     _parse_quarter,
     _post_makers_intersect_positives,
+    _post_matches_keywords,
     classify_wayback,
     find_candidates_for_niche,
     write_csv,
@@ -252,6 +253,7 @@ def test_find_candidates_for_niche_excludes_positives_and_high_upvotes() -> None
         rows = find_candidates_for_niche(
             "dev-tooling-boilerplate",
             max_upvotes=100,
+            keyword_filter=False,  # this test isolates upvote/positives logic
             token="fake",
             positives={"marclou"},
             wayback_cache={},
@@ -263,6 +265,77 @@ def test_find_candidates_for_niche_excludes_positives_and_high_upvotes() -> None
     # public_signals_available is True when X handle is present.
     assert all(r.public_signals_available for r in rows)
     assert rows[0].candidate_id.startswith("CAND_dev-tooling-boilerplate_2023Q3_")
+
+
+def test_post_matches_keywords_substring_case_insensitive() -> None:
+    post = {"name": "Notion Sites", "tagline": "Turn Notion into a site"}
+    assert _post_matches_keywords(post, ["notion"]) is True
+    assert _post_matches_keywords(post, ["NOTION"]) is True
+    # Multi-word keyword matches as a substring.
+    assert _post_matches_keywords(post, ["notion to"]) is False  # not present
+    assert _post_matches_keywords(post, ["into a site"]) is True
+
+
+def test_post_matches_keywords_rejects_unrelated() -> None:
+    post = {"name": "Salesforce CRM Plus", "tagline": "Enterprise pipeline tool"}
+    assert _post_matches_keywords(post, ["notion", "notion to"]) is False
+
+
+def test_post_matches_keywords_empty_keywords_matches_all() -> None:
+    post = {"name": "Anything", "tagline": "whatever"}
+    assert _post_matches_keywords(post, []) is True
+
+
+def test_post_matches_keywords_missing_fields_rejects() -> None:
+    # Stale cache entries (pre-PR8) lack name/tagline. They should be
+    # filtered out rather than crash; user re-runs with --refresh-ph.
+    post = {"id": "x"}
+    assert _post_matches_keywords(post, ["notion"]) is False
+
+
+def test_find_candidates_for_niche_keyword_filter_narrows_results() -> None:
+    posts = [
+        _fake_post("1", 5, maker_x="a"),  # name="Post 1", tagline="tagline" — no match
+        # Inject a name with the keyword present.
+        {**_fake_post("2", 6, maker_x="b"), "name": "Notion Sites", "tagline": "Build with Notion"},
+        {**_fake_post("3", 7, maker_x="c"), "name": "TodoApp", "tagline": "use notion-style blocks"},
+        {**_fake_post("4", 8, maker_x="d"), "name": "CRM Pro", "tagline": "sales pipelines"},
+    ]
+
+    with patch.object(fnpc, "_iter_posts_by_topic_cached", return_value=posts), \
+         patch.object(fnpc, "_classify_cached", return_value=("live", "20250101000000")):
+        rows = find_candidates_for_niche(
+            "notion-adjacent-tooling",
+            max_upvotes=100,
+            token="fake",
+            positives=set(),
+            wayback_cache={},
+            ph_cache={},
+        )
+
+    ids = sorted(r.ph_post_id for r in rows)
+    assert ids == ["2", "3"]  # only the two with "notion" in name/tagline
+
+
+def test_find_candidates_for_niche_no_keyword_filter_keeps_all() -> None:
+    posts = [
+        _fake_post("1", 5, maker_x="a"),
+        {**_fake_post("2", 6, maker_x="b"), "name": "Random", "tagline": "nothing"},
+    ]
+
+    with patch.object(fnpc, "_iter_posts_by_topic_cached", return_value=posts), \
+         patch.object(fnpc, "_classify_cached", return_value=("live", "20250101000000")):
+        rows = find_candidates_for_niche(
+            "notion-adjacent-tooling",
+            max_upvotes=100,
+            keyword_filter=False,
+            token="fake",
+            positives=set(),
+            wayback_cache={},
+            ph_cache={},
+        )
+
+    assert {r.ph_post_id for r in rows} == {"1", "2"}
 
 
 def test_find_candidates_for_niche_out_of_scope_returns_empty(caplog) -> None:
@@ -321,6 +394,7 @@ def test_find_candidates_for_niche_caps_at_max_candidates() -> None:
             "dev-tooling-boilerplate",
             max_upvotes=1000,
             max_candidates=5,
+            keyword_filter=False,  # isolate cap logic from keyword filter
             token="fake",
             positives=set(),
             wayback_cache={},
@@ -346,6 +420,7 @@ def test_find_candidates_dedup_across_topics() -> None:
          patch.object(fnpc, "_classify_cached", return_value=("live", None)):
         rows = find_candidates_for_niche(
             "twitter-growth-tools",
+            keyword_filter=False,  # isolate dedup logic from keyword filter
             token="fake",
             positives=set(),
             wayback_cache={},

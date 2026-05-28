@@ -44,6 +44,7 @@ logger = logging.getLogger(__name__)
 
 _REGISTRY_DEFAULT = Path("data/processed/negative_peers_registry.csv")
 _LABELS_DEFAULT = Path("data/processed/outcome_labels.csv")
+_FEATURES_DEFAULT = Path("data/processed/person_features.parquet")
 
 
 @dataclass
@@ -131,6 +132,67 @@ def materialise_for_outcome_labels(
     return labels_path
 
 
+def materialise_features(
+    registry_path: Path = _REGISTRY_DEFAULT,
+    features_path: Path = _FEATURES_DEFAULT,
+) -> Path:
+    """Append zero-feature rows to person_features.parquet for each peer.
+
+    Encodes the protocol's actual claim: each registered negative is a
+    project-level slot that produced no observable public-signal trail
+    in its matched niche × quarter. Numeric features default to 0;
+    date columns to NaT. SimpleImputer downstream replaces NaN floats
+    with the cohort median, so zero-rows still train cleanly.
+
+    Idempotent — peer_ids already in the features file are skipped.
+    """
+    registry = load_negative_peers(registry_path)
+    if len(registry) == 0:
+        logger.warning("negative-peer registry empty; no features to materialise")
+        return features_path
+
+    if not features_path.exists():
+        raise FileNotFoundError(
+            f"no person features at {features_path}. Run "
+            "`python pipeline.py person` first to materialise the positive cohort."
+        )
+    existing = pd.read_parquet(features_path)
+    schema = {c: existing[c].dtype for c in existing.columns}
+
+    peer_ids = registry["peer_id"].astype(str).tolist()
+    existing_ids = set(existing["person_id"].astype(str).tolist())
+    new_ids = [pid for pid in peer_ids if pid not in existing_ids]
+    if not new_ids:
+        logger.info("all negative peers already in features file")
+        return features_path
+
+    # Build the new rows column-by-column so we can match each source
+    # column's dtype exactly (including tz-aware datetimes).
+    n = len(new_ids)
+    new_cols: dict[str, pd.Series] = {}
+    for col, dt in schema.items():
+        if col == "person_id":
+            new_cols[col] = pd.Series(new_ids, dtype=dt)
+        elif pd.api.types.is_integer_dtype(dt):
+            new_cols[col] = pd.Series([0] * n, dtype=dt)
+        elif pd.api.types.is_float_dtype(dt):
+            new_cols[col] = pd.Series([0.0] * n, dtype=dt)
+        elif pd.api.types.is_datetime64_any_dtype(dt):
+            # NaT in the exact tz of the existing column.
+            new_cols[col] = pd.Series([pd.NaT] * n, dtype=dt)
+        else:
+            new_cols[col] = pd.Series([""] * n, dtype=dt)
+
+    new_df = pd.DataFrame(new_cols)
+    out = pd.concat([existing, new_df], ignore_index=True)
+    out.to_parquet(features_path, index=False)
+    print(
+        f"negative_peers | materialised {len(new_ids)} zero-feature rows "
+        f"to {features_path} | total features: {len(out)}"
+    )
+    return features_path
+
+
 def write_protocol_summary(
     registry_path: Path = _REGISTRY_DEFAULT,
     out_path: Path = Path(
@@ -193,4 +255,5 @@ def write_protocol_summary(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     materialise_for_outcome_labels()
+    materialise_features()
     write_protocol_summary()

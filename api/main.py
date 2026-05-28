@@ -19,12 +19,14 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
 from api.sources import get_source
 
@@ -49,7 +51,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
     allow_credentials=True,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -397,3 +399,243 @@ def get_discovered_topics(limit: int = Query(20, ge=1, le=200)) -> dict:
     df = src.read_discovered_topics()
     rows = df.head(limit).to_dict(orient="records") if len(df) else []
     return {"n_returned": len(rows), "topics": rows}
+
+
+# ---------------------------------------------------------------------------
+# 10. GET  /api/rank/{handle}
+#     POST /api/rank/batch
+#     GET  /api/rank/jobs/{job_id}
+#
+# Per-handle ranking (Tier-1 + Tier-2 → Σ → bootstrap CI → verdict).
+# Hot path (handle already in scored_signals): ~30ms; returns 200.
+# Cold path (handle not scored yet): would trigger ingestion + scoring; if
+# that can't finish within COMPUTE_BUDGET_SEC, the request returns 202 +
+# job_id and the work continues in a BackgroundTasks task. The client polls
+# /api/rank/jobs/{job_id}.
+#
+# IMPORTANT: cold ingestion spends LLM budget, so it requires the
+# RANK_API_ALLOW_COLLECT=1 env var to opt in. Without it, cold handles return
+# 404. Single-process JOBS dict is fine for the thesis demo's traffic; for
+# multi-worker we'd swap to Redis. Done jobs are pruned after 1h.
+# ---------------------------------------------------------------------------
+
+
+class _JobState(BaseModel):
+    status: str = Field(..., description="running | done | failed")
+    started_at: datetime
+    finished_at: datetime | None = None
+    result: dict | None = None
+    error: str | None = None
+
+
+JOBS: dict[str, _JobState] = {}
+_JOB_TTL_SEC = 3600
+
+
+def _prune_jobs() -> None:
+    cutoff = datetime.utcnow().timestamp() - _JOB_TTL_SEC
+    for k, v in list(JOBS.items()):
+        ts = (v.finished_at or v.started_at).timestamp()
+        if ts < cutoff:
+            JOBS.pop(k, None)
+
+
+def _allow_collect() -> bool:
+    return os.environ.get("RANK_API_ALLOW_COLLECT", "").lower() in {"1", "true", "yes"}
+
+
+def _rank_one_to_dict(handle: str, *, skip_rationale: bool = False) -> dict:
+    """Wrap rank_one to a JSON-serialisable dict (datetimes → isoformat)."""
+    from ranking.rank_handles import rank_one  # noqa: PLC0415
+
+    row = rank_one(
+        handle,
+        allow_collect=_allow_collect(),
+        skip_rationale=skip_rationale,
+    )
+    d = row.as_record()
+    d["scored_at"] = row.scored_at.isoformat()
+    return d
+
+
+def _background_rank(job_id: str, handle: str, skip_rationale: bool) -> None:
+    """Runs in BackgroundTasks after the 30s budget expires."""
+    try:
+        d = _rank_one_to_dict(handle, skip_rationale=skip_rationale)
+        JOBS[job_id] = _JobState(
+            status="done",
+            started_at=JOBS[job_id].started_at,
+            finished_at=datetime.utcnow(),
+            result=d,
+        )
+    except Exception as exc:  # pragma: no cover — surfaced to client
+        JOBS[job_id] = _JobState(
+            status="failed",
+            started_at=JOBS[job_id].started_at,
+            finished_at=datetime.utcnow(),
+            error=f"{type(exc).__name__}: {exc}",
+        )
+
+
+def _try_rank_within_budget(
+    handle: str,
+    background: BackgroundTasks,
+    skip_rationale: bool,
+) -> tuple[int, dict]:
+    """Returns (status_code, body) — 200 with result, 202 with job_id, or raises."""
+    from ranking import config as ranking_cfg  # noqa: PLC0415
+
+    # Hot path: try a synchronous call. For cohort handles this is ~30ms so the
+    # budget never fires. We don't actually use asyncio.wait_for here because
+    # rank_one is synchronous; instead we time it and, if a cold handle would
+    # require ingestion, dispatch to background immediately.
+    try:
+        # Cheap pre-check: is the handle already in scored_signals?
+        import pyarrow.parquet as pq  # noqa: PLC0415
+
+        scored = pq.read_table(ranking_cfg.SCORED_SIGNALS_PATH).to_pandas()
+        cohort = set(scored["person_id"].dropna().unique())
+    except Exception:
+        cohort = set()
+
+    if handle in cohort:
+        # Hot path — synchronous, under budget by construction.
+        t0 = time.perf_counter()
+        d = _rank_one_to_dict(handle, skip_rationale=skip_rationale)
+        latency_ms = int((time.perf_counter() - t0) * 1000)
+        d["latency_ms"] = latency_ms
+        return 200, d
+
+    # Cold path.
+    if not _allow_collect():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"handle {handle!r} not in scored cohort and cold ingestion is "
+                "disabled (set RANK_API_ALLOW_COLLECT=1 to enable; spends LLM budget)."
+            ),
+        )
+
+    # Dispatch as a background job. We assume cold ingest > COMPUTE_BUDGET_SEC.
+    job_id = f"rank-{handle}-{int(time.time() * 1000)}"
+    JOBS[job_id] = _JobState(status="running", started_at=datetime.utcnow())
+    background.add_task(_background_rank, job_id, handle, skip_rationale)
+    return 202, {"job_id": job_id, "status": "running", "handle": handle}
+
+
+@app.get("/api/rank/{handle}")
+def get_rank(
+    handle: str,
+    background: BackgroundTasks,
+    skip_rationale: bool = Query(False),
+):
+    _prune_jobs()
+    status, body = _try_rank_within_budget(handle, background, skip_rationale)
+    if status == 202:
+        from fastapi.responses import JSONResponse  # noqa: PLC0415
+
+        return JSONResponse(status_code=202, content=body)
+    return body
+
+
+class _RankBatchBody(BaseModel):
+    handles: list[str]
+    skip_rationale: bool = False
+
+
+@app.post("/api/rank/batch")
+def post_rank_batch(body: _RankBatchBody, background: BackgroundTasks):
+    _prune_jobs()
+    if not body.handles:
+        raise HTTPException(status_code=400, detail="handles must be non-empty")
+    if len(body.handles) > 50:
+        raise HTTPException(status_code=400, detail="max 50 handles per batch")
+
+    results = []
+    jobs = []
+    for h in body.handles:
+        try:
+            status, b = _try_rank_within_budget(h, background, body.skip_rationale)
+            (jobs if status == 202 else results).append(b)
+        except HTTPException as e:
+            results.append({"handle": h, "error": e.detail, "status_code": e.status_code})
+
+    return {
+        "n_handles": len(body.handles),
+        "n_immediate": len(results),
+        "n_queued": len(jobs),
+        "results": results,
+        "jobs": jobs,
+    }
+
+
+@app.get("/api/rank/jobs/{job_id}")
+def get_rank_job(job_id: str) -> dict:
+    _prune_jobs()
+    job = JOBS.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"job {job_id} not found (or expired after 1h)")
+    return job.model_dump(mode="json")
+
+
+# ---------------------------------------------------------------------------
+# 11. GET /api/discover/topics
+#     GET /api/discover/candidates/{cluster_id}
+#
+# Forward-looking discovery — LLM-clustered topic slate + ranked candidates.
+# Reads from cached parquet/CSV; staleness-triggered refresh is a deliberate
+# future extension (the thesis demo runs the CLI on schedule rather than
+# letting the API spawn LLM calls).
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/discover/topics")
+def get_discover_topics(
+    date: str | None = Query(None, description="ISO date for replay mode; default today."),
+    seed: str = Query("auto", description="'auto' = --from-cohort; otherwise comma-list."),
+) -> dict:
+    """Return the cached topic slate. The CLI populates discovered_topics.csv."""
+    from discovery.topic_discovery import DISCOVERED_TOPICS_PATH  # noqa: PLC0415
+
+    if not DISCOVERED_TOPICS_PATH.exists():
+        return {
+            "n_returned": 0,
+            "clusters": [],
+            "note": "no discovery run yet — invoke `python -m discovery.topic_discovery --from-cohort`",
+        }
+    import pandas as pd  # noqa: PLC0415
+
+    df = pd.read_csv(DISCOVERED_TOPICS_PATH)
+    return {
+        "n_returned": len(df),
+        "date": date,
+        "seed": seed,
+        "clusters": df.to_dict(orient="records"),
+    }
+
+
+@app.get("/api/discover/candidates/{cluster_id}")
+def get_discover_candidates(
+    cluster_id: str,
+    only_suggested: bool = Query(False, description="If true, filter to suggested_for_ranking=True."),
+) -> dict:
+    from discovery.topic_discovery import DISCOVERED_CANDIDATES_PATH  # noqa: PLC0415
+
+    if not DISCOVERED_CANDIDATES_PATH.exists():
+        raise HTTPException(
+            status_code=503,
+            detail="no candidates parquet — run discovery first",
+        )
+    import pyarrow.parquet as pq  # noqa: PLC0415
+
+    df = pq.read_table(DISCOVERED_CANDIDATES_PATH).to_pandas()
+    sub = df[df["cluster_id"] == cluster_id]
+    if only_suggested:
+        sub = sub[sub["suggested_for_ranking"]]
+    if len(sub) == 0:
+        raise HTTPException(status_code=404, detail=f"no candidates for cluster {cluster_id!r}")
+    return {
+        "cluster_id": cluster_id,
+        "n_returned": len(sub),
+        "candidates": sub.to_dict(orient="records"),
+    }

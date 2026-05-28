@@ -7,6 +7,7 @@ import pandas as pd
 from ingestion.negative_peers import (
     NegativePeer,
     load_negative_peers,
+    materialise_features,
     materialise_for_outcome_labels,
     register_peer,
     write_protocol_summary,
@@ -103,3 +104,66 @@ def test_summary_lists_counts(tmp_path):
     assert "n = 2" in text
     assert "low_traction" in text
     assert "SaaS/CE" in text
+
+
+def _seed_features(features_path):
+    """Helper: write a tiny baseline features parquet with one positive row."""
+    df = pd.DataFrame({
+        "person_id": ["alice"],
+        "n_signals": [42],
+        "n_platforms": [3],
+        "first_signal_date": pd.to_datetime(["2024-01-01"], utc=True),
+        "last_signal_date": pd.to_datetime(["2024-06-01"], utc=True),
+        "active_days": [150.0],
+        "mean_signal_strength": [0.7],
+        "max_signal_strength": [0.9],
+        "s1_mean": [0.5],
+        "s2_mean": [0.4],
+        "s3_mean": [0.3],
+        "s4_mean": [0.6],
+        "bip_signals": [5.0],
+        "explicit_goal_signals": [2.0],
+        "recruitment_signals": [1.0],
+    })
+    df.to_parquet(features_path, index=False)
+
+
+def test_materialise_features_appends_zero_rows(tmp_path):
+    registry = tmp_path / "registry.csv"
+    features = tmp_path / "person_features.parquet"
+    _seed_features(features)
+    register_peer(
+        NegativePeer("NEG_x_2020Q3_01", "SaaS/CE", "2020-Q3", True, "low_traction"),
+        registry_path=registry,
+    )
+    materialise_features(registry_path=registry, features_path=features)
+    out = pd.read_parquet(features)
+    assert len(out) == 2
+    new_row = out[out["person_id"] == "NEG_x_2020Q3_01"].iloc[0]
+    assert new_row["n_signals"] == 0
+    assert new_row["n_platforms"] == 0
+    assert new_row["mean_signal_strength"] == 0.0
+    assert pd.isna(new_row["first_signal_date"])
+
+
+def test_materialise_features_is_idempotent(tmp_path):
+    registry = tmp_path / "registry.csv"
+    features = tmp_path / "person_features.parquet"
+    _seed_features(features)
+    register_peer(
+        NegativePeer("NEG_x_2020Q3_01", "SaaS/CE", "2020-Q3", True, "low_traction"),
+        registry_path=registry,
+    )
+    materialise_features(registry_path=registry, features_path=features)
+    materialise_features(registry_path=registry, features_path=features)
+    out = pd.read_parquet(features)
+    assert len(out[out["person_id"] == "NEG_x_2020Q3_01"]) == 1
+
+
+def test_materialise_features_empty_registry_is_noop(tmp_path):
+    registry = tmp_path / "registry.csv"
+    features = tmp_path / "person_features.parquet"
+    _seed_features(features)
+    materialise_features(registry_path=registry, features_path=features)
+    out = pd.read_parquet(features)
+    assert len(out) == 1  # unchanged
