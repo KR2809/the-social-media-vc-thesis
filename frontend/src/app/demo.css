@@ -1283,3 +1283,156 @@ body {
   .info-tip-popup { width: 260px !important; max-width: calc(100vw - 32px); }
   .settings-popover { right: 12px; left: 12px; width: auto; }
 }
+
+/* ===================================================================
+   Onboarding / landing guide modal (OnboardingGuide.tsx)
+   Split layout: illustration left, copy right; dot progress; footer.
+   =================================================================== */
+.og-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 11, 20, 0.62);
+  backdrop-filter: blur(3px);
+  animation: og-fade 160ms ease-out;
+}
+@keyframes og-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes og-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.og-modal {
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.85fr 1fr;
+  grid-template-rows: 1fr auto;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  animation: og-rise 200ms ease-out;
+}
+
+.og-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+/* Left illustration pane */
+.og-illo {
+  grid-row: 1;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 28px;
+  background: linear-gradient(160deg, var(--bg-2), var(--accent-soft));
+  border-right: 1px solid var(--hairline);
+}
+.og-illo-svg { width: 100%; height: auto; max-height: 260px; }
+.og-illo-label { font-family: var(--serif); font-size: 13px; font-weight: 600; }
+.og-illo-label-sm { font-family: var(--serif); font-size: 10px; }
+
+/* Right content pane */
+.og-content {
+  grid-row: 1;
+  grid-column: 2;
+  padding: 44px 44px 24px;
+  overflow-y: auto;
+}
+.og-eyebrow {
+  color: var(--ink-3);
+  letter-spacing: 0.12em;
+  margin-bottom: 18px;
+}
+.og-title {
+  font-family: var(--serif);
+  font-size: 30px;
+  line-height: 1.18;
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0 0 18px;
+  letter-spacing: -0.01em;
+}
+.og-body p {
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--ink-1);
+  margin: 0 0 14px;
+}
+.og-body p.og-muted { color: var(--ink-2); }
+.og-body strong { color: var(--ink-1); font-weight: 600; }
+
+/* Footer spans both columns */
+.og-footer {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--hairline);
+  background: var(--bg-card);
+}
+.og-dots { display: flex; gap: 8px; align-items: center; }
+.og-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: var(--hairline-2);
+  cursor: pointer;
+  transition: background 140ms ease, width 140ms ease;
+}
+.og-dot.done { background: var(--accent); opacity: 0.55; }
+.og-dot.on { width: 26px; background: var(--accent); }
+
+.og-actions { display: flex; align-items: center; gap: 10px; }
+.og-skip,
+.og-back {
+  font: inherit;
+  font-size: 14px;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.og-skip:hover,
+.og-back:hover:not(:disabled) { color: var(--ink-1); background: var(--bg-hover); }
+.og-back:disabled { opacity: 0.35; cursor: default; }
+.og-next {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 9px 18px;
+  border-radius: 10px;
+  transition: background 140ms ease, transform 80ms ease;
+}
+[data-theme="dark"] .og-next { color: #0B0F1C; }
+.og-next:hover { background: var(--accent-2); }
+.og-next:active { transform: translateY(1px); }
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 760px) {
+  .og-modal { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .og-illo { grid-column: 1; grid-row: 1; border-right: none; border-bottom: 1px solid var(--hairline); padding: 24px; }
+  .og-illo-svg { max-height: 140px; }
+  .og-content { grid-column: 1; grid-row: 2; padding: 28px 24px 16px; }
+  .og-title { font-size: 24px; }
+  .og-footer { grid-row: 3; flex-wrap: wrap; }
+}

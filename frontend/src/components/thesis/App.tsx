@@ -13,6 +13,7 @@ import { Footer } from "./primitives";
 import { View1Replay } from "./View1Replay";
 import { View2Outcome } from "./View2Outcome";
 import { View3Founder } from "./View3Founder";
+import { OnboardingGuide, shouldShowOnboarding } from "./OnboardingGuide";
 
 type Theme = "light" | "dark";
 type View = 1 | 2 | 3;
@@ -73,6 +74,17 @@ export function App() {
   );
   const [revealed, setRevealed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // Show the walkthrough automatically on first visit (localStorage-gated).
+  // Effect-only so SSR markup never includes the modal (avoids hydration
+  // mismatch); shouldShowOnboarding() is a no-op on the server.
+  useEffect(() => {
+    if (shouldShowOnboarding()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGuideOpen(true);
+    }
+  }, []);
 
   // Theme: SSR-safe. The pre-paint inline <script> in layout.tsx writes
   // data-theme on <html> from localStorage / system preference. We read it
@@ -198,6 +210,7 @@ export function App() {
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
         mounted={mounted}
+        onOpenGuide={() => setGuideOpen(true)}
       />
       <DateSlider value={t} onChange={setT} min={MIN} max={MAX} />
       <ViewNav
@@ -246,6 +259,7 @@ export function App() {
         )}
       </div>
       <Footer />
+      <OnboardingGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
     </ThesisProvider>
   );

@@ -11,9 +11,10 @@ interface Props {
   settingsOpen: boolean;
   setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   mounted: boolean;
+  onOpenGuide: () => void;
 }
 
-export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted }: Props) {
+export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted, onOpenGuide }: Props) {
   const thesis = useThesis();
   const cov = thesis.coverage();
   return (
@@ -52,6 +53,18 @@ export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted
         >
           <span className="status-dot ok" /> <span>Lookahead-bias guard</span>
         </div>
+        <button
+          className="icon-btn"
+          onClick={onOpenGuide}
+          aria-label="Open walkthrough"
+          title="What am I looking at? — open the walkthrough"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5" strokeLinecap="round" />
+            <line x1="12" y1="17" x2="12" y2="17.01" strokeLinecap="round" />
+          </svg>
+        </button>
         <button
           className={"icon-btn " + (settingsOpen ? "on" : "")}
           onClick={() => setSettingsOpen(o => !o)}
