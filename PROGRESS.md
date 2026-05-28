@@ -298,8 +298,8 @@ budget-guard plumbing is verified via mocked token counts.
 | `data/raw/trends/*.parquet` | per-keyword | 53 weeks for "indie hacker" |
 | `data/interim/signal_events.parquet` | unified | 601 rows (HN-dominated) |
 | `data/interim/topic_momentum.parquet` | unified | 53 rows, 1 keyword |
-| `data/processed/scored_signals.parquet` | unified | **1321 signals scored** (944 cohort + 377 negatives); ledger $7.61/$30 |
-| `data/processed/outcome_labels.csv` | labels | 20 positives + 15 real signal-bearing negatives + 1 self-case; eval runs (n=22 with features) |
+| `data/processed/scored_signals.parquet` | unified | **~1680 signals scored** (cohort + 377 HN negatives + 359 X-native positive backfill); ledger $9.66/$30 |
+| `data/processed/outcome_labels.csv` | labels | 20 positives + 15 real signal-bearing negatives + 1 self-case; **10/20 positives + 15/15 negatives have features → eval n=25** |
 | `data/processed/topic_momentum_metrics.parquet` | metrics | slope_4w=17.5, slope_12w=0.19, acceleration=17.31 for "indie hacker" (real Trends data) |
 | `04_RETROSPECTIVE_CASES/cohort_balance.md` | report | per-founder signal counts (6/20 founders have non-trivial data) |
 
@@ -309,12 +309,12 @@ budget-guard plumbing is verified via mocked token counts.
 
 | # | Blocker | Owner | Unblocks |
 |---|---|---|---|
-| B1 | ~~`ANTHROPIC_API_KEY` in `.env`~~ — **CLOSED**. Real scoring runs; ledger $7.61/$30. | — | — |
+| B1 | ~~`ANTHROPIC_API_KEY` in `.env`~~ — **CLOSED**. Real scoring runs; ledger $9.66/$30. | — | — |
 | B2.a | ~~Candidate-longlist tool hits PH rate-limits~~ — **CLOSED 2026-05-20**. `scripts/find_negative_peer_candidates.py` produced 283 candidates across 12/15 PH niches in 30 min using 18% of the PH budget; caches persist incrementally on disk. CSVs sit in `data/interim/negative_peer_candidates/` (see folder README). | — | — |
 | B2.b | ~~Negative peers~~ — **CLOSED 2026-05-28**. 15 real **signal-bearing** negatives ingested from the HN discovery harvest (`scripts/ingest_signal_bearing_negatives.py`): people who posted in-niche but never emerged. Eval now genuine — ROC AUC **0.895** (was artifactual 1.000), PR AUC baseline 0.884 → KG-aug 0.913. Earlier zero-feature-placeholder approach (`ingestion/negative_peers.py`) kept as fallback + guarded by `detect_zero_feature_negatives`. | — | — |
 | B3 | Reddit + ProductHunt API credentials | Kris | Re-running the cohort sweep with these roughly doubles per-founder data coverage |
 | B4 | YouTube channel-ID overrides for cohort (most aren't YouTube-first) | Kris | YouTube coverage in the KG |
-| B5 | Twitter Wayback density sweep | CC, manual | X coverage gap for pre-2023 cases |
+| B5 | Twitter Wayback density sweep — **PARTIAL 2026-05-28**. 3 X-native positives backfilled (levelsio, yongfook, damengchen) via `scripts/backfill_one_handle.py` (isolated, snapshot-capped). Remaining 10 positives stay thin: Wayback throttles snapshot HTML fetches under batch load (~10s each, hang). Full backfill needs a non-Wayback X source. Positive coverage 7 → 10/20; eval n=25. | CC / non-Wayback X source | Stronger n for the eval |
 | B6 | First scored data → topic-discovery Pass A meaningful output | Depends on B1 | Auto-topic discovery's cohort-grounded pass produces empty results until LLM scoring runs and populates `s6_topic_label` |
 | B7 | Kris's own X handle ingested + scored | Depends on B1 + sweep | Self-case page surfaces a real P(emerge) prediction |
 

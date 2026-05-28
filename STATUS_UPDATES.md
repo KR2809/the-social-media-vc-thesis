@@ -1546,3 +1546,30 @@ script each pass.
 
 **Cost incurred:** +$2.15 this session (377 negative signals scored via Haiku). Running ledger **$7.61 / $30** (≈ $22.39 headroom).
 ---
+
+---
+## 2026-05-28 16:30 — Positive-coverage backfill: 3 X-native founders via Wayback, eval n=25
+
+**What I did:**
+- **Closed part of the positive-side gap.** 13 of 20 positives had 0 ingested signals — they're X/Twitter-native (levelsio, yongfook, damengchen, ...) with ~0 HackerNews activity, so the HN path that covered the other 7 couldn't reach them. snscrape is dead; Wayback CDX has their snapshots.
+- **Backfilled 3 via Wayback** (levelsio, yongfook, damengchen), 120 real tweets each → scored (+359 signals, +$2.05 → **$9.66/$30**) → rebuilt features/graph/kg.
+- **Positive feature coverage 7 → 10 of 20. Eval n 22 → 25.** Metrics stay real: ROC AUC 0.947 baseline / 0.927 KG-aug, PR AUC 0.956 / 0.948, F1 +0.047 with KG, Brier 0.081 → 0.069, precision@3/@5 = 1.000. No artefact banner. Backtest + allocation re-run.
+- **New tooling:** `scripts/backfill_one_handle.py` (isolated single-handle collect, snapshot-capped) + `scripts/backfill_positives.sh` (sequential driver, per-handle watchdog timeout). Also `scripts/backfill_positive_coverage.py` (batch attempt, kept for reference).
+
+**Decisions made:**
+- **Wayback batch scraping is impractical — confirmed empirically (3 wedged runs).** The CDX *index* is fast, but *snapshot HTML* fetches are slow (~10s each) and the endpoint throttles/hangs connections under sustained load, even with process isolation + 4s pacing. The reliable mode is one fresh process per handle with a hard snapshot cap (25) and a watchdog timeout.
+- **Capped at 25 snapshots + 120 signals/handle.** Lossy vs full tweet history but bounded wall-clock (~4-5 min/handle) and real signal. Per CLAUDE.md §6 (free sources, graceful fallback), this is the right tradeoff vs fighting a throttling endpoint for hours.
+- **Stopped at 3 backfilled** (per Kris). The remaining 10 X-native positives stay thin; full backfill is filed as a post-lock task needing a non-Wayback X source.
+
+**Blockers:** none for shipping. The eval is real and better-powered (n=25). Positive coverage at 10/20 is a known, documented limitation (B5 partial), framed as proof-of-concept per COMPREHENSIVE_PLAN §4.5.
+
+**Next steps:**
+- **Merge PR #7** (auto-discovery + ranking + B2.b real negatives + positive backfill + genuine eval).
+- Post-lock: source remaining 10 positives via a non-Wayback X path (B5).
+
+**Files changed:**
+- `scripts/backfill_one_handle.py`, `scripts/backfill_positives.sh`, `scripts/backfill_positive_coverage.py` (new)
+- Data (gitignored): scored_signals, person_features, kg_features, allocation, backtest, eval report.
+
+**Cost incurred:** +$2.05 this session. Running ledger **$9.66 / $30** (≈ $20.34 headroom).
+---
