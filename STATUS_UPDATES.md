@@ -1472,3 +1472,43 @@ script each pass.
 
 **Cost incurred:** $0 (PH dev token only; no LLM calls).
 ---
+
+---
+## 2026-05-27 22:30 — B2.b kickoff: 15 negatives registered + pipeline unblocked + eval artefact guard
+
+**What I did:**
+- **Picked + registered 15 negative peers** across 5 niches (3 each) into `scripts/register_negative_peers.py`, drawn from the candidate CSVs after niche-frame review against `cohort_verified.md`:
+  - Community-led education (Vassallo, 2021-Q4): european-startup-universe, growth-buddies, unlearning-labs (all dormant by mid-2022).
+  - Newsletter / cohort writing (Bush+Cole, 2020-Q3): franklinwrite, on-the-mind, capslock-2.
+  - Dev-tooling boilerplate (Marc Lou, 2023-Q3): fixhero, backendforth, scim.dev.
+  - Twitter growth tools (Tweet Hunter, 2021-Q2): sign-wars, twitter-for-livechat, birdflow-for-twitter (from the keyword-filtered refreshed CSV).
+  - Solo-creator content business (Welsh, 2022-Q1): linkedin-content-planner, linkedin-pronoun-remover, thread-to-carousel-by-posted.
+- **`ingestion/negative_peers.py`: added `materialise_features()`** — `materialise_for_outcome_labels()` wrote label rows but no person_features, so eval's inner join dropped every negative → single-class y. New function appends a schema-matching zero-feature row per peer (numeric→0, float→0.0, datetime→NaT tz-aware, str→""). Wired into both `register_negative_peers.py::main()` and the module `__main__`. Idempotent.
+- **Pipeline now runs end-to-end:** `seed-labels → eval → backtest → allocate`. 20 pos + 15 neg in `outcome_labels.csv`, 24 feature rows, allocation over $1M with top-1 = $106k.
+- **`models/evaluation/eval.py`: artefact guard.** Zero-feature negatives are trivially separable (eval ROC AUC / PR AUC = 1.000). Added `detect_zero_feature_negatives()` + a loud "EVAL METRICS ARE ARTIFACTUAL — DO NOT QUOTE IN THE THESIS" banner that fires when ≥50% of negatives have n_signals=0. Threaded through `run_full_eval()`.
+- **Tests:** +3 in `test_negative_peers.py` (materialise_features: appends/idempotent/empty-noop), +3 in `test_models.py` (zero-feature detector + warning fires e2e), and rewrote 2 stale guards in `test_register_negative_peers.py` (replaced "all stubs unfilled" with a handle-leak guard that enforces the public/private boundary; updated main() coverage for the new materialise_features call). Full suite 265 pass, 1 skip, 3 pre-existing FakeSource API failures (baseline). ruff clean.
+- Incorporated the spawned follow-up's keyword-filter implementation in `find_negative_peer_candidates.py` (search_keywords now actually applied; `--no-keyword-filter` for backward-compat).
+
+**Decisions made:**
+- **Zero-feature negatives over real-signal ingestion (for now).** The protocol (DECISION_LOG iter-6) defines negatives as anonymous project-level slots, so zero-feature placeholders are the literal encoding. But this makes eval metrics meaningless — hence the artefact guard so they can't be misquoted. Real-signal backfill is the proper fix and remains open.
+- **Picks use anonymous PH-post identifiers + outcome facts in the public script**, never personal handles (those belong in gitignored `data/private/`). The new handle-leak test enforces this.
+- **All 15 picks landed on `feature/auto-discovery` / PR #7** (Kris's call) rather than a separate PR — keeps it one merge.
+
+**Blockers:**
+- **B2.b NOT fully closed.** 15/57 stubs filled (the ≥15 minimum to run the pipeline). The remaining 42 stubs (14 niches) are open. More importantly: **the eval result is artifactual** until negatives carry real ingested signals. The May-31 lock cannot quote these metrics.
+- 5 niches still need keyword-filter refresh before another picking pass (community-led-education, testimonials-social-proof, ai-*, newsletter-cohort — the cached CSVs predate the filter).
+
+**Next steps:**
+- **Kris:** decide whether to (a) backfill real social-media signals for the 15 negative-peer handles via `data/private/negative_peers_handles.csv` (2-4h, makes eval real), or (b) accept artefact-guarded metrics as proof-of-concept-only for the May-31 lock. This is the load-bearing decision before the lock.
+- **Kris/CC:** fill the remaining 42 stubs if a larger negative set is wanted (refresh cached CSVs first).
+- **Merge PR #7** when ready — it now bundles auto-discovery + ranking + B2.b kickoff.
+
+**Files changed:**
+- `scripts/register_negative_peers.py` (15 picks + materialise_features wiring)
+- `ingestion/negative_peers.py` (+ materialise_features)
+- `models/evaluation/eval.py` (+ detect_zero_feature_negatives + artefact banner)
+- `tests/test_negative_peers.py`, `tests/test_models.py`, `tests/test_register_negative_peers.py`
+- `scripts/find_negative_peer_candidates.py`, `tests/test_find_negative_peer_candidates.py` (keyword filter, from spawned task)
+
+**Cost incurred:** $0 added. Running ledger unchanged at $5.45 / $30.
+---
