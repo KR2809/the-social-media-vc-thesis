@@ -30,6 +30,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from ingestion import twitter_collect
 from ingestion.cohort import load_cohort
 from ingestion.schema import handle_to_person_id
 from ingestion.twitter_collect import collect_twitter
@@ -43,6 +44,13 @@ DEFAULT_START = date(2018, 1, 1)
 DEFAULT_END = date(2024, 1, 1)
 DEFAULT_MAX_SIGNALS_PER_HANDLE = 120
 DEFAULT_RETRIES = 3
+# Wayback throttles sustained snapshot fetching (Connection refused after a
+# burst). These pacing knobs respect that: a slow per-request rate plus a
+# cooldown between handles lets the throttle window reset. Slower wall-clock,
+# but it actually completes where a tight loop wedges.
+DEFAULT_WAYBACK_RATE_SEC = 4.0   # was 1.0 in the module; override at runtime
+DEFAULT_HANDLE_COOLDOWN_SEC = 20.0
+DEFAULT_HANDLE_RETRY_COOLDOWN_SEC = 60.0  # longer rest after a throttle hit
 
 
 def positives_missing_signals(scored_path: Path = _SCORED) -> list[str]:
@@ -67,9 +75,13 @@ def positives_missing_signals(scored_path: Path = _SCORED) -> list[str]:
 
 
 def _collect_with_retry(
-    handle: str, start: date, end: date, retries: int
+    handle: str,
+    start: date,
+    end: date,
+    retries: int,
+    retry_cooldown: float = DEFAULT_HANDLE_RETRY_COOLDOWN_SEC,
 ) -> int:
-    """collect_twitter with retry on transient failures. Returns event count."""
+    """collect_twitter with retry + long cooldown on throttle. Returns event count."""
     last_n = 0
     for attempt in range(1, retries + 1):
         try:
@@ -79,14 +91,20 @@ def _collect_with_retry(
             last_n = len(pd.read_parquet(path))
             if last_n > 0:
                 return last_n
-            # 0 events could be a transient CDX blip — retry a couple times.
-            logger.info("%s: 0 events on attempt %d", handle, attempt)
+            # 0 events: either genuinely no Wayback tweets, or a throttle
+            # blip. Rest a full window before retrying so the connection
+            # limit resets.
+            logger.info(
+                "%s: 0 events on attempt %d — cooling down %.0fs",
+                handle, attempt, retry_cooldown,
+            )
         except Exception as exc:
             logger.warning(
-                "%s: collect failed attempt %d (%s)", handle, attempt, exc
+                "%s: collect failed attempt %d (%s) — cooling down %.0fs",
+                handle, attempt, exc, retry_cooldown,
             )
         if attempt < retries:
-            time.sleep(5 * attempt)  # backoff
+            time.sleep(retry_cooldown)
     return last_n
 
 
@@ -126,24 +144,50 @@ def backfill(
     end: date = DEFAULT_END,
     max_signals: int = DEFAULT_MAX_SIGNALS_PER_HANDLE,
     retries: int = DEFAULT_RETRIES,
+    wayback_rate_sec: float = DEFAULT_WAYBACK_RATE_SEC,
+    handle_cooldown: float = DEFAULT_HANDLE_COOLDOWN_SEC,
 ) -> dict[str, int]:
-    """Ingest Wayback signals for positives missing them. Returns {handle: kept}."""
+    """Ingest Wayback signals for positives missing them. Returns {handle: kept}.
+
+    Paces requests to respect Wayback throttling: slows the module's
+    per-request rate limit and rests between handles. Checkpoints after each
+    handle (the raw parquet is written immediately), so a mid-run failure
+    keeps completed handles.
+    """
     _RAW_TWITTER.mkdir(parents=True, exist_ok=True)
+
+    # Slow the shared collector's rate limit for this run only.
+    original_rate = twitter_collect._WAYBACK_RATE_LIMIT_SEC
+    twitter_collect._WAYBACK_RATE_LIMIT_SEC = wayback_rate_sec
+    logger.info(
+        "wayback rate limit %.1fs → %.1fs for this run",
+        original_rate, wayback_rate_sec,
+    )
+
     targets = positives_missing_signals()
     logger.info("positives missing signals: %d → %s", len(targets), targets)
 
     result: dict[str, int] = {}
-    for handle in targets:
-        n = _collect_with_retry(handle, start, end, retries)
-        if n == 0:
-            logger.warning("%s: stayed thin (0 events after %d tries)", handle, retries)
-            result[handle] = 0
-            continue
-        pid = handle_to_person_id(handle)
-        path = _RAW_TWITTER / f"{pid}_{start.isoformat()}_{end.isoformat()}.parquet"
-        kept = trim_parquet_to_cap(path, max_signals) if path.exists() else n
-        result[handle] = kept
-        logger.info("%s → %d signals kept (of %d)", handle, kept, n)
+    try:
+        for i, handle in enumerate(targets, start=1):
+            logger.info("[%d/%d] backfilling %s", i, len(targets), handle)
+            n = _collect_with_retry(handle, start, end, retries)
+            if n == 0:
+                logger.warning(
+                    "%s: stayed thin (0 events after %d tries)", handle, retries
+                )
+                result[handle] = 0
+            else:
+                pid = handle_to_person_id(handle)
+                path = _RAW_TWITTER / f"{pid}_{start.isoformat()}_{end.isoformat()}.parquet"
+                kept = trim_parquet_to_cap(path, max_signals) if path.exists() else n
+                result[handle] = kept
+                logger.info("%s → %d signals kept (of %d)", handle, kept, n)
+            # Cooldown between handles so we don't trip the throttle.
+            if i < len(targets):
+                time.sleep(handle_cooldown)
+    finally:
+        twitter_collect._WAYBACK_RATE_LIMIT_SEC = original_rate
     return result
 
 
@@ -153,6 +197,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--end", type=lambda s: date.fromisoformat(s), default=DEFAULT_END)
     p.add_argument("--max-signals", type=int, default=DEFAULT_MAX_SIGNALS_PER_HANDLE)
     p.add_argument("--retries", type=int, default=DEFAULT_RETRIES)
+    p.add_argument("--wayback-rate-sec", type=float, default=DEFAULT_WAYBACK_RATE_SEC)
+    p.add_argument("--handle-cooldown", type=float, default=DEFAULT_HANDLE_COOLDOWN_SEC)
     p.add_argument("--log-level", default="INFO")
     args = p.parse_args(argv)
 
@@ -161,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     res = backfill(
         start=args.start, end=args.end,
         max_signals=args.max_signals, retries=args.retries,
+        wayback_rate_sec=args.wayback_rate_sec,
+        handle_cooldown=args.handle_cooldown,
     )
     closed = {h: n for h, n in res.items() if n > 0}
     thin = [h for h, n in res.items() if n == 0]
