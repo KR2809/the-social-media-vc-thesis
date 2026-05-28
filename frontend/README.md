@@ -52,8 +52,47 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Deploy on Vercel (Phase D.3)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The demo (this `frontend/` app) deploys to Vercel; the FastAPI backend in
+`../api/` deploys separately (Fly.io / Railway / Render) and the frontend
+points at it via `NEXT_PUBLIC_API_BASE_URL`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### One-time Vercel setup
+
+1. **Import the repo** at [vercel.com/new](https://vercel.com/new).
+2. **Root Directory** → set to `frontend` (the Next app is not at repo root).
+   Vercel auto-detects Next.js + `vercel.json` from there.
+3. **Environment variables** (Project → Settings → Environment Variables):
+   - `NEXT_PUBLIC_API_BASE_URL` → the deployed FastAPI URL (e.g.
+     `https://thesis-api.fly.dev`). If unset, the data layer falls back to
+     the synthetic source and shows the "synthetic" banner.
+   - `NEXT_PUBLIC_SITE_URL` → the Vercel production URL (e.g.
+     `https://thesis-demo.vercel.app`). Used as `metadataBase` so the
+     generated OG image (`/opengraph-image`) resolves to an absolute URL.
+4. **Deploy.** Pushes to `main` auto-deploy (see `vercel.json`).
+
+### Backend (FastAPI) deploy
+
+Deploy `../api/` with `DATA_SOURCE=supabase` (prod) and set
+`FRONTEND_ORIGINS` to the Vercel URL to tighten CORS.
+
+### EDHEC compliance
+
+Public, read-only demo of a working artefact — no personal data beyond the
+publicly-named cohort, no student PII. The locked prediction JSON + SHA-256
++ git tag remain the canonical record; the deploy is a convenience surface,
+not the submission.
+
+### Social / OG image
+
+`src/app/opengraph-image.tsx` generates a 1200×630 branded card at build
+time (also used for the Twitter `summary_large_image`). Preview locally at
+`http://localhost:3001/opengraph-image`.
+
+### Thesis-appendix screenshots (Phase D.4)
+
+A print stylesheet (`@media print` in `src/app/demo.css`) forces light
+surfaces, hides interactive chrome (gear / help / tooltips), and prevents
+cards from splitting across page breaks — so "Print → Save as PDF" yields
+clean appendix figures.

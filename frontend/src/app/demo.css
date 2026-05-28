@@ -1436,3 +1436,48 @@ body {
   .og-title { font-size: 24px; }
   .og-footer { grid-row: 3; flex-wrap: wrap; }
 }
+
+/* ===================================================================
+   Print stylesheet (D.4) — clean captures for the thesis appendix.
+   Forces light surfaces, hides interactive-only chrome, and prevents
+   cards from splitting across page breaks.
+   =================================================================== */
+@media print {
+  /* Force readable light surfaces regardless of the on-screen theme. */
+  :root,
+  [data-theme="dark"] {
+    --bg: #FFFFFF;
+    --bg-2: #F6F5F1;
+    --bg-card: #FFFFFF;
+    --ink-1: #14182B;
+    --ink-2: #3A4150;
+    --ink-3: #6A7280;
+    --hairline: #D8D4C6;
+  }
+  body { background: #fff; }
+
+  /* Hide interactive-only chrome that doesn't belong in a static figure. */
+  .icon-btn,
+  .settings-popover,
+  .settings-scrim,
+  .og-scrim,
+  .info-tip-popup {
+    display: none !important;
+  }
+
+  /* Keep cards intact across page breaks. */
+  .card,
+  .portfolio,
+  .precision-card,
+  .baseline-card,
+  .founder-hero,
+  .ego-network,
+  .timeline,
+  .og-modal {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  /* Expand any scroll areas so nothing is clipped in the capture. */
+  .app-body { overflow: visible !important; }
+}
