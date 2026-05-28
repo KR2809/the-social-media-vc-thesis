@@ -66,13 +66,121 @@ function IlloWelcome() {
   );
 }
 
-// Generic placeholder illustration for steps whose final artwork is TBD.
-function IlloPlaceholder({ label }: { label: string }) {
+// Step 2 · PICK — date slider replaying history, top-K reshuffling.
+function IlloReplay() {
   return (
-    <svg viewBox="0 0 320 220" className="og-illo-svg" role="img" aria-label={label}>
-      <rect x="20" y="20" width="280" height="180" rx="10" fill="none" stroke="var(--hairline-2)" strokeWidth="1.5" strokeDasharray="5 5" />
-      <text x="160" y="115" textAnchor="middle" className="og-illo-label-sm" fill="var(--ink-3)">
-        {label}
+    <svg viewBox="0 0 320 220" className="og-illo-svg" role="img" aria-label="A date slider replaying history">
+      {/* timeline track */}
+      <line x1="24" y1="40" x2="296" y2="40" stroke="var(--hairline-2)" strokeWidth="3" strokeLinecap="round" />
+      {/* progress fill to the handle */}
+      <line x1="24" y1="40" x2="186" y2="40" stroke="var(--accent)" strokeWidth="3" strokeLinecap="round" />
+      {/* year ticks */}
+      {[0, 1, 2, 3, 4, 5].map(i => (
+        <line key={i} x1={24 + i * 54} y1="34" x2={24 + i * 54} y2="46" stroke="var(--ink-3)" strokeWidth="1" opacity={0.5} />
+      ))}
+      {/* handle */}
+      <circle cx="186" cy="40" r="8" fill="var(--accent)" stroke="var(--bg-card)" strokeWidth="2.5" />
+      <line x1="186" y1="48" x2="186" y2="70" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="2 3" />
+      {/* ranked picks reshuffling below */}
+      {[0, 1, 2, 3].map(i => (
+        <g key={i} transform={`translate(40, ${86 + i * 30})`}>
+          <text x="0" y="13" className="og-illo-label-sm" fill="var(--ink-3)" fontFamily="var(--mono)">
+            {`0${i + 1}`}
+          </text>
+          <circle cx="28" cy="9" r="7" fill="var(--accent)" opacity={0.85 - i * 0.15} />
+          <rect x="44" y="3" width={150 - i * 22} height="12" rx="6" fill="var(--ink-3)" opacity={0.5} />
+          <rect x="214" y="3" width="26" height="12" rx="6" fill="var(--accent)" opacity={0.5 - i * 0.08} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// Step 3 · SCORE — precision scoreboard: framework bar vs baseline bars.
+function IlloScore() {
+  const bars = [
+    { label: "ours", h: 96, fill: "var(--accent)" },
+    { label: "rand", h: 44, fill: "var(--ink-3)" },
+    { label: "vol", h: 70, fill: "var(--ink-3)" },
+    { label: "rec", h: 58, fill: "var(--ink-3)" },
+  ];
+  const baseY = 168;
+  return (
+    <svg viewBox="0 0 320 220" className="og-illo-svg" role="img" aria-label="Precision compared against baselines">
+      {/* axis */}
+      <line x1="40" y1={baseY} x2="288" y2={baseY} stroke="var(--hairline-2)" strokeWidth="1.5" />
+      {bars.map((b, i) => {
+        const x = 56 + i * 58;
+        return (
+          <g key={b.label}>
+            <rect x={x} y={baseY - b.h} width="34" height={b.h} rx="4" fill={b.fill} opacity={i === 0 ? 0.95 : 0.5} />
+            {/* CI whisker */}
+            <line x1={x + 17} y1={baseY - b.h - 14} x2={x + 17} y2={baseY - b.h + 10} stroke={b.fill} strokeWidth="1.5" opacity={0.8} />
+            <line x1={x + 9} y1={baseY - b.h - 14} x2={x + 25} y2={baseY - b.h - 14} stroke={b.fill} strokeWidth="1.5" opacity={0.8} />
+            <line x1={x + 9} y1={baseY - b.h + 10} x2={x + 25} y2={baseY - b.h + 10} stroke={b.fill} strokeWidth="1.5" opacity={0.8} />
+            <text x={x + 17} y={baseY + 14} textAnchor="middle" className="og-illo-label-sm" fill="var(--ink-3)" fontFamily="var(--mono)">
+              {b.label}
+            </text>
+          </g>
+        );
+      })}
+      <text x="73" y="56" textAnchor="middle" className="og-illo-label" fill="var(--accent)" fontFamily="var(--mono)">
+        P@K
+      </text>
+    </svg>
+  );
+}
+
+// Step 4 · DRILL IN — knowledge-graph ego network around a founder.
+function IlloGraph() {
+  const cx = 160;
+  const cy = 110;
+  const nodes = [
+    { x: 70, y: 50 },
+    { x: 250, y: 56 },
+    { x: 60, y: 160 },
+    { x: 252, y: 168 },
+    { x: 150, y: 30 },
+    { x: 168, y: 196 },
+  ];
+  return (
+    <svg viewBox="0 0 320 220" className="og-illo-svg" role="img" aria-label="A founder's knowledge-graph neighbourhood">
+      {nodes.map((n, i) => (
+        <line key={i} x1={cx} y1={cy} x2={n.x} y2={n.y} stroke="var(--accent)" strokeWidth="1.2" opacity={0.4} />
+      ))}
+      {nodes.map((n, i) => (
+        <circle key={i} cx={n.x} cy={n.y} r={i % 2 ? 9 : 7} fill="var(--ink-3)" opacity={0.55} />
+      ))}
+      {/* center founder node */}
+      <circle cx={cx} cy={cy} r="18" fill="var(--accent)" />
+      <text x={cx} y={cy + 4} textAnchor="middle" className="og-illo-label" fill="#fff">
+        F
+      </text>
+    </svg>
+  );
+}
+
+// Step 5 · INTEGRITY — locked predictions: a padlock over a hashed line.
+function IlloLock() {
+  return (
+    <svg viewBox="0 0 320 220" className="og-illo-svg" role="img" aria-label="Predictions locked against hindsight">
+      {/* timeline with an observed-at cutoff */}
+      <line x1="24" y1="58" x2="296" y2="58" stroke="var(--hairline-2)" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="24" y1="58" x2="170" y2="58" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="170" y1="40" x2="170" y2="76" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="2 3" />
+      <text x="170" y="32" textAnchor="middle" className="og-illo-label-sm" fill="var(--ink-3)" fontFamily="var(--mono)">
+        observed ≤ T
+      </text>
+      {/* padlock */}
+      <g transform="translate(130, 96)">
+        <path d="M14 22 v-8 a16 16 0 0 1 32 0 v8" fill="none" stroke="var(--accent)" strokeWidth="4" />
+        <rect x="4" y="22" width="52" height="44" rx="7" fill="var(--accent-soft)" stroke="var(--accent)" strokeWidth="2.5" />
+        <circle cx="30" cy="40" r="5" fill="var(--accent)" />
+        <rect x="28" y="44" width="4" height="12" rx="2" fill="var(--accent)" />
+      </g>
+      {/* sha hash line */}
+      <text x="160" y="186" textAnchor="middle" className="og-illo-label-sm" fill="var(--ink-3)" fontFamily="var(--mono)">
+        sha256 · git commit
       </text>
     </svg>
   );
@@ -119,7 +227,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         </p>
       </>
     ),
-    illo: <IlloPlaceholder label="View 1 · Replay" />,
+    illo: <IlloReplay />,
   },
   {
     eyebrow: "SCORE",
@@ -137,7 +245,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         </p>
       </>
     ),
-    illo: <IlloPlaceholder label="View 2 · Outcome" />,
+    illo: <IlloScore />,
   },
   {
     eyebrow: "DRILL IN",
@@ -152,7 +260,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         <p className="og-muted">Every signal carries its taxonomy scores and links to the original post.</p>
       </>
     ),
-    illo: <IlloPlaceholder label="View 3 · Founder card" />,
+    illo: <IlloGraph />,
   },
   {
     eyebrow: "METHOD · INTEGRITY",
@@ -170,7 +278,7 @@ export const GUIDE_STEPS: GuideStep[] = [
         </p>
       </>
     ),
-    illo: <IlloPlaceholder label="Lookahead-bias guard" />,
+    illo: <IlloLock />,
   },
 ];
 
