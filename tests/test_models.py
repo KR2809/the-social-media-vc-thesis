@@ -16,7 +16,12 @@ from models.baselines.baseline_model import (
     BASELINE_FEATURE_COLS,
     train_baseline,
 )
-from models.evaluation.eval import evaluate_model, evaluate_with_ci, run_full_eval
+from models.evaluation.eval import (
+    detect_zero_feature_negatives,
+    evaluate_model,
+    evaluate_with_ci,
+    run_full_eval,
+)
 from models.kg_augmented.kg_model import KG_FEATURE_COLS, train_kg_augmented
 from scoring.score_signals import _SCORED_SCHEMA
 
@@ -212,3 +217,60 @@ def test_run_full_eval_writes_report(tmp_path):
     assert "ROC AUC" in text and "KG-augmented" in text
     # eval_metrics.csv is written to the default data path; that's OK for the test
     # since it's overwritten on the next run.
+
+
+def test_detect_zero_feature_negatives_counts_correctly():
+    import pandas as pd  # noqa: PLC0415
+
+    features = pd.DataFrame({
+        "person_id": ["alice", "bob", "NEG_x_01", "NEG_x_02"],
+        "n_signals": [42, 17, 0, 0],
+    })
+    labels = pd.DataFrame({
+        "person_id": ["alice", "bob", "NEG_x_01", "NEG_x_02"],
+        "emerged": [1, 1, 0, 0],
+    })
+    n_zero, n_total = detect_zero_feature_negatives(features, labels)
+    assert n_zero == 2
+    assert n_total == 2
+
+
+def test_detect_zero_feature_negatives_mixed_real_and_zero():
+    import pandas as pd  # noqa: PLC0415
+
+    features = pd.DataFrame({
+        "person_id": ["alice", "NEG_x_01", "real_neg"],
+        "n_signals": [42, 0, 11],
+    })
+    labels = pd.DataFrame({
+        "person_id": ["alice", "NEG_x_01", "real_neg"],
+        "emerged": [1, 0, 0],
+    })
+    n_zero, n_total = detect_zero_feature_negatives(features, labels)
+    assert n_zero == 1
+    assert n_total == 2
+
+
+def test_run_full_eval_emits_artefact_warning_when_negatives_zero_feature(tmp_path):
+    """The report should prepend a 'do not quote' warning when ≥50% of
+    negatives have n_signals == 0 (the zero-feature materialiser case)."""
+    _, flat_path, kg_path, labels_path = _make_synthetic_dataset(tmp_path)
+
+    # Zero-out n_signals on every synthetic negative row.
+    import pandas as pd  # noqa: PLC0415
+    flat = pd.read_parquet(flat_path)
+    labels = pd.read_csv(labels_path)
+    neg_ids = set(labels.loc[labels["emerged"] == 0, "person_id"].astype(str))
+    flat.loc[flat["person_id"].astype(str).isin(neg_ids), "n_signals"] = 0
+    flat.to_parquet(flat_path, index=False)
+
+    report = tmp_path / "report.md"
+    run_full_eval(
+        flat_path=flat_path,
+        kg_path=kg_path,
+        labels_path=labels_path,
+        report_out=report,
+    )
+    text = report.read_text()
+    assert "EVAL METRICS ARE ARTIFACTUAL" in text
+    assert "zero-feature placeholders" in text

@@ -50,27 +50,51 @@ def test_every_peer_id_is_unique(mod):
     assert len(set(ids)) == len(ids), "duplicate peer_ids in PEERS"
 
 
-def test_all_stubs_currently_unfilled(mod):
-    """Guard: every notes field is still the placeholder.
+_HANDLE_LEAK_PATTERNS = [
+    re.compile(r"@[A-Za-z0-9_]{2,}"),                    # @twitter_handle
+    re.compile(r"twitter\.com/[A-Za-z0-9_]+", re.I),     # twitter.com/handle
+    re.compile(r"\bx\.com/[A-Za-z0-9_]+", re.I),         # x.com/handle
+    re.compile(r"linkedin\.com/in/[A-Za-z0-9_-]+", re.I),
+    re.compile(r"github\.com/[A-Za-z0-9_-]+", re.I),
+]
 
-    Catches accidental commits of real handle data through the public
-    script — the picking canvas must stay empty until Kris fills it.
+
+def test_filled_stubs_do_not_leak_handles(mod):
+    """Guard: filled notes must not contain personal handles or social URLs.
+
+    The protocol keeps anonymous PH-post identifiers + outcome facts in this
+    public file; real handles + private evidence live in the gitignored
+    `data/private/negative_peers_handles.csv`. This test enforces that
+    boundary on every filled stub.
     """
     filled = [p for p in mod.PEERS if p.notes != mod._UNFILLED_NOTES]
-    assert not filled, (
-        f"{len(filled)} peer(s) have real notes — real evidence belongs in "
-        "data/private/negative_peers_handles.csv, not in this public script"
+    leaks: list[tuple[str, str]] = []
+    for peer in filled:
+        for pattern in _HANDLE_LEAK_PATTERNS:
+            if pattern.search(peer.notes):
+                leaks.append((peer.peer_id, pattern.pattern))
+    assert not leaks, (
+        f"{len(leaks)} peer notes leak personal handles or social URLs — "
+        f"move that data to data/private/negative_peers_handles.csv: {leaks}"
     )
 
 
-def test_main_skips_unfilled_stubs(mod):
-    """With all 57 stubs unfilled, main() must not touch the registry."""
+def test_main_only_registers_filled_stubs(mod):
+    """main() must register every filled peer and skip every unfilled stub."""
+    expected_filled = [p for p in mod.PEERS if p.notes != mod._UNFILLED_NOTES]
     with (
         patch.object(mod, "register_peer") as mock_register,
         patch.object(mod, "materialise_for_outcome_labels") as mock_materialise,
+        patch.object(mod, "materialise_features") as mock_features,
         patch.object(mod, "write_protocol_summary") as mock_summary,
     ):
         mod.main()
-        mock_register.assert_not_called()
-        mock_materialise.assert_not_called()
-        mock_summary.assert_not_called()
+        assert mock_register.call_count == len(expected_filled)
+        if expected_filled:
+            mock_materialise.assert_called_once()
+            mock_features.assert_called_once()
+            mock_summary.assert_called_once()
+        else:
+            mock_materialise.assert_not_called()
+            mock_features.assert_not_called()
+            mock_summary.assert_not_called()
