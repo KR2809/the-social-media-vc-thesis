@@ -1481,3 +1481,69 @@ body {
   /* Expand any scroll areas so nothing is clipped in the capture. */
   .app-body { overflow: visible !important; }
 }
+
+/* ===================================================================
+   View 2 additions — "How to read this" panel, scoreboard header,
+   best-strategy highlight (backend-backed real separation).
+   =================================================================== */
+.how-to-read {
+  background: var(--bg-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+.how-to-read > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+.how-to-read > summary::-webkit-details-marker { display: none; }
+.how-to-read .how-hint { font-size: 11px; color: var(--ink-3); }
+.how-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 28px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+.how-item { display: flex; flex-direction: column; gap: 4px; }
+.how-q { font-size: 12.5px; font-weight: 600; color: var(--ink-1); }
+.how-a { font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.how-a strong { color: var(--ink-1); font-weight: 600; }
+
+.scoreboard-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 10px;
+  flex-wrap: wrap;
+}
+
+/* Best-strategy-at-this-date highlight (honest: may NOT be "ours"). */
+.baseline-card.best {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.baseline-card.primary.best { box-shadow: 0 0 0 2px var(--accent) inset; }
+.best-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+@media (max-width: 760px) {
+  .how-body { grid-template-columns: 1fr; }
+}

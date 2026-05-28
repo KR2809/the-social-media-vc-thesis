@@ -1,12 +1,232 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useThesis } from "@/lib/thesis/context";
-import type { BaselinePick, RankedPick } from "@/lib/thesis";
+import { fetchBacktest } from "@/lib/thesis";
+import type { BacktestResult, BacktestScore, BacktestStrategy, RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import { CIBar, EpistemeBar, fmtPct, ViewIntro } from "./primitives";
 
-function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K: number }) {
+// ---------------------------------------------------------------------------
+// Strategy display metadata
+// ---------------------------------------------------------------------------
+
+const STRATEGY_META: Record<
+  BacktestStrategy,
+  { title: string; kicker: string; tip: string }
+> = {
+  two_tier: {
+    title: "Two-tier framework",
+    kicker: "OURS",
+    tip: "The framework under test: Tier-1 topic momentum × Tier-2 per-founder social-signal scores, combined into a ranking. This is what we're validating.",
+  },
+  random: {
+    title: "Random portfolio",
+    kicker: "BASELINE · RANDOM",
+    tip: "K names drawn uniformly at random from the labeled pool observable at date T. The dumbest possible baseline — if we can't beat this, we have nothing.",
+  },
+  signal_volume: {
+    title: "Signal-volume",
+    kicker: "BASELINE · VOLUME",
+    tip: "Top K by raw scored-signal count at date T. Captures the 'who posts the most' hypothesis — ignores content quality and network structure.",
+  },
+  recency: {
+    title: "Recency",
+    kicker: "BASELINE · RECENCY",
+    tip: "Top K by most-recent signal timestamp at date T. The trend-chaser baseline — bet on whoever is active right now.",
+  },
+};
+
+// ---------------------------------------------------------------------------
+// "How to read this" explainer
+// ---------------------------------------------------------------------------
+
+function HowToRead({ baseRate, k }: { baseRate: number; k: number }) {
+  return (
+    <details className="how-to-read" open>
+      <summary>
+        <span className="kicker">How to read this panel</span>
+        <span className="how-hint">click to collapse</span>
+      </summary>
+      <div className="how-body">
+        <div className="how-item">
+          <span className="how-q">What is precision@K?</span>
+          <span className="how-a">
+            Of the <span className="mono">K</span> founders a strategy picks at date T, the
+            fraction that actually emerged within 24 months. <span className="mono">P@K = hits / K</span>. Higher is better.
+          </span>
+        </div>
+        <div className="how-item">
+          <span className="how-q">What&apos;s the base rate?</span>
+          <span className="how-a">
+            {baseRate > 0 ? (
+              <>
+                <span className="mono">{fmtPct(baseRate)}</span> of the labeled pool emerged. A strategy that
+                just picks at random scores roughly this. <strong>Lift</strong> = P@K ÷ base
+                rate; lift &gt; 1 means &quot;better than chance.&quot;
+              </>
+            ) : (
+              <>The fraction of the labeled pool that emerged — random picking scores roughly this.</>
+            )}
+          </span>
+        </div>
+        <div className="how-item">
+          <span className="how-q">Why do the bars overlap?</span>
+          <span className="how-a">
+            With a labeled pool this small (cohort + {k > 0 ? "negative peers" : "negatives"}), the 95% CIs
+            are wide. Overlapping bands mean a gap isn&apos;t yet <em>statistically</em> separated — read
+            the direction, not the decimal.
+          </span>
+        </div>
+        <div className="how-item">
+          <span className="how-q">What counts as a win?</span>
+          <span className="how-a">
+            Beating <strong>random</strong> is the floor. Beating <strong>volume</strong> and{" "}
+            <strong>recency</strong> shows the framework adds something past &quot;who posts most / most
+            recently.&quot; The aggregate story is in the eval (ROC/PR-AUC + the KG lift); per-date
+            precision is the operational replay.
+          </span>
+        </div>
+      </div>
+    </details>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Backend-backed scoreboard (real separation incl. negatives)
+// ---------------------------------------------------------------------------
+
+function StrategyCard({
+  score,
+  best,
+  bootCI,
+}: {
+  score: BacktestScore;
+  best: boolean;
+  bootCI: (hits: number, k: number) => [number, number];
+}) {
+  const meta = STRATEGY_META[score.strategy];
+  const primary = score.strategy === "two_tier";
+  const [lo, hi] = bootCI(score.nHits, score.k);
+  return (
+    <div className={"baseline-card " + (primary ? "primary " : "") + (best ? "best" : "")}>
+      <div className="baseline-head">
+        <span className="kicker">
+          {meta.kicker}
+          <InfoTip width={300}>{meta.tip}</InfoTip>
+        </span>
+        <span className="baseline-title">
+          {meta.title}
+          {best && <span className="best-badge">best @ this date</span>}
+        </span>
+      </div>
+      <div className="baseline-num">
+        <span className="baseline-pct">{fmtPct(score.precision)}</span>
+        <span className="baseline-frac mono">
+          {score.nHits} / {score.k}
+        </span>
+      </div>
+      <CIBar value={score.precision} lo={lo} hi={hi} width={220} primary={primary} />
+      <div className="ci-readout mono">
+        95% CI [{fmtPct(lo)}, {fmtPct(hi)}] · lift {score.lift.toFixed(2)}×
+      </div>
+    </div>
+  );
+}
+
+function Scoreboard({
+  result,
+  bootCI,
+}: {
+  result: BacktestResult;
+  bootCI: (hits: number, k: number) => [number, number];
+}) {
+  const best = useMemo(() => {
+    let b: BacktestScore | null = null;
+    for (const s of result.scores) if (!b || s.precision > b.precision) b = s;
+    return b;
+  }, [result]);
+  return (
+    <div className="baseline-grid">
+      {result.scores.map(s => (
+        <StrategyCard
+          key={s.strategy}
+          score={s}
+          best={best != null && s.strategy === best.strategy && best.precision > 0}
+          bootCI={bootCI}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Honest verdict — handles win / tie / loss
+// ---------------------------------------------------------------------------
+
+function Verdict({ result, fmtMonth, t }: { result: BacktestResult; fmtMonth: (m: number) => string; t: number }) {
+  const ours = result.scores.find(s => s.strategy === "two_tier");
+  if (!ours) return null;
+  const baselines = result.scores.filter(s => s.strategy !== "two_tier");
+  let bestBase: BacktestScore | null = null;
+  for (const s of baselines) if (!bestBase || s.precision > bestBase.precision) bestBase = s;
+  const bestBaseP = bestBase?.precision ?? 0;
+  const lift = ours.precision - bestBaseP;
+  const beatsRandom = ours.precision > (result.baseRate || 0);
+
+  let cls: string;
+  let icon: string;
+  let line: React.ReactNode;
+  if (lift > 0.005) {
+    cls = "verdict-good";
+    icon = "↑";
+    line = (
+      <>
+        At <span className="mono">{fmtMonth(t)}</span>, the framework&apos;s precision of{" "}
+        <strong>{fmtPct(ours.precision)}</strong> beats the best baseline (
+        <strong>{STRATEGY_META[bestBase!.strategy].title}</strong>, {fmtPct(bestBaseP)}) by{" "}
+        <strong>+{((lift) * 100).toFixed(1)} pts</strong>.
+      </>
+    );
+  } else if (lift > -0.005) {
+    cls = "verdict-flat";
+    icon = "≈";
+    line = (
+      <>
+        At <span className="mono">{fmtMonth(t)}</span>, the framework{" "}
+        <strong>matches</strong> the best baseline ({fmtPct(ours.precision)} vs {fmtPct(bestBaseP)}). The
+        edge is in the aggregate eval, not every single date.
+      </>
+    );
+  } else {
+    cls = "verdict-flat";
+    icon = "↓";
+    line = (
+      <>
+        At <span className="mono">{fmtMonth(t)}</span>, a naïve baseline (
+        <strong>{STRATEGY_META[bestBase!.strategy].title}</strong>, {fmtPct(bestBaseP)}){" "}
+        <strong>out-picks</strong> the framework ({fmtPct(ours.precision)}) here.{" "}
+        {beatsRandom ? "The framework still beats random — " : ""}at small n this happens on individual
+        dates; the defensible claim is the aggregate ROC/PR-AUC + KG lift, not a per-date sweep.
+      </>
+    );
+  }
+  return (
+    <div className={"verdict " + cls}>
+      <span className={"verdict-icon " + (lift > 0.005 ? "good" : "flat")}>{icon}</span>
+      <span className="verdict-text">
+        {line}
+        <span className="muted"> Read the CIs: overlapping bands mean the gap isn&apos;t statistically separated at this sample size.</span>
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cohort-recall headline (positives only) — reframed honestly
+// ---------------------------------------------------------------------------
+
+function RecallHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K: number }) {
   const thesis = useThesis();
   const { hits, k, precision } = thesis.precisionAt(picks, t);
   const [lo, hi] = thesis.bootCI(hits, k);
@@ -15,13 +235,12 @@ function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K:
     <div className="precision-card">
       <div className="precision-left">
         <span className="kicker">
-          Precision @ K · two-tier framework
-          <InfoTip width={340}>
-            <strong>Precision @ K</strong> = of the K founders picked at date T, what fraction emerged (launched a fundable venture) within 24 months?
-            <br /><br />
-            <span className="mono">P@K = hits / K</span>
-            <br /><br />
-            Higher is better. Random picking from this pool would give around 25–35% at K=20.
+          Cohort recall · two-tier ranking
+          <InfoTip width={360}>
+            Of the framework&apos;s top-K <strong>among the known cohort</strong>, how many had emerged by
+            T+24mo. This is recall over labelled positives — it shows the ranking surfaces real emergers,
+            but it can&apos;t separate strategies on its own (the cohort is all positives). The strategy
+            comparison below uses the full labelled pool incl. negative peers.
           </InfoTip>
         </span>
         <div className="precision-fraction">
@@ -35,7 +254,8 @@ function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K:
           <span className="kicker">
             95% bootstrap CI
             <InfoTip width={340}>
-              <strong>95% confidence interval</strong> via bootstrap resampling (10,000 draws). The K picks are resampled with replacement; we recompute precision each draw. The central 95% of those values forms the band. Wider band = less certain.
+              <strong>95% confidence interval</strong> via bootstrap resampling. The K picks are resampled
+              with replacement; precision is recomputed each draw. The central 95% forms the band.
             </InfoTip>
           </span>
           <span className="mono">
@@ -44,7 +264,7 @@ function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K:
         </div>
         <CIBar value={precision} lo={lo} hi={hi} width={420} primary />
         <div className="caption muted">
-          <span className="mono">{hits}</span> hits + <span className="mono">{Math.max(0, k - hits)}</span> misses across <span className="mono">{k}</span> evaluable picks. CIs reflect small-sample uncertainty.
+          <span className="mono">{hits}</span> emerged + <span className="mono">{Math.max(0, k - hits)}</span> not-yet across <span className="mono">{k}</span> evaluable cohort picks.
         </div>
       </div>
       <div className="precision-right">
@@ -79,192 +299,7 @@ function PrecisionHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K:
   );
 }
 
-const BASELINE_TIPS: Record<string, string> = {
-  ours: "The full two-tier framework: T1 (social-signal LightGBM) re-ranked by T2 (KG features). The thing we're trying to validate.",
-  random: "K founders drawn uniformly at random from the pool observable at date T. The dumbest possible baseline. If we can't beat this, we have nothing.",
-  volume: "Top K by raw post-volume only. Captures the 'who posts the most' hypothesis — ignores content, signal quality, and network.",
-  recency: "Top K by recency of first observable signal. Captures 'bet on the newest accounts' — the trend-chaser baseline.",
-};
-
-function BaselineCard({
-  title,
-  kicker,
-  tipKey,
-  picks,
-  t,
-  primary,
-  K,
-  onFocusFounder,
-}: {
-  title: string;
-  kicker: string;
-  tipKey: keyof typeof BASELINE_TIPS;
-  picks: ReadonlyArray<BaselinePick | RankedPick>;
-  t: number;
-  primary?: boolean;
-  K: number;
-  onFocusFounder?: (id: string) => void;
-}) {
-  const thesis = useThesis();
-  const { hits, k, precision } = thesis.precisionAt(picks, t);
-  const [lo, hi] = thesis.bootCI(hits, k);
-  return (
-    <div className={"baseline-card " + (primary ? "primary" : "")}>
-      <div className="baseline-head">
-        <span className="kicker">
-          {kicker}
-          <InfoTip width={300}>{BASELINE_TIPS[tipKey]}</InfoTip>
-        </span>
-        <span className="baseline-title">{title}</span>
-      </div>
-      <div className="baseline-num">
-        <span className="baseline-pct">{k ? fmtPct(precision) : "—"}</span>
-        <span className="baseline-frac mono">
-          {hits} / {k || "—"}
-        </span>
-      </div>
-      <CIBar value={precision} lo={lo} hi={hi} width={220} primary={primary} />
-      <div className="ci-readout mono">
-        95% CI [{fmtPct(lo)}, {fmtPct(hi)}]
-      </div>
-      <div className="baseline-picks">
-        <span className="kicker muted">top-K picks</span>
-        <div className="pick-list">
-          {picks.slice(0, K).map(p => {
-            const f = thesis.founders().find(x => x.id === p.id);
-            const em = thesis.months(f ? f.emerge : null);
-            const t24 = t + 24;
-            const hit = em != null && em <= t24;
-            return (
-              <span
-                key={p.id}
-                className={"pick-tag " + (hit ? "hit" : "miss")}
-                onClick={() => onFocusFounder && onFocusFounder(p.id)}
-                title={f ? f.name + (hit ? " · emerged" : " · not yet") : p.id}
-              >
-                {hit ? "●" : "○"} {p.id}
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Verdict({
-  picks,
-  baselines,
-  t,
-}: {
-  picks: RankedPick[];
-  baselines: Record<string, BaselinePick[]>;
-  t: number;
-  K: number;
-}) {
-  const thesis = useThesis();
-  const our = thesis.precisionAt(picks, t);
-  if (our.k === 0) return null;
-  let best: { name: string; precision: number } | null = null;
-  for (const [name, bPicks] of Object.entries(baselines)) {
-    const p = thesis.precisionAt(bPicks, t);
-    if (!best || p.precision > best.precision) best = { name, precision: p.precision };
-  }
-  const lift = our.precision - (best ? best.precision : 0);
-  const liftPts = (lift * 100).toFixed(1);
-  const liftPositive = lift > 0.005;
-  return (
-    <div className={"verdict " + (liftPositive ? "verdict-good" : "verdict-flat")}>
-      <span className={"verdict-icon " + (liftPositive ? "good" : "flat")}>
-        {liftPositive ? "↑" : "≈"}
-      </span>
-      <span className="verdict-text">
-        At <span className="mono">{thesis.fmtMonth(t)}</span>, the framework&apos;s precision of <strong>{fmtPct(our.precision)}</strong> {liftPositive ? "beats" : "matches"} the best baseline (<strong>{best?.name}</strong>, {fmtPct(best?.precision ?? 0)}) by <strong>{liftPositive ? "+" : ""}{liftPts} pts</strong>.
-        <span className="muted"> Read the CIs: overlapping bands mean the lift isn&apos;t yet statistically separated at this sample size.</span>
-      </span>
-    </div>
-  );
-}
-
-function YCDonut({
-  value,
-  a,
-  b,
-  labelA,
-  labelB,
-}: {
-  value: number;
-  a: number;
-  b: number;
-  labelA: string;
-  labelB: string;
-}) {
-  const r = 36;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="yc-donut">
-      <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={r} fill="none" stroke="var(--hairline)" strokeWidth="10" />
-        <circle
-          cx="50"
-          cy="50"
-          r={r}
-          fill="none"
-          stroke="var(--accent)"
-          strokeWidth="10"
-          strokeDasharray={`${c * value} ${c}`}
-          transform="rotate(-90 50 50)"
-          strokeLinecap="butt"
-        />
-        <text x="50" y="48" textAnchor="middle" fontFamily="var(--mono)" fontSize="16" fill="var(--ink-1)">
-          {fmtPct(value, 0)}
-        </text>
-        <text x="50" y="62" textAnchor="middle" fontFamily="var(--mono)" fontSize="9" fill="var(--ink-2)">
-          {a} of {b}
-        </text>
-      </svg>
-      <div className="donut-cap">
-        <strong>{labelA}</strong>
-        <br />
-        <span className="muted">{labelB}</span>
-      </div>
-    </div>
-  );
-}
-
-function YCOverlap({ picks }: { picks: RankedPick[]; t: number }) {
-  const ycIds = ["marclou", "kaiwon_d", "tom_under", "owen_drafts", "cosma_kim", "rhea_pixels", "leyla_codes", "june_codes"];
-  const ours = new Set(picks.map(p => p.id));
-  const ycSet = new Set(ycIds);
-  const overlap = [...ours].filter(id => ycSet.has(id));
-  const inOursFromYC = overlap.length;
-  const inYCFromOurs = overlap.length;
-  const pct1 = picks.length ? inOursFromYC / picks.length : 0;
-  const pct2 = ycIds.length ? inYCFromOurs / ycIds.length : 0;
-  return (
-    <div className="yc-overlap">
-      <div className="yc-head">
-        <span className="kicker">YC BATCH OVERLAP (W22 · S22 · W23 · S23)</span>
-        <span className="muted">— exploratory, not an endorsement</span>
-      </div>
-      <div className="yc-grid">
-        <YCDonut value={pct1} a={inOursFromYC} b={picks.length} labelA="our top-K" labelB="picks were in a YC batch" />
-        <YCDonut value={pct2} a={inYCFromOurs} b={ycIds.length} labelA="YC creator-economy founders" labelB="were in our top-K" />
-        <div className="yc-names">
-          <span className="kicker">SHARED NAMES</span>
-          <div className="yc-name-list">
-            {overlap.length === 0 && <span className="muted">— no overlap at this date</span>}
-            {overlap.map(id => (
-              <span key={id} className="pick-tag hit">
-                ● {id}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
 
 interface Props {
   t: number;
@@ -274,95 +309,97 @@ interface Props {
   gotoView: (v: 1 | 2 | 3) => void;
 }
 
-export function View2Outcome({ t, K, picks, onFocusFounder, gotoView }: Props) {
+export function View2Outcome({ t, K, picks }: Props) {
   const thesis = useThesis();
-  const baselineR = useMemo(() => thesis.baselineRandom(t, K, 42), [t, K, thesis]);
-  const baselineV = useMemo(() => thesis.baselineVolume(t, K), [t, K, thesis]);
-  const baselineY = useMemo(() => thesis.baselineRecency(t, K), [t, K, thesis]);
   const t24 = t + 24;
   const canEval = t24 <= thesis.today;
+
+  // Fetch the real, separated backtest (full labelled pool incl. negatives).
+  const [bt, setBt] = useState<BacktestResult | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!canEval) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setBt(null);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    fetchBacktest(t, K)
+      .then(r => {
+        if (alive) setBt(r);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [t, K, canEval]);
+
+  const hasBackend = bt != null && bt.source === "backend" && bt.scores.length > 0;
+
   return (
     <section className="view view-2">
       <ViewIntro kicker="STEP 02 · SCORE" title="How did the picks perform?">
-        Of the <span className="mono">{K}</span> founders picked at <strong>{thesis.fmtMonth(t)}</strong>, how many launched a fundable venture within <strong>24 months</strong>? We compare the framework against three naive baselines. <strong>Hover any &quot;?&quot;</strong> to see the math.
+        Of the <span className="mono">{K}</span> founders picked at <strong>{thesis.fmtMonth(t)}</strong>, how
+        many launched a fundable venture within <strong>24 months</strong>? We score the framework against
+        three naïve baselines over the full labelled pool — <strong>cohort + negative peers</strong> — so the
+        comparison is real, not a foregone conclusion.
       </ViewIntro>
 
-      <PrecisionHeadline picks={picks} t={t} K={K} />
+      {canEval && <HowToRead baseRate={bt?.baseRate ?? 0} k={K} />}
 
-      {canEval && (
-        <Verdict
-          picks={picks}
-          t={t}
-          K={K}
-          baselines={{ Random: baselineR, Volume: baselineV, Recency: baselineY }}
-        />
+      <RecallHeadline picks={picks} t={t} K={K} />
+
+      {canEval && hasBackend && <Verdict result={bt} fmtMonth={thesis.fmtMonth} t={t} />}
+
+      {canEval && hasBackend && (
+        <>
+          <div className="scoreboard-head">
+            <span className="kicker">
+              Precision @ K · framework vs baselines
+              <InfoTip width={340}>
+                Real backtest over the full labelled pool (cohort positives + signal-bearing negative peers)
+                at date T. Each strategy picks K names; precision@K = how many emerged. Lift = precision ÷
+                base rate.
+              </InfoTip>
+            </span>
+            <span className="muted">
+              base rate <span className="mono">{fmtPct(bt.baseRate)}</span> · labelled pool incl. negatives
+            </span>
+          </div>
+          <Scoreboard result={bt} bootCI={thesis.bootCI} />
+        </>
       )}
 
-      <div className="baseline-grid">
-        <BaselineCard
-          title="Two-tier framework"
-          kicker="OURS"
-          tipKey="ours"
-          picks={picks}
-          t={t}
-          primary
-          K={K}
-          onFocusFounder={id => {
-            onFocusFounder(id);
-            gotoView(3);
-          }}
-        />
-        <BaselineCard
-          title="Random portfolio"
-          kicker="BASELINE 1"
-          tipKey="random"
-          picks={baselineR}
-          t={t}
-          K={K}
-          onFocusFounder={id => {
-            onFocusFounder(id);
-            gotoView(3);
-          }}
-        />
-        <BaselineCard
-          title="Signal-volume"
-          kicker="BASELINE 2"
-          tipKey="volume"
-          picks={baselineV}
-          t={t}
-          K={K}
-          onFocusFounder={id => {
-            onFocusFounder(id);
-            gotoView(3);
-          }}
-        />
-        <BaselineCard
-          title="Recency"
-          kicker="BASELINE 3"
-          tipKey="recency"
-          picks={baselineY}
-          t={t}
-          K={K}
-          onFocusFounder={id => {
-            onFocusFounder(id);
-            gotoView(3);
-          }}
-        />
-      </div>
-
-      {canEval && <YCOverlap picks={picks} t={t} />}
+      {canEval && !hasBackend && (
+        <div className="future-banner">
+          <span className="kicker">{loading ? "Loading backtest…" : "Backtest unavailable"}</span>
+          <span>
+            {loading
+              ? "Fetching the real per-strategy precision from the API."
+              : "The backtest API (/api/baselines) isn't reachable, so the framework-vs-baseline scoreboard is hidden rather than faked. Start the FastAPI backend to populate it."}
+          </span>
+        </div>
+      )}
 
       {!canEval && (
         <div className="future-banner">
           <span className="kicker">Evaluation horizon in the future</span>
           <span>
-            T+24mo for the current cohort is <span className="mono">{thesis.fmtMonth(t24)}</span>, after today (<span className="mono">{thesis.fmtMonth(thesis.today)}</span>). Outcomes are intentionally hidden — drag the slider further into the past to evaluate.
+            T+24mo for the current cohort is <span className="mono">{thesis.fmtMonth(t24)}</span>, after today (
+            <span className="mono">{thesis.fmtMonth(thesis.today)}</span>). Outcomes are intentionally hidden —
+            drag the slider further into the past to evaluate.
           </span>
         </div>
       )}
 
       <EpistemeBar>
-        Precision @ K with bootstrap CIs (10,000 resamples). <strong>Not a returns claim.</strong> Baselines drawn from the same cohort pool at date T. Sample sizes are small by design — this is a thesis-defence operationalisation, not a fund track record.
+        Precision @ K with bootstrap CIs over the full labelled pool (cohort + signal-bearing negative
+        peers). <strong>Not a returns claim.</strong> Sample sizes are small by design — this is a
+        thesis-defence operationalisation, not a fund track record. The framework&apos;s aggregate edge is
+        the ROC/PR-AUC + KG lift in the eval; per-date precision varies.
       </EpistemeBar>
     </section>
   );

@@ -49,6 +49,29 @@ export interface BaselinePick {
   score?: number;
 }
 
+// Backend backtest result for one strategy at one (date, K). Sourced from
+// GET /api/baselines (run_backtest over the full labeled set incl.
+// negatives) — the honest, separated numbers the client-side
+// positives-only precision can't produce.
+export type BacktestStrategy = "two_tier" | "random" | "signal_volume" | "recency";
+
+export interface BacktestScore {
+  strategy: BacktestStrategy;
+  k: number;
+  nHits: number;
+  baseRate: number; // positives / labeled pool
+  precision: number; // precision@k
+  lift: number; // precision@k / base_rate
+}
+
+export interface BacktestResult {
+  date: string; // ISO date at the slider position
+  k: number;
+  baseRate: number;
+  scores: BacktestScore[]; // one per strategy, two_tier first
+  source: "backend" | "unavailable";
+}
+
 export interface SignalEvidence {
   id: number;
   dim: string;
