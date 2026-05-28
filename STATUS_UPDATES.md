@@ -1674,3 +1674,61 @@ use my own working copy + dashed placeholder illustrations.
 
 **Cost incurred:** $0. No LLM calls. Ledger unchanged at $9.66 / $30.
 ---
+
+---
+## 2026-05-29 (cont.) — Onboarding illustrations + View 2 honest-baseline rewrite
+
+**What I did (branch feature/frontend-phase-d, 2 more commits):**
+1. **Onboarding steps 2–5 illustrations.** Replaced dashed placeholders with
+   bespoke SVGs matching the welcome step: date-slider replay (step 2),
+   precision@K bar chart vs baselines w/ CI whiskers (step 3), KG
+   ego-network (step 4), locked-predictions padlock over an observed-≤-T
+   timeline (step 5). All 5 steps verified in-browser.
+2. **View 2 "Score" — fixed the defensibility hole.** ROOT CAUSE: the
+   cohort is 20 all-positive founders, and View 2 recomputed precision
+   client-side over that positives-only pool → two-tier = random = volume
+   = recency = 100%, useless for the defence. FIX: View 2 now fetches
+   `GET /api/baselines` (real `run_backtest` over the full labelled pool:
+   20 positives + 15 signal-bearing negatives), so strategies genuinely
+   separate. New `frontend/src/lib/thesis/backtest.ts` (cached fetch,
+   graceful "unavailable" fallback). Verified: at 2022-01 k=20, two-tier
+   5.0% / random 5.0% / signal_volume 35.0% / recency 35.0%.
+   - **Honest framing (per Kris):** a "best @ this date" badge highlights
+     whichever strategy wins — often NOT ours at a given date, shown not
+     hidden. Verdict handles win/tie/loss with plain-English why (small n;
+     the aggregate eval ROC/PR-AUC + KG lift is the real claim, not a
+     per-date sweep).
+   - **"How to read this" explainer panel** (precision@K, base rate/lift,
+     why CIs overlap, what counts as a win) + sharper tooltips.
+   - Cohort headline reframed as recall-over-positives. Dropped the
+     synthetic baselines + the speculative YC-overlap donut.
+
+**Important finding surfaced (spawned as a separate task):** the two-tier
+strategy consistently *underperforms* signal_volume/recency in the
+backtest. Could be a genuine finding OR a wiring issue — the backtest's
+two_tier ranks by combined Σ (Tier1×Tier2), NOT by the trained
+KG-augmented model's P(emerge), even though the aggregate eval shows the
+model separates well (ROC AUC 0.927). Flagged for investigation; did NOT
+retroactively tune (CLAUDE.md §7). This is a load-bearing pre-lock
+methodology question for Kris.
+
+**Verification:** eslint clean, tsc clean, smoke 46/46, prod build OK,
+full backend suite still 268 passed / 1 skipped. `/api/baselines` fetch
+confirmed firing in the browser network log.
+
+**Decisions made:**
+- Show losses honestly rather than cherry-pick a winning default date.
+- Backtest two_tier-vs-model question left for investigation, not silently
+  "fixed" — tuning to make the framework win would violate the lock ethos.
+
+**Blockers:** the two_tier backtest-ranking question (above) — Kris to
+decide if ranking by model P(emerge) is a legitimate pre-lock fix.
+
+**Next steps:** open PR feature/frontend-phase-d → main; optionally run the
+two_tier investigation; deploy to Vercel.
+
+**Files changed:** `frontend/src/components/thesis/{OnboardingGuide,View2Outcome}.tsx`,
+`frontend/src/lib/thesis/{backtest,types,index}.ts`, `frontend/src/app/demo.css`.
+
+**Cost incurred:** $0. Ledger unchanged at $9.66 / $30.
+---
