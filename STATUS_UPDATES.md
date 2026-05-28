@@ -1573,3 +1573,104 @@ script each pass.
 
 **Cost incurred:** +$2.05 this session. Running ledger **$9.66 / $30** (≈ $20.34 headroom).
 ---
+
+---
+## 2026-05-28 — Frontend real-data verification (all 3 views) + stale eval_metrics.csv fix
+
+**What I did:**
+- **Repo state audit.** Backend is feature-complete through Phase 5: ingestion (5 platforms + Wayback), scoring (Haiku, ledger $9.66/$30), KG, models, eval/backtest/allocate, ranking + discovery, FastAPI surface, lock harness. B1/B2.a/B2.b all CLOSED. Real data fresh on disk (scored_signals ~1680 rows, 20 pos + 15 real signal-bearing negatives + 1 self-case). Frontend Phases A/B done, C mostly done (C.4 baselines unblocked now that negatives exist; D polish not started).
+- **Ran the full stack against real data.** Started FastAPI (`DATA_SOURCE=local`, :8000) + Next.js frontend (:3001). Verified all three views end-to-end:
+  - **View 1 (Replay):** cohort ranked by combined Σ at Jan 2022, real handles/T1/T2/Σ/allocation, lookahead-bias slider. Header pill "10/20 · 181 events" + "Lookahead-bias guard".
+  - **View 2 (Outcome):** real precision@k = **15/17 = 88.2%** at Jan 2022, 95% bootstrap CI [72.9%, 100.0%], honest "matches best baseline by 0.0 pts, CIs overlap" framing.
+  - **View 3 (Founder drill-down):** Marc Lou — emergence 2023 Q1, ShipFast, ✅ emerged, P(emerge) 0.40, real KG ego-network, real HN signal text with taxonomy chips, outcome timeline.
+- **Network proof:** all 20 `/api/founder/{id}` + `/api/cohort` + `/api/timeline-bounds` returned 200 OK against the real API. Zero synthetic fallbacks. No console errors.
+
+**Bug found + fixed:**
+- **`data/processed/eval_metrics.csv` was stale/wrong** — showed n=6, ROC AUC 1.0 (the old artifactual single-class run), despite the data supporting n=25. The final `pipeline.py all` run evidently skipped/short-circuited the eval stage, leaving an old file. Re-ran `pipeline.py eval` → now correct: **n=25, n_pos=10, ROC AUC 0.947 baseline / 0.927 KG-aug, PR AUC 0.956 / 0.948, precision@5=1.0, lift@5=2.5, Brier 0.081→0.069** (matches the 2026-05-28 15:00/16:30 STATUS entries). The live frontend View 2 was always honest (it computes precision@k via the API portfolio path, not this CSV); only consumers of the static CSV (Streamlit dashboard, thesis Results table) would have quoted the wrong numbers.
+
+**Cosmetic issues noted (not fixed — flagging for decision):**
+1. **HTML-entity passthrough in signal text** (View 3 top signals): raw `<p>`, `&#x27;`, `&gt;` render literally in HN-sourced posts. Known since Phase 2.3 ("decoding is a scoring-layer concern"). Visible in the defence demo — worth a cleanup pass before submission.
+2. **Allocation cents formatting** (View 1): shows `$294,117.647` (3 decimal places). Should round to whole dollars or 2dp.
+
+**Decisions made:**
+- Did not start Phase D polish or fix the two cosmetic issues this session — surfacing them for Kris to prioritise vs. thesis-writing time.
+
+**Blockers:** none. The full real-data stack runs locally and all three views are verified honest.
+
+**Next steps:**
+- Kris: decide whether to (a) fix the 2 cosmetic issues + finish Phase D (landing page, OG image, deploy to Vercel) before submission, or (b) leave as-is for now.
+- Consider re-running `pipeline.py all` cleanly end-to-end to guarantee no other stage left a stale artifact (eval was the one caught here).
+- The May-31 lock can proceed; eval numbers are now genuine and on-disk-correct.
+
+**Files changed:** `data/processed/eval_metrics.csv` (regenerated, gitignored), `04_RETROSPECTIVE_CASES/eval_report.md` (regenerated), `STATUS_UPDATES.md`.
+
+**Cost incurred:** $0 (no LLM calls; eval is sklearn-only). Ledger unchanged at $9.66 / $30.
+---
+
+---
+## 2026-05-29 — Frontend fixes + onboarding guide + Phase D polish (branch: feature/frontend-phase-d)
+
+**What I did:** Branched `feature/frontend-phase-d` off main; 6 atomic commits.
+1. **fix(api):** `clean_text()` strips HTML tags + decodes entities from
+   signal `raw_text` (HN posts were rendering raw `<p>`, `&#x27;`, `&gt;`
+   in the View 3 founder card). Verified live: Marc Lou's top signal now
+   reads clean prose.
+2. **fix(frontend):** `fmtMoney` rounds allocation to whole dollars
+   (was `$294,117.647` → now `$294,118`). Verified live via DOM.
+3. **fix(preview):** dashboard + frontend preview launch. Sandbox denies
+   reading venv `pyvenv.cfg` and can't exec in-project shell scripts, so
+   the dashboard now runs via base `python3.11` (a real binary, like the
+   working node/frontend config) with `.venv-preview` site-packages on
+   `sys.path`. Added `scripts/setup_preview_venv.sh` +
+   `run_dashboard_preview.sh`. Both preview servers verified healthy.
+4. **feat(frontend): 5-step onboarding/landing guide modal**
+   (`OnboardingGuide.tsx`) — the new design from the Claude Design share
+   link (not in the local `design-source/` bundle). Split layout
+   (illustration left, serif copy right), dot progress, Skip/Back/Next,
+   keyboard nav, dark+light, localStorage-gated first-visit auto-show,
+   re-openable via a new "?" help button in the TopBar. **Step 1
+   (WELCOME) matches the design screenshot Kris provided.** Steps 2–5 are
+   scaffolded with working copy + placeholder illustrations — pending the
+   remaining 4 design frames to match exactly.
+5. **feat(frontend): Phase D polish** — `opengraph-image.tsx` (1200×630
+   branded social card, verified rendering), `layout.tsx` metadata
+   (openGraph + twitter + themeColor viewport + metadataBase),
+   `@media print` stylesheet for clean thesis-appendix figures,
+   `vercel.json` + README deploy section (Root Directory = `frontend`,
+   `NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_SITE_URL`, EDHEC note).
+6. **test(api):** fixed the 3 long-standing `test_api.py` failures that
+   had been carried as "pre-existing baseline failures" — stale
+   FakeSources that drifted from the endpoints as real data + cohort
+   landed. Full suite now **268 passed, 1 skipped, 0 failed**.
+
+**Decisions made:**
+- **Deploy target = Vercel** (Kris's call): frontend on Vercel, FastAPI
+  deployed separately, wired via env var.
+- **Did NOT set `turbopack.root`** in next.config — it silenced a harmless
+  build warning but broke dev-mode CSS `@import` resolution (`./demo.css`).
+  Caught it via preview logs; reverted. Production build + Vercel
+  (Root Directory = frontend) are unaffected by the warning.
+- **OG headline renders in sans** (next/og default font) rather than the
+  brand serif — acceptable, reads well; embedding a serif font file is a
+  future nicety.
+
+**Blockers:** **Need the remaining 4 onboarding design screenshots**
+(steps 2–5) to match them pixel-for-pixel. Step 1 is done; 2–5 currently
+use my own working copy + dashed placeholder illustrations.
+
+**Next steps:**
+- Kris: send screenshots 2–5 of the Claude Design landing guide; I'll
+  swap the scaffolded copy/illustrations to match.
+- Then: open PR `feature/frontend-phase-d` → main, and (optionally) do the
+  Vercel + FastAPI deploy.
+
+**Files changed:** `api/main.py`, `tests/test_api.py`,
+`frontend/src/components/thesis/{OnboardingGuide,App,TopBar}.tsx`,
+`frontend/src/components/thesis/primitives.tsx`,
+`frontend/src/app/{layout,opengraph-image}.tsx`,
+`frontend/src/app/demo.css`, `frontend/next.config.ts`,
+`frontend/vercel.json`, `frontend/README.md`, `.claude/launch.json`,
+`.gitignore`, `scripts/{setup_preview_venv,run_dashboard_preview}.sh`.
+
+**Cost incurred:** $0. No LLM calls. Ledger unchanged at $9.66 / $30.
+---
