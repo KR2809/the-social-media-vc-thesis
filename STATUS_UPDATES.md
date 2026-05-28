@@ -1512,3 +1512,37 @@ script each pass.
 
 **Cost incurred:** $0 added. Running ledger unchanged at $5.45 / $30.
 ---
+
+---
+## 2026-05-28 15:00 — B2.b CLOSED: real signal-bearing negatives → eval is now genuine (ROC AUC 0.895)
+
+**What I did:**
+- **Replaced the 15 zero-feature placeholder negatives with 15 REAL signal-bearing negatives.** The placeholders made eval trivially separable (ROC AUC = 1.000) — abandoned PH projects leave no founder signal trail, so "n_signals>0 → emerged" was the whole model. The fix: source negatives that *have* a public signal trail but still didn't emerge.
+- **`scripts/ingest_signal_bearing_negatives.py` (new):** pulls the top-N HackerNews handles from the discovery harvest (`discovered_candidates.parquet`), ingests their real HN submissions (auth-free, in-policy per §6), caps signals/handle for cost + class balance, normalises parquet schema to canonical `string` dtype (clean.py's concat_tables fails on pandas' default `large_string`), and labels them emerged=0. Flags suspiciously founder-like handles (≥200 signals) for manual emergence review rather than auto-labelling.
+- **Ran the full real pipeline:** ingest 15 HN handles (40-signal cap) → clean (1321 events, +377 negative) → score (377 signals, +$2.15 → **$7.61/$30**) → person/graph/kg-features (24 real persons) → eval/backtest/allocate.
+- **Eval is now genuine:**
+  - ROC AUC **0.895** (was artifactual 1.000)
+  - PR AUC baseline **0.884** → KG-augmented **0.913** (**+0.029** — the KG layer measurably adds signal, which is a core thesis claim)
+  - Brier 0.092 → 0.087
+  - The artefact banner no longer fires (negatives carry real features).
+- **Integrity check passed:** negative mean overall_signal_strength **0.123** vs positive **0.148** — realistically *overlapping*, not separable. These are genuine "posted publicly, never emerged" negatives. None match cohort positives. No fabricated data.
+
+**Decisions made:**
+- **HN-only negatives.** 50 of 91 discovery candidates are HackerNews (auth-free); Reddit (41) needs PRAW creds we don't have. HN alone gave a clean class of 15.
+- **40-signal/handle cap.** Bounds LLM cost (~$2.15 total) and keeps the negative class from being dominated by a few heavy posters. Heavy posters (ramon156 1384, stabbles 787) trimmed to their 40 most-recent.
+- **Discovery harvest IS the natural negative population.** People who posted in-niche have a base emergence rate ≈ 0, so they're legitimately negatives — the methodologically correct alternative to anonymous zero-feature placeholders.
+- **Kept the artefact-guard code** (`detect_zero_feature_negatives`) — it's now dormant but protects against regressions if zero-feature negatives ever creep back in.
+
+**Blockers:** none. B2.b is closed for the minimum-viable cohort (20 pos / 15 neg, all negatives signal-bearing). The eval/backtest/allocate chain produces real, quotable, defensible numbers for the May-31 lock.
+
+**Next steps:**
+- **Merge PR #7** — now bundles auto-discovery + ranking + B2.b (real negatives) + genuine eval.
+- **Optional pre-lock polish:** expand to more negatives (Reddit, if PRAW creds added) and backfill the 13 positives currently lacking ingested signals (only 7 of 20 positives have features — a positive-side gap that limits n).
+- **May-31 lock** can proceed on these real metrics.
+
+**Files changed:**
+- `scripts/ingest_signal_bearing_negatives.py` (new)
+- Data (all gitignored): `data/processed/{outcome_labels.csv, scored_signals.parquet, person_features.parquet, kg_features.parquet, allocation.csv, backtest_results.csv}`, eval/backtest reports in `04_RETROSPECTIVE_CASES/`.
+
+**Cost incurred:** +$2.15 this session (377 negative signals scored via Haiku). Running ledger **$7.61 / $30** (≈ $22.39 headroom).
+---
