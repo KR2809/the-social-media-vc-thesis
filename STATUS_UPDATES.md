@@ -1732,3 +1732,76 @@ two_tier investigation; deploy to Vercel.
 
 **Cost incurred:** $0. Ledger unchanged at $9.66 / $30.
 ---
+
+---
+## 2026-05-29 (night) — Data expansion + Supabase mirror + YC cross-reference (branch: feature/data-expansion-supabase)
+
+**Goal (Kris):** ingest more data from all free sources, push the KG + data to
+Supabase, build a real YC creator-economy overlap, all while keeping the
+framework frozen for the May-31 lock. Decisions: ingest-before-lock (dataset
+grows, method frozen); budget ≤ ~$20; YC from public directory; commit often,
+one PR, no merge to main.
+
+**What I did:**
+1. **Data expansion (+443 signals, 1680 → 2123).**
+   - HN re-sweep over a wider window: +211 (arvidkahl 103→247, lennysan 15→164, etc.).
+   - `scripts/backfill_wayback_only.py` (new): skips the dead snscrape path
+     (X SearchTimeline = 404 "blocked" since 2023), goes straight to Wayback
+     CDX with an even-spread snapshot cap → noahwbragg +120 real tweets.
+   - **Reddit creds are DEAD (401)** — can't ingest Reddit until Kris
+     regenerates them. **ProductHunt API removed `madeComments`** (fixed:
+     fail-soft, posts still work; but `madePosts` returns 0 for these makers
+     under app-token perms, so PH yield is ~0). Wayback post-2020 parsing is
+     unreliable for several X-native founders (0 parseable snapshots).
+2. **Re-scored new signals (Haiku, frozen prompt v1):** scored 1680 → 2222.
+   Ledger **$9.66 → $12.70** (well under the $20 cap). Re-ran the full
+   pipeline: **KG now 4235 nodes / 178,792 edges** (was 3290/100k); **eval
+   n=27, 12 positives** (was 25/10 — 2 more positives now have features);
+   PR-AUC baseline 0.955 → KG-aug **0.960**, Brier 0.074 → 0.071 with KG.
+   Framework/weights unchanged — only the dataset grew.
+3. **Supabase mirror.** Restored the paused `thesis-social-signal-fund`
+   project; applied the full 13-table schema + **new kg_nodes / kg_edges
+   tables** + anon-read RLS on all 15. Loaded the 6 demo-critical analytical
+   tables via MCP execute_sql (person_features, kg_features, allocation,
+   outcome_labels, eval_metrics, backtest_results) — **verified queryable**
+   (KG-aug ROC AUC 0.939 via SQL). Built `scripts/gen_supabase_sql.py`
+   (batched idempotent UPSERTs incl. KG) + `scripts/load_supabase_sql.sh`
+   (one-shot psql loader) for the large tables (signal_events, scored_signals,
+   kg_nodes 4235, kg_edges 6615) — those need the DB connection string /
+   service-role key to bulk-load (not in .env).
+4. **Real YC cross-reference** (`analysis/yc_overlap.py` + `/api/yc-overlap`
+   + `frontend YCOverlapPanel.tsx`). Replaces the removed synthetic donut
+   with a hand-verified, provenance-carrying table. **1/20 overlap**
+   (Roy Lee / Cluely, YC X25) — the cohort is bootstrapped/indie, largely
+   orthogonal to YC, so a near-zero overlap is the honest finding (the
+   framework surfaces a population YC misses). Lookahead-safe: 0/20 before
+   2025, 1/20 from 2025-04. Verified live in View 2.
+
+**Important finding (spawned as a side task):** the backtest's `two_tier`
+strategy ranks by combined Σ, NOT the trained model's P(emerge); it
+underperforms volume/recency at early dates but improves with more data
+(2024-01 k=3 two_tier=1.0). Whether to rank by model P(emerge) is a
+pre-lock methodology question for Kris — NOT silently changed.
+
+**Verification:** backend suite **268 passed / 1 skipped**; frontend eslint +
+tsc clean; Supabase counts confirmed via SQL.
+
+**Blockers for Kris:**
+- **Reddit API creds (401)** — regenerate to unlock Reddit ingestion.
+- **Supabase service-role key / DB URL** — to bulk-load the 4 large tables
+  (run `python scripts/gen_supabase_sql.py && SUPABASE_DB_URL=... bash
+  scripts/load_supabase_sql.sh`). Small tables already mirrored.
+- **two_tier-vs-P(emerge) backtest question** — pre-lock methodology call.
+
+**Next steps:** open PR(s) feature/frontend-phase-d + feature/data-expansion-supabase
+→ main; decide the two_tier question; (optional) deploy to Vercel; lock on the 31st.
+
+**Files changed:** `ingestion/producthunt_collect.py`,
+`scripts/{backfill_wayback_only,gen_supabase_sql,load_supabase_sql}.{py,sh}`,
+`analysis/yc_overlap.py`, `api/main.py`,
+`frontend/src/components/thesis/{View2Outcome,YCOverlapPanel}.tsx`,
+`frontend/src/lib/thesis/yc.ts`, `frontend/src/app/demo.css`,
+`tests/test_producthunt_collect.py`, Supabase migrations (2 new).
+
+**Cost incurred:** +$3.04 scoring this session. Ledger **$12.70 / $30** (~$17.30 headroom).
+---
