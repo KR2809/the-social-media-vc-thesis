@@ -22,8 +22,8 @@ import logging
 from datetime import UTC, date, datetime
 from pathlib import Path
 
-from ingestion.schema import handle_to_person_id, signal_events_to_parquet
 from ingestion import twitter_collect as tc
+from ingestion.schema import handle_to_person_id, signal_events_to_parquet
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("backfill_wayback")
