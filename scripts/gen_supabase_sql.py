@@ -49,6 +49,15 @@ def emit(table: str, cols: list[str], rows: list[list], conflict: str) -> int:
     if not rows:
         # Still emit a marker so we know it ran with 0 rows.
         return 0
+    # Dedup on the conflict (primary-key) columns — Postgres rejects an
+    # INSERT...ON CONFLICT DO UPDATE that proposes the same key twice in one
+    # statement. The scored parquet can carry dup signal_ids after a
+    # re-score; keep the LAST occurrence (newest wins, matching the pipeline).
+    pk_idx = [cols.index(c.strip()) for c in conflict.split(",")]
+    seen: dict[tuple, list] = {}
+    for row in rows:
+        seen[tuple(row[i] for i in pk_idx)] = row
+    rows = list(seen.values())
     updates = ", ".join(f"{c}=EXCLUDED.{c}" for c in cols if c not in conflict.split(", "))
     files = 0
     for start in range(0, len(rows), BATCH):
