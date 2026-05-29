@@ -1805,3 +1805,51 @@ tsc clean; Supabase counts confirmed via SQL.
 
 **Cost incurred:** +$3.04 scoring this session. Ledger **$12.70 / $30** (~$17.30 headroom).
 ---
+
+---
+## 2026-05-29 (night, cont.) — Full Supabase load complete (Kris provided DB URL)
+
+**What I did:** Kris supplied the Postgres connection string, so I ran the
+full bulk load via `scripts/load_supabase_sql.sh`. **Entire mirror is now
+live + queryable via the public anon key:**
+
+| table | rows |
+|---|---|
+| signal_events | 2123 |
+| scored_signals | 2123 |
+| kg_nodes | 4235 |
+| kg_edges | 6615 (person-incident) |
+| person_features | 29 |
+| kg_features | 29 |
+| allocation | 29 |
+| outcome_labels | 51 |
+| backtest_results | 36 |
+| eval_metrics | 2 (ROC 0.939, PR-AUC base 0.955 → KG-aug 0.960, n=27) |
+
+Verified the KG is queryable (node-kind breakdown, marclou's 108 EXPRESSED
+edges, relation breakdown EXPRESSED/ON_PLATFORM/ABOUT) and the anon REST
+path returns correct values (examiner-facing access works without the DB
+password).
+
+**Two bugs fixed during the load:**
+1. **dedup-on-PK in `gen_supabase_sql.py`** — scored parquet had 99 dup
+   signal_ids (from re-scoring), which broke psql with "ON CONFLICT cannot
+   affect row a second time". emit() now dedups each table on its PK
+   (newest wins). signal_events was 0 initially because the loader aborted
+   (ON_ERROR_STOP) on that dup before reaching it alphabetically — fixed by
+   the dedup + a targeted re-run.
+2. **stale eval_metrics again** — the on-disk CSV had reverted to the n=6 /
+   all-1.0 artifact (a recurring staleness issue: eval gets clobbered when
+   it runs against stale person_features). Re-ran `pipeline.py eval` +
+   `backtest` → correct n=27 / ROC 0.939, re-pushed. **Gotcha for future
+   runs:** always run `eval`/`backtest` LAST, after person/graph/kg-features
+   are rebuilt on the current scored data, then sync to Supabase.
+
+**Still needs Kris:** Reddit API creds (still empty in .env) to unlock
+Reddit ingestion; the two_tier-vs-P(emerge) backtest methodology decision.
+
+**Files changed:** `scripts/gen_supabase_sql.py` (dedup fix). Data + Supabase
+are not in git (gitignored / external).
+
+**Cost incurred:** $0 this step (no LLM). Ledger unchanged **$12.70 / $30**.
+---
