@@ -6,6 +6,7 @@ import { fetchBacktest } from "@/lib/thesis";
 import type { BacktestResult, BacktestScore, BacktestStrategy, RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import { CIBar, EpistemeBar, fmtPct, ViewIntro } from "./primitives";
+import { YCOverlapPanel } from "./YCOverlapPanel";
 
 // ---------------------------------------------------------------------------
 // Strategy display metadata
@@ -372,6 +373,11 @@ export function View2Outcome({ t, K, picks }: Props) {
           <Scoreboard result={bt} bootCI={thesis.bootCI} />
         </>
       )}
+
+      {/* YC cross-reference is independent of the 24-month outcome horizon
+          (it's a who-went-through-YC fact, not an emergence outcome), so it
+          shows at any date — including recent ones where canEval is false. */}
+      <YCOverlapPanel t={t} />
 
       {canEval && !hasBackend && (
         <div className="future-banner">
