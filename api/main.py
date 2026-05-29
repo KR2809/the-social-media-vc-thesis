@@ -410,6 +410,26 @@ def get_locked_predictions() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# 8. GET /api/yc-overlap — documented YC cross-reference (analysis/yc_overlap.py)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/yc-overlap")
+def get_yc_overlap(
+    date: str | None = Query(None, description="ISO date — gate YC batches public by then."),
+) -> dict:
+    """Cross-reference the cohort against YC's public directory.
+
+    The overlap is intentionally small (the cohort is bootstrapped/indie,
+    largely orthogonal to YC) — that's the honest finding. Lookahead-safe:
+    a YC batch only counts as known if announced on/before `date`.
+    """
+    from analysis.yc_overlap import yc_overlap  # noqa: PLC0415
+
+    return yc_overlap(as_of=date)
+
+
+# ---------------------------------------------------------------------------
 # Bonus: GET /api/discovered-topics — supports the topic-momentum panel
 # ---------------------------------------------------------------------------
 
