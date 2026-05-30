@@ -1898,3 +1898,46 @@ Policy gate); the two_tier-vs-P(emerge) backtest methodology decision.
 
 **Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
 ---
+
+---
+## 2026-05-30 — Merge to main + Vercel deploy + 3 post-deploy fixes
+
+**Merged + deployed:** all frontend/data/KG/Supabase work merged to `main`
+(no-ff) and pushed. Frontend **deployed to Vercel** — live at
+**https://thesis-demo-five.vercel.app** (also thesis-demo.vercel.app).
+Prod reads real data **directly from Supabase** (view_cache, anon REST) via
+the new client.ts seam — no always-on API server. 120 view payloads cached.
+
+**Post-deploy fixes (Kris feedback), committed + redeployed:**
+1. **Programme text:** "EDHEC MSc Finance" → "EDHEC BSc Global Business"
+   across TopBar byline, OG card, page metadata + onboarding "BSc thesis".
+2. **Tooltip cutoff:** InfoTip was pure-CSS absolute+centered, so triggers
+   near a card/viewport edge (e.g. the KG "?") clipped off-screen. Rewrote
+   to JS-positioned `fixed` coords on open: centre-then-clamp horizontally
+   with margin, flip above on bottom-overflow, arrow tracks via --arrow-x,
+   z-index above modals. Viewport-clamped width.
+3. **Backtest only worked at Jan 2023:** deployed frontend reads cached
+   baselines from Supabase, but only 3 dates were cached. Now materialise
+   **quarterly dates 2019–2024** (24 × 3 K = 72 baseline keys) and the
+   frontend **snaps the slider month to the nearest** computed date.
+   Verified: all sampled slider positions resolve to 4 strategies.
+
+**Deploy auth:** Kris ran `vercel login` (device code) → CLI authed as
+kr2809; I deployed via `vercel deploy --prod`. Supabase env vars set in
+Vercel project (NEXT_PUBLIC_SUPABASE_URL / ANON_KEY / SITE_URL).
+
+**Verification:** backend 268 pass, frontend eslint+tsc+smoke green, prod
+build OK, live site serves corrected byline + Supabase data confirmed via
+public anon REST.
+
+**Note:** browser-based visual verification skipped (CLAUDE.md forbids
+claude-in-chrome; would use /browse skill). Fixes verified at code +
+data-layer + live-HTML level.
+
+**Files changed:** `frontend/src/lib/thesis/{client,backtest,kg,yc,real}.ts`,
+`frontend/src/components/thesis/{InfoTip,TopBar,OnboardingGuide}.tsx`,
+`frontend/src/app/{layout,opengraph-image}.tsx`, `frontend/src/app/demo.css`,
+`scripts/materialise_view_cache.py`.
+
+**Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
+---
