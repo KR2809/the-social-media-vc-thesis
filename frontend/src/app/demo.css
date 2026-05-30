@@ -1605,3 +1605,17 @@ body {
   overflow: hidden;
 }
 .kg-mini-real .fg-svg { cursor: grab; }
+
+/* Honest empty states for founders with no collected signals (View 3). */
+.ego-empty { display: flex; align-items: center; justify-content: center; min-height: 300px; }
+.ego-empty-inner { text-align: center; max-width: 320px; padding: 20px; }
+.ego-empty-title { font-size: 14px; font-weight: 600; color: var(--ink-1); margin: 12px 0 6px; }
+.ego-empty-sub { font-size: 12px; line-height: 1.55; }
+.nodata-block {
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--r-md);
+  padding: 20px;
+  background: var(--bg-2);
+}
+.nodata-title { font-size: 13px; font-weight: 600; color: var(--ink-1); margin: 0 0 6px; }
+.nodata-sub { font-size: 12px; line-height: 1.55; margin: 0; }

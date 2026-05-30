@@ -9,14 +9,17 @@ export interface KGResult {
   nodes: GraphNode[];
   edges: GraphEdge[];
   source: "backend" | "unavailable";
+  // Distinguishes "founder genuinely has no collected signals yet"
+  // (reason: "no-data") from "couldn't reach the API" (reason: "api-down").
+  reason?: "no-data" | "api-down";
   meta: Record<string, number>;
 }
 
 const cohortCache: { v: KGResult | null } = { v: null };
 const egoCache = new Map<string, KGResult>();
 
-function empty(): KGResult {
-  return { nodes: [], edges: [], source: "unavailable", meta: {} };
+function empty(reason: "no-data" | "api-down" = "api-down"): KGResult {
+  return { nodes: [], edges: [], source: "unavailable", reason, meta: {} };
 }
 
 export async function fetchCohortKG(): Promise<KGResult> {
@@ -52,9 +55,14 @@ export async function fetchEgoKG(personId: string, topSignals = 12): Promise<KGR
       `${API_BASE_URL}/api/kg/ego/${encodeURIComponent(personId)}?top_signals=${topSignals}`,
       { headers: { accept: "application/json" } },
     );
-    if (!res.ok) return empty();
+    if (!res.ok) return empty("api-down");
     const j = await res.json();
-    if (!j.nodes?.length) return empty();
+    // API answered but the founder has no collected signals → honest empty.
+    if (!j.nodes?.length) {
+      const r = empty("no-data");
+      egoCache.set(key, r);
+      return r;
+    }
     const r: KGResult = {
       nodes: j.nodes,
       edges: j.edges,
@@ -64,6 +72,6 @@ export async function fetchEgoKG(personId: string, topSignals = 12): Promise<KGR
     egoCache.set(key, r);
     return r;
   } catch {
-    return empty();
+    return empty("api-down");
   }
 }
