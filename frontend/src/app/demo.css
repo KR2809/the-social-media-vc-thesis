@@ -240,11 +240,10 @@ body {
 }
 [data-theme="dark"] .info-tip:hover .info-tip-icon,
 [data-theme="dark"] .info-tip:focus .info-tip-icon { color: var(--bg); }
+/* JS-positioned (fixed) so it never clips on a card/viewport edge. The
+   component only mounts it when open and sets left/top + --arrow-x inline. */
 .info-tip-popup {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%) translateY(-4px);
+  position: fixed;
   background: var(--bg-card);
   border: 1px solid var(--hairline-2);
   border-radius: var(--r-md);
@@ -257,31 +256,23 @@ body {
   text-transform: none;
   letter-spacing: 0;
   font-style: normal;
-  z-index: 200;
-  opacity: 0;
-  visibility: hidden;
+  z-index: 9999;
   pointer-events: none;
   box-shadow: var(--shadow-lg);
-  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
   text-align: left;
+  animation: info-tip-in 120ms ease-out;
 }
+@keyframes info-tip-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
 .info-tip-popup::before {
   content: "";
   position: absolute;
-  top: -5px; left: 50%;
+  top: -5px;
+  left: var(--arrow-x, 50%);
   transform: translateX(-50%) rotate(45deg);
   width: 8px; height: 8px;
   background: var(--bg-card);
   border-left: 1px solid var(--hairline-2);
   border-top: 1px solid var(--hairline-2);
-}
-.info-tip:hover .info-tip-popup,
-.info-tip:focus .info-tip-popup,
-.info-tip:focus-within .info-tip-popup {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translateX(-50%) translateY(0);
 }
 .info-tip-popup strong { font-weight: 600; color: var(--accent); }
 .info-tip-popup em { font-style: italic; color: var(--ink-2); }
@@ -1280,7 +1271,8 @@ body {
   .signals { max-height: none; }
   .timeline { min-height: 280px; }
   .tl-bubble { width: 110px; font-size: 10px; }
-  .info-tip-popup { width: 260px !important; max-width: calc(100vw - 32px); }
+  /* width is JS-computed + viewport-clamped in InfoTip; just cap it on mobile */
+  .info-tip-popup { max-width: calc(100vw - 24px); }
   .settings-popover { right: 12px; left: 12px; width: auto; }
 }
 
