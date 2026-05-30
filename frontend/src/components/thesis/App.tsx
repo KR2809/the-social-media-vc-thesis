@@ -14,9 +14,10 @@ import { View1Replay } from "./View1Replay";
 import { View2Outcome } from "./View2Outcome";
 import { View3Founder } from "./View3Founder";
 import { OnboardingGuide, shouldShowOnboarding } from "./OnboardingGuide";
+import { KnowledgeGraphView } from "./KnowledgeGraphView";
 
 type Theme = "light" | "dark";
-type View = 1 | 2 | 3;
+type View = 1 | 2 | 3 | 4; // 4 = full-cohort Knowledge Graph
 
 const MIN = 0;
 // Month-parsing is data-independent, so we read it off the synthetic source
@@ -32,6 +33,7 @@ function parseT(s: string | null): number {
 function parseView(s: string | null): View {
   if (s === "2") return 2;
   if (s === "3") return 3;
+  if (s === "4") return 4;
   return 1;
 }
 function parseK(s: string | null): number {
@@ -187,6 +189,7 @@ export function App() {
       else if (e.key === "1") setView(1);
       else if (e.key === "2") setView(2);
       else if (e.key === "3" && focusedId) setView(3);
+      else if (e.key === "4" || e.key === "g" || e.key === "G") setView(4);
       else if (e.key === "ArrowLeft") setT(Math.max(MIN, t - 3));
       else if (e.key === "ArrowRight") setT(Math.min(MAX, t + 3));
     }
@@ -211,6 +214,8 @@ export function App() {
         setSettingsOpen={setSettingsOpen}
         mounted={mounted}
         onOpenGuide={() => setGuideOpen(true)}
+        onOpenGraph={() => setView(4)}
+        graphActive={view === 4}
       />
       <DateSlider value={t} onChange={setT} min={MIN} max={MAX} />
       <ViewNav
@@ -257,6 +262,7 @@ export function App() {
             gotoView={setView}
           />
         )}
+        {view === 4 && <KnowledgeGraphView />}
       </div>
       <Footer />
       <OnboardingGuide open={guideOpen} onClose={() => setGuideOpen(false)} />

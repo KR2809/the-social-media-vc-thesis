@@ -430,6 +430,31 @@ def get_yc_overlap(
 
 
 # ---------------------------------------------------------------------------
+# 9. GET /api/kg/cohort + /api/kg/ego/{person_id} — real knowledge-graph views
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/kg/cohort")
+def get_kg_cohort() -> dict:
+    """Founder ↔ theme projection of the real KG for the cohort graph view.
+
+    Granular LLM topic labels collapse into coarse theme hubs so founders
+    cluster by shared interests (analysis/kg_views.cohort_graph).
+    """
+    from analysis.kg_views import cohort_graph  # noqa: PLC0415
+
+    return cohort_graph()
+
+
+@app.get("/api/kg/ego/{person_id}")
+def get_kg_ego(person_id: str, top_signals: int = Query(12, ge=1, le=40)) -> dict:
+    """One founder's real KG neighbourhood (founder→signals→topics+platform)."""
+    from analysis.kg_views import ego_graph  # noqa: PLC0415
+
+    return ego_graph(person_id, top_signals=top_signals)
+
+
+# ---------------------------------------------------------------------------
 # Bonus: GET /api/discovered-topics — supports the topic-momentum panel
 # ---------------------------------------------------------------------------
 
