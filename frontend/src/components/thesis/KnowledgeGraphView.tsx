@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { fetchCohortKG, type KGResult } from "@/lib/thesis/kg";
-import { ForceGraph, type GraphNode } from "./ForceGraph";
+import { RadialClusterGraph } from "./RadialClusterGraph";
 import { InfoTip } from "./InfoTip";
 import { EpistemeBar, ViewIntro } from "./primitives";
 
@@ -37,8 +37,9 @@ export function KnowledgeGraphView() {
       <ViewIntro kicker="KNOWLEDGE GRAPH" title="What the cohort is really made of">
         Every scored signal is a node in a knowledge graph; here we project the{" "}
         <strong>real graph</strong> down to <strong>founders and the themes they signal about</strong>{" "}
-        (signals collapsed into edge weight). Founders wired to the same theme cluster together — drag
-        a node, hover to isolate a neighbourhood, scroll to zoom.
+        (signals collapsed into edge weight). Each founder sits next to the theme they signal about
+        most; founders sharing a theme cluster together. <strong>Hover</strong> any node to light up its
+        connections.
       </ViewIntro>
 
       {ready && (
@@ -64,14 +65,12 @@ export function KnowledgeGraphView() {
             </span>
           </div>
           <div className="kg-canvas">
-            <ForceGraph
+            <RadialClusterGraph
               nodes={kg.nodes}
               edges={kg.edges}
               width={760}
               height={560}
               nodeColor={kgColor}
-              nodeRadius={(n: GraphNode) =>
-                n.kind === "founder" ? 7 : 6 + Math.min((n.n_founders ?? 1) * 2, 16)}
             />
           </div>
         </>
