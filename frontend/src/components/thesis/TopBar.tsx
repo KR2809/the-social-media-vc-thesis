@@ -33,7 +33,7 @@ export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted
         <div className="topbar-titles">
           <h1 className="thesis-title">From Social Signals to Pre-Seed Allocation</h1>
           <div className="thesis-sub">
-            Kristian Ratkov · supervised by George Tovstiga · EDHEC MSc Finance
+            Kristian Ratkov · supervised by George Tovstiga · EDHEC BSc Global Business
           </div>
         </div>
       </div>

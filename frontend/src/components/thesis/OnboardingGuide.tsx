@@ -198,7 +198,7 @@ export const GUIDE_STEPS: GuideStep[] = [
     body: (
       <>
         <p>
-          This demo operationalises Kristian Ratkov&apos;s MSc thesis on{" "}
+          This demo operationalises Kristian Ratkov&apos;s BSc thesis on{" "}
           <strong>turning social-media activity into pre-seed investment decisions</strong>. The
           argument: founders broadcast measurable signals long before they incorporate — cadence,
           ambition, network density, distribution loops — and a disciplined framework can pick the

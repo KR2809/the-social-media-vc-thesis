@@ -48,7 +48,7 @@ export default function OpengraphImage() {
               fontFamily: "sans-serif",
             }}
           >
-            EDHEC MSc Finance · Thesis Demo
+            EDHEC BSc Global Business · Thesis Demo
           </div>
         </div>
 

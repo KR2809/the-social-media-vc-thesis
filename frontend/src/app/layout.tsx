@@ -34,7 +34,7 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
 const title = "From Social Signals to Pre-Seed Allocation — Thesis Demo";
 const description =
-  "A systematic framework for pre-seed venture capital, built from free public social-media signals. Replay any date, score the picks against naïve baselines, and drill into the evidence. Kristian Ratkov · EDHEC MSc Finance.";
+  "A systematic framework for pre-seed venture capital, built from free public social-media signals. Replay any date, score the picks against naïve baselines, and drill into the evidence. Kristian Ratkov · EDHEC BSc Global Business.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
