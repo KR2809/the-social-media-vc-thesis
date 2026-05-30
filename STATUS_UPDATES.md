@@ -1853,3 +1853,48 @@ are not in git (gitignored / external).
 
 **Cost incurred:** $0 this step (no LLM). Ledger unchanged **$12.70 / $30**.
 ---
+
+---
+## 2026-05-29 (night, cont.) — Real knowledge-graph visualisation (Kris request)
+
+**What I did:** Added a real, interactive KG visualisation to the frontend,
+backed by the actual graph (4,235 nodes / 178k edges) now in Supabase + API.
+
+1. **Backend (`analysis/kg_views.py` + 2 endpoints):**
+   - `cohort_graph()` projects the real KG → founders + coarse **theme hubs**.
+     The ~2,000 granular LLM topic labels are bucketed via `normalise_topic`
+     into 10 themes (SaaS & bootstrapping, AI & tooling, Audience &
+     newsletters, Money & finance, Psychology & neuroscience, …) so founders
+     cluster by shared interest. Result: 27 founders, 10 themes, all shared.
+   - `ego_graph(person_id)` → a founder's real neighbourhood
+     (founder→signals→topics+platform).
+   - `GET /api/kg/cohort` + `GET /api/kg/ego/{id}`.
+2. **`ForceGraph.tsx`** — hand-rolled SVG force simulation (charge repulsion +
+   link springs + centering gravity), drag, hover-to-isolate-neighbourhood,
+   scroll-zoom/pan. No external deps; matches the demo aesthetic. Avoids
+   reading refs during render (publishes a positions snapshot to state).
+3. **New 4th view — Knowledge Graph** (`KnowledgeGraphView.tsx`): the
+   showpiece. Founder + theme force graph, stat bar (27/10/10), legend,
+   honest episteme caption. Opened via a new TopBar graph button or key `G`;
+   deep-linkable at `/?view=4`. Verified rendering live.
+4. **View 3 ego-network upgraded** to the real server-side graph
+   (`/api/kg/ego/{id}`) via ForceGraph, founder pinned center; synthetic
+   fixed-layout kept as a graceful fallback when the API is down.
+
+**How it looks:** dark canvas, founders as deep-blue nodes, themes as
+accent-blue hubs sized by how many founders share them; force layout pulls
+shared-theme founders into visible clusters (e.g. the SaaS/bootstrapping
+cluster vs the newsletter/writing cluster vs Tori Dunlap's money cluster).
+
+**Verification:** backend suite **268 passed / 1 skipped**; frontend eslint +
+tsc clean; both KG endpoints + both views verified live in the browser.
+
+**Still needs Kris (unchanged):** Reddit API creds (Responsible Builder
+Policy gate); the two_tier-vs-P(emerge) backtest methodology decision.
+
+**Files changed:** `analysis/kg_views.py` (new), `api/main.py`,
+`frontend/src/components/thesis/{ForceGraph,KnowledgeGraphView,View3Founder,App,TopBar,ViewNav}.tsx`,
+`frontend/src/lib/thesis/kg.ts` (new), `frontend/src/app/demo.css`.
+
+**Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
+---
