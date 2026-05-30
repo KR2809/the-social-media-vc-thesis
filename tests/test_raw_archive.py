@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import base64
 import gzip
-import importlib
 import json
-import os
 from pathlib import Path
 
 import pandas as pd
 import pyarrow.parquet as pq
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixture: redirect raw_archive into a tmp dir and force-enable it.
