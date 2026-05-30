@@ -5,8 +5,17 @@
 // finding, and where overlap exists (e.g. Cluely X25) it's external
 // validation. Lookahead-safe: gated by batch-announcement date.
 
-import { API_BASE_URL } from "./config";
+import { apiGet } from "./client";
 import { monthsToISODate } from "./backtest";
+
+interface YCJson {
+  n_cohort?: number;
+  n_in_yc?: number;
+  overlap_pct?: number;
+  as_of?: string;
+  records?: YCRecord[];
+  methodology?: string;
+}
 
 export interface YCRecord {
   person_id: string;
@@ -48,17 +57,14 @@ export async function fetchYCOverlap(t: number): Promise<YCOverlapResult> {
   };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/yc-overlap?date=${date}`, {
-      headers: { accept: "application/json" },
-    });
-    if (!res.ok) return empty;
-    const j = await res.json();
+    const j = (await apiGet(`/api/yc-overlap?date=${date}`)) as YCJson | null;
+    if (!j) return empty;
     const result: YCOverlapResult = {
       nCohort: j.n_cohort ?? 0,
       nInYc: j.n_in_yc ?? 0,
       overlapPct: j.overlap_pct ?? 0,
       asOf: j.as_of ?? date,
-      records: (j.records ?? []) as YCRecord[],
+      records: j.records ?? [],
       methodology: j.methodology ?? "",
       source: "backend",
     };

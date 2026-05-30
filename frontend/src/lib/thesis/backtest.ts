@@ -8,7 +8,7 @@
 // horizon is in the future, so View 2 can fall back to its caption rather
 // than blanking.
 
-import { API_BASE_URL } from "./config";
+import { apiGet } from "./client";
 import type { BacktestResult, BacktestScore, BacktestStrategy } from "./types";
 
 // months-since-2014-01 → "YYYY-MM-01" (UTC, month start).
@@ -42,14 +42,8 @@ export async function fetchBacktest(t: number, k: number): Promise<BacktestResul
   const empty: BacktestResult = { date, k, baseRate: 0, scores: [], source: "unavailable" };
 
   try {
-    const res = await fetch(`${API_BASE_URL}/api/baselines?date=${date}&k=${k}`, {
-      headers: { accept: "application/json" },
-    });
-    if (!res.ok) {
-      // 503 = backtest prerequisite missing; anything else = transient.
-      return empty;
-    }
-    const json: { rows?: RawRow[] } = await res.json();
+    const json = (await apiGet(`/api/baselines?date=${date}&k=${k}`)) as { rows?: RawRow[] } | null;
+    if (!json) return empty;
     const rows = json.rows ?? [];
     if (rows.length === 0) return empty;
 

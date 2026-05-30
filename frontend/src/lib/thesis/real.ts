@@ -55,7 +55,7 @@ import type {
   SignalEvidence,
   TaxonomyCode,
 } from "./types";
-import { API_BASE_URL } from "./config";
+import { apiGet } from "./client";
 
 interface CohortResponse {
   n: number;
@@ -160,12 +160,11 @@ export function parseEmergenceQuarter(raw: string | null): string | null {
 }
 
 async function fetchJSON<T>(path: string): Promise<T> {
-  const url = `${API_BASE_URL}${path}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`GET ${url} → ${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as T;
+  // Routes through the unified client: local FastAPI in dev, Supabase
+  // view_cache in prod. Throws on miss so callers fall back to synthetic.
+  const data = await apiGet(path);
+  if (data == null) throw new Error(`no data for ${path}`);
+  return data as T;
 }
 
 function mapCohortToFounders(

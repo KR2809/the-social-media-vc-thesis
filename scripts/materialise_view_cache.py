@@ -88,9 +88,16 @@ def _payloads() -> dict[str, dict]:
     out["kg/cohort"] = cohort_graph()
 
     # --- kg/ego/<id> + founder/<id> per cohort member ---
+    # get_founder is the exact API handler (reads local parquet via get_source).
+    from api.main import get_founder  # noqa: PLC0415
+
     for m in members:
         pid = m.x_handle.lower()
         out[f"kg/ego/{pid}"] = ego_graph(pid, top_signals=14)
+        try:
+            out[f"founder/{pid}"] = get_founder(pid, date=None, top_signals=20)
+        except Exception as e:  # noqa: BLE001
+            print(f"  founder {pid} failed: {e}", file=sys.stderr)
 
     # --- yc-overlap at representative dates ---
     for d in YC_DATES:
@@ -115,6 +122,19 @@ def _sql_escape(s: str) -> str:
     return s.replace("'", "''")
 
 
+def _clean(obj):
+    """Recursively replace NaN/Infinity with None — Postgres JSON rejects them."""
+    import math
+
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else obj
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean(v) for v in obj]
+    return obj
+
+
 def main() -> None:
     if not DB_URL:
         print("set SUPABASE_DB_URL", file=sys.stderr)
@@ -123,17 +143,25 @@ def main() -> None:
     # Build one multi-row UPSERT.
     values = []
     for key, payload in payloads.items():
-        j = _sql_escape(json.dumps(payload, default=str))
+        j = _sql_escape(json.dumps(_clean(payload), default=str, allow_nan=False))
         values.append(f"('{_sql_escape(key)}', '{j}'::jsonb, now())")
     stmt = (
         "INSERT INTO view_cache (key, payload, computed_at) VALUES\n"
         + ",\n".join(values)
         + "\nON CONFLICT (key) DO UPDATE SET payload = EXCLUDED.payload, computed_at = EXCLUDED.computed_at;"
     )
+    # Write to a temp file + psql -f (the combined SQL exceeds the OS
+    # arg-length limit for -c once founder payloads with raw_text are added).
+    import tempfile  # noqa: PLC0415
+
+    with tempfile.NamedTemporaryFile("w", suffix=".sql", delete=False) as f:
+        f.write(stmt)
+        sql_path = f.name
     proc = subprocess.run(
-        ["psql", DB_URL, "-v", "ON_ERROR_STOP=1", "-q", "-c", stmt],
+        ["psql", DB_URL, "-v", "ON_ERROR_STOP=1", "-q", "-f", sql_path],
         capture_output=True, text=True,
     )
+    os.unlink(sql_path)
     if proc.returncode != 0:
         print(proc.stderr, file=sys.stderr)
         sys.exit(1)

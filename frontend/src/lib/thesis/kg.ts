@@ -2,7 +2,7 @@
 // (analysis/kg_views.py via /api/kg/*). Graceful "unavailable" fallback so
 // the views degrade rather than blank when the API is down.
 
-import { API_BASE_URL } from "./config";
+import { apiGet } from "./client";
 import type { GraphEdge, GraphNode } from "@/components/thesis/ForceGraph";
 
 export interface KGResult {
@@ -15,6 +15,15 @@ export interface KGResult {
   meta: Record<string, number>;
 }
 
+interface KGJson {
+  nodes?: GraphNode[];
+  edges?: GraphEdge[];
+  n_founders?: number;
+  n_themes?: number;
+  n_shared_themes?: number;
+  n_signals?: number;
+}
+
 const cohortCache: { v: KGResult | null } = { v: null };
 const egoCache = new Map<string, KGResult>();
 
@@ -25,13 +34,11 @@ function empty(reason: "no-data" | "api-down" = "api-down"): KGResult {
 export async function fetchCohortKG(): Promise<KGResult> {
   if (cohortCache.v) return cohortCache.v;
   try {
-    const res = await fetch(`${API_BASE_URL}/api/kg/cohort`, { headers: { accept: "application/json" } });
-    if (!res.ok) return empty();
-    const j = await res.json();
-    if (!j.nodes?.length) return empty();
+    const j = (await apiGet("/api/kg/cohort")) as KGJson | null;
+    if (!j?.nodes?.length) return empty();
     const r: KGResult = {
       nodes: j.nodes,
-      edges: j.edges,
+      edges: j.edges ?? [],
       source: "backend",
       meta: {
         n_founders: j.n_founders ?? 0,
@@ -51,13 +58,11 @@ export async function fetchEgoKG(personId: string, topSignals = 12): Promise<KGR
   const cached = egoCache.get(key);
   if (cached) return cached;
   try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/kg/ego/${encodeURIComponent(personId)}?top_signals=${topSignals}`,
-      { headers: { accept: "application/json" } },
-    );
-    if (!res.ok) return empty("api-down");
-    const j = await res.json();
-    // API answered but the founder has no collected signals → honest empty.
+    const j = (await apiGet(
+      `/api/kg/ego/${encodeURIComponent(personId)}?top_signals=${topSignals}`,
+    )) as KGJson | null;
+    if (j == null) return empty("api-down");
+    // Backend answered but the founder has no collected signals → honest empty.
     if (!j.nodes?.length) {
       const r = empty("no-data");
       egoCache.set(key, r);
@@ -65,7 +70,7 @@ export async function fetchEgoKG(personId: string, topSignals = 12): Promise<KGR
     }
     const r: KGResult = {
       nodes: j.nodes,
-      edges: j.edges,
+      edges: j.edges ?? [],
       source: "backend",
       meta: { n_signals: j.n_signals ?? 0 },
     };
