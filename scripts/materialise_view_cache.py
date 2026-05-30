@@ -36,8 +36,15 @@ from analysis.yc_overlap import yc_overlap
 from ingestion.cohort import load_cohort
 
 DB_URL = os.environ.get("SUPABASE_DB_URL")
-BACKTEST_DATES = ["2022-01-01", "2023-01-01", "2024-01-01"]
 K_VALUES = [5, 10, 20]
+# Quarterly across the meaningful emergence window so the slider produces a
+# smooth backtest readout everywhere (the frontend snaps to the nearest of
+# these). run_backtest is lookahead-safe at each date.
+BACKTEST_DATES = [
+    f"{y}-{m:02d}-01"
+    for y in range(2019, 2025)
+    for m in (1, 4, 7, 10)
+]
 # Representative slider dates for YC overlap (pre/post Cluely X25 = 2025-04).
 YC_DATES = ["2022-01-01", "2023-01-01", "2024-01-01", "2025-06-01", "2026-05-01"]
 

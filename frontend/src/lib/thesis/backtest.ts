@@ -18,6 +18,31 @@ export function monthsToISODate(t: number): string {
   return `${year}-${String(month).padStart(2, "0")}-01`;
 }
 
+// The backtest is computed at discrete retrospective dates (quarterly,
+// 2019–2024 — see scripts/materialise_view_cache.py). The slider sends an
+// arbitrary month, so we snap the request to the nearest available date.
+// This keeps the readout populated everywhere instead of going blank between
+// the sampled dates.
+const BACKTEST_DATES: string[] = (() => {
+  const out: string[] = [];
+  for (let y = 2019; y <= 2024; y++) for (const m of [1, 4, 7, 10]) out.push(`${y}-${String(m).padStart(2, "0")}-01`);
+  return out;
+})();
+
+function snapToBacktestDate(date: string): string {
+  const target = Date.parse(date);
+  let best = BACKTEST_DATES[0];
+  let bestDelta = Infinity;
+  for (const d of BACKTEST_DATES) {
+    const delta = Math.abs(Date.parse(d) - target);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      best = d;
+    }
+  }
+  return best;
+}
+
 interface RawRow {
   strategy: string;
   k: number;
@@ -34,7 +59,8 @@ const STRATEGY_ORDER: BacktestStrategy[] = ["two_tier", "random", "signal_volume
 const cache = new Map<string, BacktestResult>();
 
 export async function fetchBacktest(t: number, k: number): Promise<BacktestResult> {
-  const date = monthsToISODate(t);
+  // Snap the slider month to the nearest computed backtest date.
+  const date = snapToBacktestDate(monthsToISODate(t));
   const key = `${date}:${k}`;
   const cached = cache.get(key);
   if (cached) return cached;
