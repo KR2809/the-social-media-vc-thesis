@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useThesis } from "@/lib/thesis/context";
 import type { RankedPick } from "@/lib/thesis";
+import { fetchCohortKG, type KGResult } from "@/lib/thesis/kg";
+import { ForceGraph, type GraphNode } from "./ForceGraph";
 import { InfoTip } from "./InfoTip";
 import {
   Avatar,
@@ -104,6 +106,55 @@ function AuditLog({ entries }: { entries: AuditEntry[] }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Real compact cohort graph for the View-1 rail: founders + theme hubs from
+// /api/kg/cohort, focused founder highlighted. Falls back to the decorative
+// KGMini when the KG API is unreachable so the rail never blanks.
+const RAIL_KIND_COLOR: Record<string, string> = {
+  founder: "var(--accent-deep)",
+  topic: "var(--accent)",
+};
+
+function KGMiniReal({
+  rows,
+  focusedId,
+  onFocus,
+}: {
+  rows: RankedPick[];
+  focusedId: string;
+  onFocus: (id: string) => void;
+}) {
+  const [kg, setKg] = useState<KGResult | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetchCohortKG().then(r => alive && setKg(r));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  if (!kg || kg.source !== "backend" || !kg.nodes.length) {
+    return <KGMini rows={rows} focusedId={focusedId} onFocus={onFocus} />;
+  }
+  return (
+    <div className="kg-mini-real">
+      <ForceGraph
+        nodes={kg.nodes}
+        edges={kg.edges}
+        width={230}
+        height={210}
+        nodeColor={(k: string) => RAIL_KIND_COLOR[k] ?? "var(--ink-1)"}
+        nodeRadius={(n: GraphNode) =>
+          n.kind === "founder" ? 4 : 4 + Math.min((n.n_founders ?? 1) * 1.3, 9)}
+        labelFor={() => null}
+        highlightId={focusedId ? `Person:${focusedId}` : null}
+        onNodeClick={(n: GraphNode) => {
+          if (n.kind === "founder") onFocus(n.id.replace(/^Person:/, ""));
+        }}
+      />
     </div>
   );
 }
@@ -370,11 +421,13 @@ export function View1Replay({
           <div className="rail-card">
             <div className="rail-head">
               <span className="kicker">Knowledge graph</span>
-              <InfoTip width={300}>
-                Each dot is one founder in the top-K. Position is decorative; <strong>size = Σ score</strong>. Faint edges hint at shared topics / mentors. Click a dot to focus.
+              <InfoTip width={320}>
+                A live slice of the <strong>real</strong> knowledge graph: blue founders wired to the
+                <strong> themes</strong> they signal about (hub size = how many founders share it).
+                Click a founder to focus; press <span className="mono">G</span> for the full graph.
               </InfoTip>
             </div>
-            <KGMini rows={rows} focusedId={focusedId} onFocus={setFocused} />
+            <KGMiniReal rows={rows} focusedId={focusedId} onFocus={setFocused} />
           </div>
           <div className="rail-card">
             <div className="rail-head">
