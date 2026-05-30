@@ -1,21 +1,81 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useThesis } from "@/lib/thesis/context";
 import type { TaxonomyCode } from "@/lib/thesis";
+import { fetchEgoKG, type KGResult } from "@/lib/thesis/kg";
+import { ForceGraph, type GraphNode } from "./ForceGraph";
 import { InfoTip } from "./InfoTip";
 import { Avatar, EpistemeBar, OutcomeChip, ViewIntro } from "./primitives";
 
-function EgoNetwork({
+const EGO_KIND_COLOR: Record<string, string> = {
+  founder: "var(--accent-deep)",
+  signal: "var(--ink-1)",
+  topic: "var(--accent)",
+  platform: "var(--ink-3)",
+};
+
+// Real server-side ego-network: founder → signals → topics (+ platform),
+// from /api/kg/ego/{id}. Falls back to the client-side synthesis when the
+// API is unreachable so the card never blanks.
+function EgoNetworkReal({ founderId }: { founderId: string }) {
+  const [kg, setKg] = useState<KGResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    fetchEgoKG(founderId, 14)
+      .then(r => alive && setKg(r))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [founderId]);
+
+  const real = kg && kg.source === "backend" && kg.nodes.length > 0;
+
+  if (!real) {
+    // Fall back to the synthetic fixed-layout ego graph when the KG API is
+    // unreachable, so the founder card never blanks.
+    return <EgoNetworkSynthetic founderId={founderId} loading={loading} />;
+  }
+
+  return (
+    <div className="ego-wrap">
+      <div className="ego-controls">
+        <div className="ego-legend">
+          <span><span className="dot" style={{ background: "var(--accent-deep)" }} /> founder</span>
+          <span><span className="dot" style={{ background: "var(--ink-1)" }} /> signal</span>
+          <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
+          <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
+        </div>
+        <span className="ego-hint muted">drag · hover · scroll to zoom</span>
+      </div>
+      <ForceGraph
+        nodes={kg.nodes}
+        edges={kg.edges}
+        width={400}
+        height={340}
+        nodeColor={(k: string) => EGO_KIND_COLOR[k] ?? "var(--ink-1)"}
+        nodeRadius={(n: GraphNode) =>
+          n.kind === "founder" ? 16 : n.kind === "signal" ? 6 : n.kind === "platform" ? 7 : 5}
+        labelFor={(n: GraphNode) => (n.kind === "founder" || n.kind === "platform" ? n.label : null)}
+        highlightId={`Person:${founderId}`}
+      />
+    </div>
+  );
+}
+
+function EgoNetworkSynthetic({
   founderId,
-  hop,
-  setHop,
+  loading,
 }: {
   founderId: string;
-  hop: 1 | 2;
-  setHop: (h: 1 | 2) => void;
+  loading?: boolean;
 }) {
   const thesis = useThesis();
+  const [hop, setHop] = useState<1 | 2>(1);
   const data = useMemo(() => thesis.egoFor(founderId), [founderId, thesis]);
   const W = 380;
   const H = 320;
@@ -55,10 +115,14 @@ function EgoNetwork({
           <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
           <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
         </div>
-        <div className="seg sm">
-          <button className={hop === 1 ? "on" : ""} onClick={() => setHop(1)}>1-hop</button>
-          <button className={hop === 2 ? "on" : ""} onClick={() => setHop(2)}>2-hop</button>
-        </div>
+        {loading ? (
+          <span className="ego-hint muted">loading real graph…</span>
+        ) : (
+          <div className="seg sm">
+            <button className={hop === 1 ? "on" : ""} onClick={() => setHop(1)}>1-hop</button>
+            <button className={hop === 2 ? "on" : ""} onClick={() => setHop(2)}>2-hop</button>
+          </div>
+        )}
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="ego-svg">
         <defs>
@@ -307,7 +371,6 @@ interface Props {
 
 export function View3Founder({ founderId, t, gotoView }: Props) {
   const thesis = useThesis();
-  const [hop, setHop] = useState<1 | 2>(1);
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) {
     return (
@@ -375,7 +438,7 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
             </span>
             <span className="muted">click a node to inspect</span>
           </div>
-          <EgoNetwork founderId={founderId} hop={hop} setHop={setHop} />
+          <EgoNetworkReal founderId={founderId} />
         </div>
         <div className="founder-panel signals-panel">
           <div className="panel-head">
