@@ -1573,3 +1573,328 @@ script each pass.
 
 **Cost incurred:** +$2.05 this session. Running ledger **$9.66 / $30** (≈ $20.34 headroom).
 ---
+
+---
+## 2026-05-28 — Frontend real-data verification (all 3 views) + stale eval_metrics.csv fix
+
+**What I did:**
+- **Repo state audit.** Backend is feature-complete through Phase 5: ingestion (5 platforms + Wayback), scoring (Haiku, ledger $9.66/$30), KG, models, eval/backtest/allocate, ranking + discovery, FastAPI surface, lock harness. B1/B2.a/B2.b all CLOSED. Real data fresh on disk (scored_signals ~1680 rows, 20 pos + 15 real signal-bearing negatives + 1 self-case). Frontend Phases A/B done, C mostly done (C.4 baselines unblocked now that negatives exist; D polish not started).
+- **Ran the full stack against real data.** Started FastAPI (`DATA_SOURCE=local`, :8000) + Next.js frontend (:3001). Verified all three views end-to-end:
+  - **View 1 (Replay):** cohort ranked by combined Σ at Jan 2022, real handles/T1/T2/Σ/allocation, lookahead-bias slider. Header pill "10/20 · 181 events" + "Lookahead-bias guard".
+  - **View 2 (Outcome):** real precision@k = **15/17 = 88.2%** at Jan 2022, 95% bootstrap CI [72.9%, 100.0%], honest "matches best baseline by 0.0 pts, CIs overlap" framing.
+  - **View 3 (Founder drill-down):** Marc Lou — emergence 2023 Q1, ShipFast, ✅ emerged, P(emerge) 0.40, real KG ego-network, real HN signal text with taxonomy chips, outcome timeline.
+- **Network proof:** all 20 `/api/founder/{id}` + `/api/cohort` + `/api/timeline-bounds` returned 200 OK against the real API. Zero synthetic fallbacks. No console errors.
+
+**Bug found + fixed:**
+- **`data/processed/eval_metrics.csv` was stale/wrong** — showed n=6, ROC AUC 1.0 (the old artifactual single-class run), despite the data supporting n=25. The final `pipeline.py all` run evidently skipped/short-circuited the eval stage, leaving an old file. Re-ran `pipeline.py eval` → now correct: **n=25, n_pos=10, ROC AUC 0.947 baseline / 0.927 KG-aug, PR AUC 0.956 / 0.948, precision@5=1.0, lift@5=2.5, Brier 0.081→0.069** (matches the 2026-05-28 15:00/16:30 STATUS entries). The live frontend View 2 was always honest (it computes precision@k via the API portfolio path, not this CSV); only consumers of the static CSV (Streamlit dashboard, thesis Results table) would have quoted the wrong numbers.
+
+**Cosmetic issues noted (not fixed — flagging for decision):**
+1. **HTML-entity passthrough in signal text** (View 3 top signals): raw `<p>`, `&#x27;`, `&gt;` render literally in HN-sourced posts. Known since Phase 2.3 ("decoding is a scoring-layer concern"). Visible in the defence demo — worth a cleanup pass before submission.
+2. **Allocation cents formatting** (View 1): shows `$294,117.647` (3 decimal places). Should round to whole dollars or 2dp.
+
+**Decisions made:**
+- Did not start Phase D polish or fix the two cosmetic issues this session — surfacing them for Kris to prioritise vs. thesis-writing time.
+
+**Blockers:** none. The full real-data stack runs locally and all three views are verified honest.
+
+**Next steps:**
+- Kris: decide whether to (a) fix the 2 cosmetic issues + finish Phase D (landing page, OG image, deploy to Vercel) before submission, or (b) leave as-is for now.
+- Consider re-running `pipeline.py all` cleanly end-to-end to guarantee no other stage left a stale artifact (eval was the one caught here).
+- The May-31 lock can proceed; eval numbers are now genuine and on-disk-correct.
+
+**Files changed:** `data/processed/eval_metrics.csv` (regenerated, gitignored), `04_RETROSPECTIVE_CASES/eval_report.md` (regenerated), `STATUS_UPDATES.md`.
+
+**Cost incurred:** $0 (no LLM calls; eval is sklearn-only). Ledger unchanged at $9.66 / $30.
+---
+
+---
+## 2026-05-29 — Frontend fixes + onboarding guide + Phase D polish (branch: feature/frontend-phase-d)
+
+**What I did:** Branched `feature/frontend-phase-d` off main; 6 atomic commits.
+1. **fix(api):** `clean_text()` strips HTML tags + decodes entities from
+   signal `raw_text` (HN posts were rendering raw `<p>`, `&#x27;`, `&gt;`
+   in the View 3 founder card). Verified live: Marc Lou's top signal now
+   reads clean prose.
+2. **fix(frontend):** `fmtMoney` rounds allocation to whole dollars
+   (was `$294,117.647` → now `$294,118`). Verified live via DOM.
+3. **fix(preview):** dashboard + frontend preview launch. Sandbox denies
+   reading venv `pyvenv.cfg` and can't exec in-project shell scripts, so
+   the dashboard now runs via base `python3.11` (a real binary, like the
+   working node/frontend config) with `.venv-preview` site-packages on
+   `sys.path`. Added `scripts/setup_preview_venv.sh` +
+   `run_dashboard_preview.sh`. Both preview servers verified healthy.
+4. **feat(frontend): 5-step onboarding/landing guide modal**
+   (`OnboardingGuide.tsx`) — the new design from the Claude Design share
+   link (not in the local `design-source/` bundle). Split layout
+   (illustration left, serif copy right), dot progress, Skip/Back/Next,
+   keyboard nav, dark+light, localStorage-gated first-visit auto-show,
+   re-openable via a new "?" help button in the TopBar. **Step 1
+   (WELCOME) matches the design screenshot Kris provided.** Steps 2–5 are
+   scaffolded with working copy + placeholder illustrations — pending the
+   remaining 4 design frames to match exactly.
+5. **feat(frontend): Phase D polish** — `opengraph-image.tsx` (1200×630
+   branded social card, verified rendering), `layout.tsx` metadata
+   (openGraph + twitter + themeColor viewport + metadataBase),
+   `@media print` stylesheet for clean thesis-appendix figures,
+   `vercel.json` + README deploy section (Root Directory = `frontend`,
+   `NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_SITE_URL`, EDHEC note).
+6. **test(api):** fixed the 3 long-standing `test_api.py` failures that
+   had been carried as "pre-existing baseline failures" — stale
+   FakeSources that drifted from the endpoints as real data + cohort
+   landed. Full suite now **268 passed, 1 skipped, 0 failed**.
+
+**Decisions made:**
+- **Deploy target = Vercel** (Kris's call): frontend on Vercel, FastAPI
+  deployed separately, wired via env var.
+- **Did NOT set `turbopack.root`** in next.config — it silenced a harmless
+  build warning but broke dev-mode CSS `@import` resolution (`./demo.css`).
+  Caught it via preview logs; reverted. Production build + Vercel
+  (Root Directory = frontend) are unaffected by the warning.
+- **OG headline renders in sans** (next/og default font) rather than the
+  brand serif — acceptable, reads well; embedding a serif font file is a
+  future nicety.
+
+**Blockers:** **Need the remaining 4 onboarding design screenshots**
+(steps 2–5) to match them pixel-for-pixel. Step 1 is done; 2–5 currently
+use my own working copy + dashed placeholder illustrations.
+
+**Next steps:**
+- Kris: send screenshots 2–5 of the Claude Design landing guide; I'll
+  swap the scaffolded copy/illustrations to match.
+- Then: open PR `feature/frontend-phase-d` → main, and (optionally) do the
+  Vercel + FastAPI deploy.
+
+**Files changed:** `api/main.py`, `tests/test_api.py`,
+`frontend/src/components/thesis/{OnboardingGuide,App,TopBar}.tsx`,
+`frontend/src/components/thesis/primitives.tsx`,
+`frontend/src/app/{layout,opengraph-image}.tsx`,
+`frontend/src/app/demo.css`, `frontend/next.config.ts`,
+`frontend/vercel.json`, `frontend/README.md`, `.claude/launch.json`,
+`.gitignore`, `scripts/{setup_preview_venv,run_dashboard_preview}.sh`.
+
+**Cost incurred:** $0. No LLM calls. Ledger unchanged at $9.66 / $30.
+---
+
+---
+## 2026-05-29 (cont.) — Onboarding illustrations + View 2 honest-baseline rewrite
+
+**What I did (branch feature/frontend-phase-d, 2 more commits):**
+1. **Onboarding steps 2–5 illustrations.** Replaced dashed placeholders with
+   bespoke SVGs matching the welcome step: date-slider replay (step 2),
+   precision@K bar chart vs baselines w/ CI whiskers (step 3), KG
+   ego-network (step 4), locked-predictions padlock over an observed-≤-T
+   timeline (step 5). All 5 steps verified in-browser.
+2. **View 2 "Score" — fixed the defensibility hole.** ROOT CAUSE: the
+   cohort is 20 all-positive founders, and View 2 recomputed precision
+   client-side over that positives-only pool → two-tier = random = volume
+   = recency = 100%, useless for the defence. FIX: View 2 now fetches
+   `GET /api/baselines` (real `run_backtest` over the full labelled pool:
+   20 positives + 15 signal-bearing negatives), so strategies genuinely
+   separate. New `frontend/src/lib/thesis/backtest.ts` (cached fetch,
+   graceful "unavailable" fallback). Verified: at 2022-01 k=20, two-tier
+   5.0% / random 5.0% / signal_volume 35.0% / recency 35.0%.
+   - **Honest framing (per Kris):** a "best @ this date" badge highlights
+     whichever strategy wins — often NOT ours at a given date, shown not
+     hidden. Verdict handles win/tie/loss with plain-English why (small n;
+     the aggregate eval ROC/PR-AUC + KG lift is the real claim, not a
+     per-date sweep).
+   - **"How to read this" explainer panel** (precision@K, base rate/lift,
+     why CIs overlap, what counts as a win) + sharper tooltips.
+   - Cohort headline reframed as recall-over-positives. Dropped the
+     synthetic baselines + the speculative YC-overlap donut.
+
+**Important finding surfaced (spawned as a separate task):** the two-tier
+strategy consistently *underperforms* signal_volume/recency in the
+backtest. Could be a genuine finding OR a wiring issue — the backtest's
+two_tier ranks by combined Σ (Tier1×Tier2), NOT by the trained
+KG-augmented model's P(emerge), even though the aggregate eval shows the
+model separates well (ROC AUC 0.927). Flagged for investigation; did NOT
+retroactively tune (CLAUDE.md §7). This is a load-bearing pre-lock
+methodology question for Kris.
+
+**Verification:** eslint clean, tsc clean, smoke 46/46, prod build OK,
+full backend suite still 268 passed / 1 skipped. `/api/baselines` fetch
+confirmed firing in the browser network log.
+
+**Decisions made:**
+- Show losses honestly rather than cherry-pick a winning default date.
+- Backtest two_tier-vs-model question left for investigation, not silently
+  "fixed" — tuning to make the framework win would violate the lock ethos.
+
+**Blockers:** the two_tier backtest-ranking question (above) — Kris to
+decide if ranking by model P(emerge) is a legitimate pre-lock fix.
+
+**Next steps:** open PR feature/frontend-phase-d → main; optionally run the
+two_tier investigation; deploy to Vercel.
+
+**Files changed:** `frontend/src/components/thesis/{OnboardingGuide,View2Outcome}.tsx`,
+`frontend/src/lib/thesis/{backtest,types,index}.ts`, `frontend/src/app/demo.css`.
+
+**Cost incurred:** $0. Ledger unchanged at $9.66 / $30.
+---
+
+---
+## 2026-05-29 (night) — Data expansion + Supabase mirror + YC cross-reference (branch: feature/data-expansion-supabase)
+
+**Goal (Kris):** ingest more data from all free sources, push the KG + data to
+Supabase, build a real YC creator-economy overlap, all while keeping the
+framework frozen for the May-31 lock. Decisions: ingest-before-lock (dataset
+grows, method frozen); budget ≤ ~$20; YC from public directory; commit often,
+one PR, no merge to main.
+
+**What I did:**
+1. **Data expansion (+443 signals, 1680 → 2123).**
+   - HN re-sweep over a wider window: +211 (arvidkahl 103→247, lennysan 15→164, etc.).
+   - `scripts/backfill_wayback_only.py` (new): skips the dead snscrape path
+     (X SearchTimeline = 404 "blocked" since 2023), goes straight to Wayback
+     CDX with an even-spread snapshot cap → noahwbragg +120 real tweets.
+   - **Reddit creds are DEAD (401)** — can't ingest Reddit until Kris
+     regenerates them. **ProductHunt API removed `madeComments`** (fixed:
+     fail-soft, posts still work; but `madePosts` returns 0 for these makers
+     under app-token perms, so PH yield is ~0). Wayback post-2020 parsing is
+     unreliable for several X-native founders (0 parseable snapshots).
+2. **Re-scored new signals (Haiku, frozen prompt v1):** scored 1680 → 2222.
+   Ledger **$9.66 → $12.70** (well under the $20 cap). Re-ran the full
+   pipeline: **KG now 4235 nodes / 178,792 edges** (was 3290/100k); **eval
+   n=27, 12 positives** (was 25/10 — 2 more positives now have features);
+   PR-AUC baseline 0.955 → KG-aug **0.960**, Brier 0.074 → 0.071 with KG.
+   Framework/weights unchanged — only the dataset grew.
+3. **Supabase mirror.** Restored the paused `thesis-social-signal-fund`
+   project; applied the full 13-table schema + **new kg_nodes / kg_edges
+   tables** + anon-read RLS on all 15. Loaded the 6 demo-critical analytical
+   tables via MCP execute_sql (person_features, kg_features, allocation,
+   outcome_labels, eval_metrics, backtest_results) — **verified queryable**
+   (KG-aug ROC AUC 0.939 via SQL). Built `scripts/gen_supabase_sql.py`
+   (batched idempotent UPSERTs incl. KG) + `scripts/load_supabase_sql.sh`
+   (one-shot psql loader) for the large tables (signal_events, scored_signals,
+   kg_nodes 4235, kg_edges 6615) — those need the DB connection string /
+   service-role key to bulk-load (not in .env).
+4. **Real YC cross-reference** (`analysis/yc_overlap.py` + `/api/yc-overlap`
+   + `frontend YCOverlapPanel.tsx`). Replaces the removed synthetic donut
+   with a hand-verified, provenance-carrying table. **1/20 overlap**
+   (Roy Lee / Cluely, YC X25) — the cohort is bootstrapped/indie, largely
+   orthogonal to YC, so a near-zero overlap is the honest finding (the
+   framework surfaces a population YC misses). Lookahead-safe: 0/20 before
+   2025, 1/20 from 2025-04. Verified live in View 2.
+
+**Important finding (spawned as a side task):** the backtest's `two_tier`
+strategy ranks by combined Σ, NOT the trained model's P(emerge); it
+underperforms volume/recency at early dates but improves with more data
+(2024-01 k=3 two_tier=1.0). Whether to rank by model P(emerge) is a
+pre-lock methodology question for Kris — NOT silently changed.
+
+**Verification:** backend suite **268 passed / 1 skipped**; frontend eslint +
+tsc clean; Supabase counts confirmed via SQL.
+
+**Blockers for Kris:**
+- **Reddit API creds (401)** — regenerate to unlock Reddit ingestion.
+- **Supabase service-role key / DB URL** — to bulk-load the 4 large tables
+  (run `python scripts/gen_supabase_sql.py && SUPABASE_DB_URL=... bash
+  scripts/load_supabase_sql.sh`). Small tables already mirrored.
+- **two_tier-vs-P(emerge) backtest question** — pre-lock methodology call.
+
+**Next steps:** open PR(s) feature/frontend-phase-d + feature/data-expansion-supabase
+→ main; decide the two_tier question; (optional) deploy to Vercel; lock on the 31st.
+
+**Files changed:** `ingestion/producthunt_collect.py`,
+`scripts/{backfill_wayback_only,gen_supabase_sql,load_supabase_sql}.{py,sh}`,
+`analysis/yc_overlap.py`, `api/main.py`,
+`frontend/src/components/thesis/{View2Outcome,YCOverlapPanel}.tsx`,
+`frontend/src/lib/thesis/yc.ts`, `frontend/src/app/demo.css`,
+`tests/test_producthunt_collect.py`, Supabase migrations (2 new).
+
+**Cost incurred:** +$3.04 scoring this session. Ledger **$12.70 / $30** (~$17.30 headroom).
+---
+
+---
+## 2026-05-29 (night, cont.) — Full Supabase load complete (Kris provided DB URL)
+
+**What I did:** Kris supplied the Postgres connection string, so I ran the
+full bulk load via `scripts/load_supabase_sql.sh`. **Entire mirror is now
+live + queryable via the public anon key:**
+
+| table | rows |
+|---|---|
+| signal_events | 2123 |
+| scored_signals | 2123 |
+| kg_nodes | 4235 |
+| kg_edges | 6615 (person-incident) |
+| person_features | 29 |
+| kg_features | 29 |
+| allocation | 29 |
+| outcome_labels | 51 |
+| backtest_results | 36 |
+| eval_metrics | 2 (ROC 0.939, PR-AUC base 0.955 → KG-aug 0.960, n=27) |
+
+Verified the KG is queryable (node-kind breakdown, marclou's 108 EXPRESSED
+edges, relation breakdown EXPRESSED/ON_PLATFORM/ABOUT) and the anon REST
+path returns correct values (examiner-facing access works without the DB
+password).
+
+**Two bugs fixed during the load:**
+1. **dedup-on-PK in `gen_supabase_sql.py`** — scored parquet had 99 dup
+   signal_ids (from re-scoring), which broke psql with "ON CONFLICT cannot
+   affect row a second time". emit() now dedups each table on its PK
+   (newest wins). signal_events was 0 initially because the loader aborted
+   (ON_ERROR_STOP) on that dup before reaching it alphabetically — fixed by
+   the dedup + a targeted re-run.
+2. **stale eval_metrics again** — the on-disk CSV had reverted to the n=6 /
+   all-1.0 artifact (a recurring staleness issue: eval gets clobbered when
+   it runs against stale person_features). Re-ran `pipeline.py eval` +
+   `backtest` → correct n=27 / ROC 0.939, re-pushed. **Gotcha for future
+   runs:** always run `eval`/`backtest` LAST, after person/graph/kg-features
+   are rebuilt on the current scored data, then sync to Supabase.
+
+**Still needs Kris:** Reddit API creds (still empty in .env) to unlock
+Reddit ingestion; the two_tier-vs-P(emerge) backtest methodology decision.
+
+**Files changed:** `scripts/gen_supabase_sql.py` (dedup fix). Data + Supabase
+are not in git (gitignored / external).
+
+**Cost incurred:** $0 this step (no LLM). Ledger unchanged **$12.70 / $30**.
+---
+
+---
+## 2026-05-29 (night, cont.) — Real knowledge-graph visualisation (Kris request)
+
+**What I did:** Added a real, interactive KG visualisation to the frontend,
+backed by the actual graph (4,235 nodes / 178k edges) now in Supabase + API.
+
+1. **Backend (`analysis/kg_views.py` + 2 endpoints):**
+   - `cohort_graph()` projects the real KG → founders + coarse **theme hubs**.
+     The ~2,000 granular LLM topic labels are bucketed via `normalise_topic`
+     into 10 themes (SaaS & bootstrapping, AI & tooling, Audience &
+     newsletters, Money & finance, Psychology & neuroscience, …) so founders
+     cluster by shared interest. Result: 27 founders, 10 themes, all shared.
+   - `ego_graph(person_id)` → a founder's real neighbourhood
+     (founder→signals→topics+platform).
+   - `GET /api/kg/cohort` + `GET /api/kg/ego/{id}`.
+2. **`ForceGraph.tsx`** — hand-rolled SVG force simulation (charge repulsion +
+   link springs + centering gravity), drag, hover-to-isolate-neighbourhood,
+   scroll-zoom/pan. No external deps; matches the demo aesthetic. Avoids
+   reading refs during render (publishes a positions snapshot to state).
+3. **New 4th view — Knowledge Graph** (`KnowledgeGraphView.tsx`): the
+   showpiece. Founder + theme force graph, stat bar (27/10/10), legend,
+   honest episteme caption. Opened via a new TopBar graph button or key `G`;
+   deep-linkable at `/?view=4`. Verified rendering live.
+4. **View 3 ego-network upgraded** to the real server-side graph
+   (`/api/kg/ego/{id}`) via ForceGraph, founder pinned center; synthetic
+   fixed-layout kept as a graceful fallback when the API is down.
+
+**How it looks:** dark canvas, founders as deep-blue nodes, themes as
+accent-blue hubs sized by how many founders share them; force layout pulls
+shared-theme founders into visible clusters (e.g. the SaaS/bootstrapping
+cluster vs the newsletter/writing cluster vs Tori Dunlap's money cluster).
+
+**Verification:** backend suite **268 passed / 1 skipped**; frontend eslint +
+tsc clean; both KG endpoints + both views verified live in the browser.
+
+**Still needs Kris (unchanged):** Reddit API creds (Responsible Builder
+Policy gate); the two_tier-vs-P(emerge) backtest methodology decision.
+
+**Files changed:** `analysis/kg_views.py` (new), `api/main.py`,
+`frontend/src/components/thesis/{ForceGraph,KnowledgeGraphView,View3Founder,App,TopBar,ViewNav}.tsx`,
+`frontend/src/lib/thesis/kg.ts` (new), `frontend/src/app/demo.css`.
+
+**Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
+---

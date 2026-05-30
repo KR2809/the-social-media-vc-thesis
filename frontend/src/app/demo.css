@@ -1283,3 +1283,339 @@ body {
   .info-tip-popup { width: 260px !important; max-width: calc(100vw - 32px); }
   .settings-popover { right: 12px; left: 12px; width: auto; }
 }
+
+/* ===================================================================
+   Onboarding / landing guide modal (OnboardingGuide.tsx)
+   Split layout: illustration left, copy right; dot progress; footer.
+   =================================================================== */
+.og-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 11, 20, 0.62);
+  backdrop-filter: blur(3px);
+  animation: og-fade 160ms ease-out;
+}
+@keyframes og-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes og-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.og-modal {
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.85fr 1fr;
+  grid-template-rows: 1fr auto;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  animation: og-rise 200ms ease-out;
+}
+
+.og-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+/* Left illustration pane */
+.og-illo {
+  grid-row: 1;
+  grid-column: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 28px;
+  background: linear-gradient(160deg, var(--bg-2), var(--accent-soft));
+  border-right: 1px solid var(--hairline);
+}
+.og-illo-svg { width: 100%; height: auto; max-height: 260px; }
+.og-illo-label { font-family: var(--serif); font-size: 13px; font-weight: 600; }
+.og-illo-label-sm { font-family: var(--serif); font-size: 10px; }
+
+/* Right content pane */
+.og-content {
+  grid-row: 1;
+  grid-column: 2;
+  padding: 44px 44px 24px;
+  overflow-y: auto;
+}
+.og-eyebrow {
+  color: var(--ink-3);
+  letter-spacing: 0.12em;
+  margin-bottom: 18px;
+}
+.og-title {
+  font-family: var(--serif);
+  font-size: 30px;
+  line-height: 1.18;
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0 0 18px;
+  letter-spacing: -0.01em;
+}
+.og-body p {
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--ink-1);
+  margin: 0 0 14px;
+}
+.og-body p.og-muted { color: var(--ink-2); }
+.og-body strong { color: var(--ink-1); font-weight: 600; }
+
+/* Footer spans both columns */
+.og-footer {
+  grid-row: 2;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--hairline);
+  background: var(--bg-card);
+}
+.og-dots { display: flex; gap: 8px; align-items: center; }
+.og-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  background: var(--hairline-2);
+  cursor: pointer;
+  transition: background 140ms ease, width 140ms ease;
+}
+.og-dot.done { background: var(--accent); opacity: 0.55; }
+.og-dot.on { width: 26px; background: var(--accent); }
+
+.og-actions { display: flex; align-items: center; gap: 10px; }
+.og-skip,
+.og-back {
+  font: inherit;
+  font-size: 14px;
+  background: none;
+  border: none;
+  color: var(--ink-2);
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.og-skip:hover,
+.og-back:hover:not(:disabled) { color: var(--ink-1); background: var(--bg-hover); }
+.og-back:disabled { opacity: 0.35; cursor: default; }
+.og-next {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 9px 18px;
+  border-radius: 10px;
+  transition: background 140ms ease, transform 80ms ease;
+}
+[data-theme="dark"] .og-next { color: #0B0F1C; }
+.og-next:hover { background: var(--accent-2); }
+.og-next:active { transform: translateY(1px); }
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 760px) {
+  .og-modal { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; }
+  .og-illo { grid-column: 1; grid-row: 1; border-right: none; border-bottom: 1px solid var(--hairline); padding: 24px; }
+  .og-illo-svg { max-height: 140px; }
+  .og-content { grid-column: 1; grid-row: 2; padding: 28px 24px 16px; }
+  .og-title { font-size: 24px; }
+  .og-footer { grid-row: 3; flex-wrap: wrap; }
+}
+
+/* ===================================================================
+   Print stylesheet (D.4) — clean captures for the thesis appendix.
+   Forces light surfaces, hides interactive-only chrome, and prevents
+   cards from splitting across page breaks.
+   =================================================================== */
+@media print {
+  /* Force readable light surfaces regardless of the on-screen theme. */
+  :root,
+  [data-theme="dark"] {
+    --bg: #FFFFFF;
+    --bg-2: #F6F5F1;
+    --bg-card: #FFFFFF;
+    --ink-1: #14182B;
+    --ink-2: #3A4150;
+    --ink-3: #6A7280;
+    --hairline: #D8D4C6;
+  }
+  body { background: #fff; }
+
+  /* Hide interactive-only chrome that doesn't belong in a static figure. */
+  .icon-btn,
+  .settings-popover,
+  .settings-scrim,
+  .og-scrim,
+  .info-tip-popup {
+    display: none !important;
+  }
+
+  /* Keep cards intact across page breaks. */
+  .card,
+  .portfolio,
+  .precision-card,
+  .baseline-card,
+  .founder-hero,
+  .ego-network,
+  .timeline,
+  .og-modal {
+    break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  /* Expand any scroll areas so nothing is clipped in the capture. */
+  .app-body { overflow: visible !important; }
+}
+
+/* ===================================================================
+   View 2 additions — "How to read this" panel, scoreboard header,
+   best-strategy highlight (backend-backed real separation).
+   =================================================================== */
+.how-to-read {
+  background: var(--bg-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+}
+.how-to-read > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+.how-to-read > summary::-webkit-details-marker { display: none; }
+.how-to-read .how-hint { font-size: 11px; color: var(--ink-3); }
+.how-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 28px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+}
+.how-item { display: flex; flex-direction: column; gap: 4px; }
+.how-q { font-size: 12.5px; font-weight: 600; color: var(--ink-1); }
+.how-a { font-size: 12.5px; line-height: 1.55; color: var(--ink-2); }
+.how-a strong { color: var(--ink-1); font-weight: 600; }
+
+.scoreboard-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 20px 0 10px;
+  flex-wrap: wrap;
+}
+
+/* Best-strategy-at-this-date highlight (honest: may NOT be "ours"). */
+.baseline-card.best {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.baseline-card.primary.best { box-shadow: 0 0 0 2px var(--accent) inset; }
+.best-badge {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+@media (max-width: 760px) {
+  .how-body { grid-template-columns: 1fr; }
+}
+
+/* ===================================================================
+   YC cross-reference panel (YCOverlapPanel.tsx) — real, lookahead-gated.
+   =================================================================== */
+.yc-stat-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  margin: 14px 0 10px;
+  flex-wrap: wrap;
+}
+.yc-bignum { display: flex; flex-direction: column; gap: 4px; }
+.yc-frac { font-size: 34px; font-weight: 600; color: var(--ink-1); line-height: 1; }
+.yc-frac-denom { font-size: 20px; color: var(--ink-3); margin-left: 4px; }
+.yc-frac-label { font-size: 12px; color: var(--ink-2); max-width: 220px; }
+.yc-takeaway { font-size: 13px; line-height: 1.55; margin: 6px 0 0; }
+.yc-takeaway strong { color: var(--ink-1); }
+
+/* ===================================================================
+   Knowledge Graph view (KnowledgeGraphView.tsx + ForceGraph.tsx)
+   =================================================================== */
+.view-kg { display: flex; flex-direction: column; gap: 14px; }
+.kg-stats {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--bg-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+}
+.kg-stat { font-size: 13px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; }
+.kg-stat-num { font-size: 18px; font-weight: 600; color: var(--ink-1); }
+.kg-legend { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--ink-2); }
+.kg-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.kg-legend .dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+
+.kg-canvas {
+  background:
+    radial-gradient(circle at 50% 40%, var(--accent-soft), transparent 70%),
+    var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  min-height: 480px;
+}
+.fg-svg { width: 100%; height: auto; display: block; cursor: grab; touch-action: none; }
+.fg-svg:active { cursor: grabbing; }
+
+/* Real cohort mini-graph in the View-1 rail (KGMiniReal). */
+.kg-mini-real {
+  width: 100%;
+  border-radius: var(--r-sm, 8px);
+  background: radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 70%);
+  overflow: hidden;
+}
+.kg-mini-real .fg-svg { cursor: grab; }
+
+/* Honest empty states for founders with no collected signals (View 3). */
+.ego-empty { display: flex; align-items: center; justify-content: center; min-height: 300px; }
+.ego-empty-inner { text-align: center; max-width: 320px; padding: 20px; }
+.ego-empty-title { font-size: 14px; font-weight: 600; color: var(--ink-1); margin: 12px 0 6px; }
+.ego-empty-sub { font-size: 12px; line-height: 1.55; }
+.nodata-block {
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--r-md);
+  padding: 20px;
+  background: var(--bg-2);
+}
+.nodata-title { font-size: 13px; font-weight: 600; color: var(--ink-1); margin: 0 0 6px; }
+.nodata-sub { font-size: 12px; line-height: 1.55; margin: 0; }

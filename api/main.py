@@ -17,8 +17,10 @@ via FRONTEND_ORIGINS env var in production (comma-separated origins).
 
 from __future__ import annotations
 
+import html
 import logging
 import os
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +36,25 @@ load_dotenv(override=False)
 
 logger = logging.getLogger("api")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+# HackerNews (and other) raw text carries HTML markup + entities
+# (e.g. "<p>", "&#x27;", "&gt;"). Decode entities and strip tags so the
+# frontend founder card quotes clean prose. Block-level tags become
+# paragraph breaks; inline tags are dropped.
+_BLOCK_TAG_RE = re.compile(r"<\s*/?\s*(p|br|div|li)\s*/?\s*>", re.IGNORECASE)
+_ANY_TAG_RE = re.compile(r"<[^>]+>")
+_WS_RE = re.compile(r"[ \t]*\n[ \t]*")
+
+
+def clean_text(raw: str | None) -> str:
+    """Strip HTML tags + decode entities from collected raw text."""
+    if not raw:
+        return ""
+    text = _BLOCK_TAG_RE.sub("\n", raw)  # block tags → newlines
+    text = _ANY_TAG_RE.sub("", text)  # drop remaining inline tags
+    text = html.unescape(text)  # &#x27; → ', &gt; → >, &amp; → &
+    text = _WS_RE.sub("\n", text)  # tidy whitespace around newlines
+    return text.strip()
 
 app = FastAPI(
     title="Thesis Social-Signal Fund API",
@@ -267,7 +288,7 @@ def get_founder(
             raw_by_id = dict(zip(events["signal_id"], events["raw_text"], strict=False))
             top_rows = []
             for row in top.to_dict(orient="records"):
-                row["raw_text"] = raw_by_id.get(row["signal_id"], "")
+                row["raw_text"] = clean_text(raw_by_id.get(row["signal_id"], ""))
                 top_rows.append(row)
         else:
             top_rows = top.to_dict(orient="records")
@@ -386,6 +407,51 @@ def get_locked_predictions() -> dict:
         except Exception as e:
             logger.warning("could not read %s: %s", p, e)
     return {"available": len(records) > 0, "records": records}
+
+
+# ---------------------------------------------------------------------------
+# 8. GET /api/yc-overlap — documented YC cross-reference (analysis/yc_overlap.py)
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/yc-overlap")
+def get_yc_overlap(
+    date: str | None = Query(None, description="ISO date — gate YC batches public by then."),
+) -> dict:
+    """Cross-reference the cohort against YC's public directory.
+
+    The overlap is intentionally small (the cohort is bootstrapped/indie,
+    largely orthogonal to YC) — that's the honest finding. Lookahead-safe:
+    a YC batch only counts as known if announced on/before `date`.
+    """
+    from analysis.yc_overlap import yc_overlap  # noqa: PLC0415
+
+    return yc_overlap(as_of=date)
+
+
+# ---------------------------------------------------------------------------
+# 9. GET /api/kg/cohort + /api/kg/ego/{person_id} — real knowledge-graph views
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/kg/cohort")
+def get_kg_cohort() -> dict:
+    """Founder ↔ theme projection of the real KG for the cohort graph view.
+
+    Granular LLM topic labels collapse into coarse theme hubs so founders
+    cluster by shared interests (analysis/kg_views.cohort_graph).
+    """
+    from analysis.kg_views import cohort_graph  # noqa: PLC0415
+
+    return cohort_graph()
+
+
+@app.get("/api/kg/ego/{person_id}")
+def get_kg_ego(person_id: str, top_signals: int = Query(12, ge=1, le=40)) -> dict:
+    """One founder's real KG neighbourhood (founder→signals→topics+platform)."""
+    from analysis.kg_views import ego_graph  # noqa: PLC0415
+
+    return ego_graph(person_id, top_signals=top_signals)
 
 
 # ---------------------------------------------------------------------------

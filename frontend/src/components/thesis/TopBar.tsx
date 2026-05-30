@@ -11,9 +11,12 @@ interface Props {
   settingsOpen: boolean;
   setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   mounted: boolean;
+  onOpenGuide: () => void;
+  onOpenGraph: () => void;
+  graphActive: boolean;
 }
 
-export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted }: Props) {
+export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted, onOpenGuide, onOpenGraph, graphActive }: Props) {
   const thesis = useThesis();
   const cov = thesis.coverage();
   return (
@@ -52,6 +55,33 @@ export function TopBar({ theme, setTheme, settingsOpen, setSettingsOpen, mounted
         >
           <span className="status-dot ok" /> <span>Lookahead-bias guard</span>
         </div>
+        <button
+          className={"icon-btn " + (graphActive ? "on" : "")}
+          onClick={onOpenGraph}
+          aria-label="Knowledge graph"
+          title="View the knowledge graph (press G)"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="6" cy="6" r="2.4" />
+            <circle cx="18" cy="7" r="2.4" />
+            <circle cx="12" cy="17" r="2.4" />
+            <line x1="7.7" y1="7.3" x2="10.6" y2="15.2" />
+            <line x1="16.3" y1="8.4" x2="13.2" y2="15.4" />
+            <line x1="8.3" y1="6.4" x2="15.7" y2="6.7" />
+          </svg>
+        </button>
+        <button
+          className="icon-btn"
+          onClick={onOpenGuide}
+          aria-label="Open walkthrough"
+          title="What am I looking at? — open the walkthrough"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 2.5" strokeLinecap="round" />
+            <line x1="12" y1="17" x2="12" y2="17.01" strokeLinecap="round" />
+          </svg>
+        </button>
         <button
           className={"icon-btn " + (settingsOpen ? "on" : "")}
           onClick={() => setSettingsOpen(o => !o)}

@@ -81,9 +81,12 @@ def test_portfolio_returns_400_on_bad_date(client):
     assert r.status_code == 400
 
 
-def test_portfolio_empty_returns_zero_picks(client, monkeypatch):
-    """No scored signals → empty ranking, but 200 OK with picks=[]."""
-    r = client.get("/api/portfolio?date=2024-01-01&k=5")
+def test_portfolio_empty_returns_zero_picks(client):
+    """A date before any signal exists → empty ranking (lookahead-safe),
+    200 OK with picks=[]. combined_ranking reads the real parquet directly
+    (not via get_source), so we assert behaviour at a pre-data date rather
+    than injecting an empty source."""
+    r = client.get("/api/portfolio?date=2010-01-01&k=5")
     assert r.status_code == 200
     body = r.json()
     assert body["n_returned"] == 0
@@ -110,7 +113,9 @@ def test_founder_404_when_missing(client, monkeypatch):
         def read_scored_signals(self, **kw): return pd.DataFrame()
     from api import main as api_main
     monkeypatch.setattr(api_main, "get_source", lambda: EmptySource())
-    r = client.get("/api/founder/levelsio")
+    # 404 is reserved for handles not in the cohort at all (levelsio IS a
+    # cohort member, so it would 200 with partial data).
+    r = client.get("/api/founder/notarealhandle")
     assert r.status_code == 404
 
 
@@ -148,6 +153,13 @@ def test_founder_returns_features_and_top_signals(client, monkeypatch):
                 })
                 data.append(row)
             return pd.DataFrame(data)
+        def read_signal_events(self, person_id=None, until=None):
+            # raw_text carries HTML markup + entities (as HN data does) so
+            # this also exercises the clean_text() decode at the API layer.
+            return pd.DataFrame([
+                {"signal_id": f"sig-{i}", "raw_text": "Idea<p>I&#x27;ve shipped &gt; 3 apps"}
+                for i in range(7)
+            ])
 
     from api import main as api_main
     monkeypatch.setattr(api_main, "get_source", lambda: FakeSource())
@@ -162,6 +174,10 @@ def test_founder_returns_features_and_top_signals(client, monkeypatch):
     # Top signals sorted by strength desc.
     strengths = [s["overall_signal_strength"] for s in body["top_signals_at_t"]]
     assert strengths == sorted(strengths, reverse=True)
+    # clean_text(): HTML tags stripped + entities decoded server-side.
+    raw = body["top_signals_at_t"][0]["raw_text"]
+    assert "<p>" not in raw and "&#x27;" not in raw and "&gt;" not in raw
+    assert "I've shipped > 3 apps" in raw
 
 
 def test_locked_predictions_returns_records(client, monkeypatch, tmp_path):

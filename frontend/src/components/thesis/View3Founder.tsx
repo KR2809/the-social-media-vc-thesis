@@ -1,21 +1,142 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useThesis } from "@/lib/thesis/context";
 import type { TaxonomyCode } from "@/lib/thesis";
+import { fetchEgoKG, type KGResult } from "@/lib/thesis/kg";
+import { ForceGraph, type GraphNode } from "./ForceGraph";
 import { InfoTip } from "./InfoTip";
 import { Avatar, EpistemeBar, OutcomeChip, ViewIntro } from "./primitives";
 
-function EgoNetwork({
+const EGO_KIND_COLOR: Record<string, string> = {
+  founder: "var(--accent-deep)",
+  signal: "var(--ink-1)",
+  topic: "var(--accent)",
+  platform: "var(--ink-3)",
+};
+
+// Shared check: does this founder have REAL collected signals? Uses the
+// cached /api/kg/ego fetch (reason: "no-data" when none). Returns:
+//   "loading" | "real" | "none" (no collected signals) | "api-down".
+// Used to gate the ego graph, top-signals and narrative consistently so we
+// never present synthetic data as real for a named cohort founder.
+function useFounderDataState(founderId: string): "loading" | "real" | "none" | "api-down" {
+  const [state, setState] = useState<"loading" | "real" | "none" | "api-down">("loading");
+  useEffect(() => {
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState("loading");
+    fetchEgoKG(founderId, 14).then(r => {
+      if (!alive) return;
+      if (r.source === "backend" && r.nodes.length > 0) setState("real");
+      else if (r.reason === "no-data") setState("none");
+      else setState("api-down");
+    });
+    return () => {
+      alive = false;
+    };
+  }, [founderId]);
+  return state;
+}
+
+function NoData({ what }: { what: string }) {
+  return (
+    <div className="nodata-block">
+      <p className="nodata-title">No public signals collected yet</p>
+      <p className="nodata-sub muted">
+        No free-source signals have been collected and scored for this founder, so there are no real{" "}
+        {what} to show. The framework only ever displays real, observed data.
+      </p>
+    </div>
+  );
+}
+
+// Real server-side ego-network: founder → signals → topics (+ platform),
+// from /api/kg/ego/{id}. Falls back to the client-side synthesis when the
+// API is unreachable so the card never blanks.
+function EgoNetworkReal({ founderId }: { founderId: string }) {
+  const [kg, setKg] = useState<KGResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    fetchEgoKG(founderId, 14)
+      .then(r => alive && setKg(r))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [founderId]);
+
+  const real = kg && kg.source === "backend" && kg.nodes.length > 0;
+
+  // Founder genuinely has no collected public signals yet (e.g. X-native
+  // founders Wayback couldn't reach). Show an HONEST empty state rather than
+  // a synthetic graph dressed up as real — important for defence credibility.
+  if (kg && kg.reason === "no-data") {
+    return (
+      <div className="ego-wrap ego-empty">
+        <div className="ego-empty-inner">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.4">
+            <circle cx="7" cy="7" r="2.2" />
+            <circle cx="17" cy="8" r="2.2" />
+            <circle cx="12" cy="17" r="2.2" />
+            <line x1="8.6" y1="8.2" x2="10.8" y2="15.2" strokeDasharray="2 2" />
+            <line x1="15.3" y1="9.4" x2="13.1" y2="15.3" strokeDasharray="2 2" />
+          </svg>
+          <p className="ego-empty-title">No public signals collected yet</p>
+          <p className="ego-empty-sub muted">
+            This founder is in the cohort, but no free-source signals (HN / Reddit / Product Hunt /
+            archived X) have been collected and scored for them yet — so there&apos;s no real graph to
+            draw. The framework only ever shows real, observed data here.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!real) {
+    // API unreachable (not a data gap) — fall back to the synthetic
+    // fixed-layout ego graph so the card doesn't blank during an outage.
+    return <EgoNetworkSynthetic founderId={founderId} loading={loading} />;
+  }
+
+  return (
+    <div className="ego-wrap">
+      <div className="ego-controls">
+        <div className="ego-legend">
+          <span><span className="dot" style={{ background: "var(--accent-deep)" }} /> founder</span>
+          <span><span className="dot" style={{ background: "var(--ink-1)" }} /> signal</span>
+          <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
+          <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
+        </div>
+        <span className="ego-hint muted">drag · hover · scroll to zoom</span>
+      </div>
+      <ForceGraph
+        nodes={kg.nodes}
+        edges={kg.edges}
+        width={400}
+        height={340}
+        nodeColor={(k: string) => EGO_KIND_COLOR[k] ?? "var(--ink-1)"}
+        nodeRadius={(n: GraphNode) =>
+          n.kind === "founder" ? 16 : n.kind === "signal" ? 6 : n.kind === "platform" ? 7 : 5}
+        labelFor={(n: GraphNode) => (n.kind === "founder" || n.kind === "platform" ? n.label : null)}
+        highlightId={`Person:${founderId}`}
+      />
+    </div>
+  );
+}
+
+function EgoNetworkSynthetic({
   founderId,
-  hop,
-  setHop,
+  loading,
 }: {
   founderId: string;
-  hop: 1 | 2;
-  setHop: (h: 1 | 2) => void;
+  loading?: boolean;
 }) {
   const thesis = useThesis();
+  const [hop, setHop] = useState<1 | 2>(1);
   const data = useMemo(() => thesis.egoFor(founderId), [founderId, thesis]);
   const W = 380;
   const H = 320;
@@ -55,10 +176,14 @@ function EgoNetwork({
           <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
           <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
         </div>
-        <div className="seg sm">
-          <button className={hop === 1 ? "on" : ""} onClick={() => setHop(1)}>1-hop</button>
-          <button className={hop === 2 ? "on" : ""} onClick={() => setHop(2)}>2-hop</button>
-        </div>
+        {loading ? (
+          <span className="ego-hint muted">loading real graph…</span>
+        ) : (
+          <div className="seg sm">
+            <button className={hop === 1 ? "on" : ""} onClick={() => setHop(1)}>1-hop</button>
+            <button className={hop === 2 ? "on" : ""} onClick={() => setHop(2)}>2-hop</button>
+          </div>
+        )}
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="ego-svg">
         <defs>
@@ -138,7 +263,10 @@ function TaxChip({ dim, cat, score }: { dim: string; cat: TaxonomyCode; score: n
 
 function TopSignals({ founderId, t }: { founderId: string; t: number }) {
   const thesis = useThesis();
+  const dataState = useFounderDataState(founderId);
   const signals = useMemo(() => thesis.signalsFor(founderId, t), [founderId, t, thesis]);
+  // Don't fabricate signals for a founder with no collected data.
+  if (dataState === "none") return <NoData what="signals" />;
   return (
     <div className="signals">
       {signals.map((s, i) => (
@@ -241,8 +369,11 @@ function Timeline({ founderId, t }: { founderId: string; t: number }) {
 
 function Narrative({ founderId, t }: { founderId: string; t: number }) {
   const thesis = useThesis();
+  const dataState = useFounderDataState(founderId);
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) return null;
+  // No fabricated narrative for a founder with no collected signals.
+  if (dataState === "none") return null;
   const c = thesis.curve(f, t) || 0;
   const em = thesis.months(f.emerge);
   const fm = thesis.months(f.first);
@@ -307,7 +438,7 @@ interface Props {
 
 export function View3Founder({ founderId, t, gotoView }: Props) {
   const thesis = useThesis();
-  const [hop, setHop] = useState<1 | 2>(1);
+  const dataState = useFounderDataState(founderId); // hook before any early return
   const f = thesis.founders().find(x => x.id === founderId);
   if (!f) {
     return (
@@ -318,6 +449,7 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
   }
   const outcome = thesis.outcomeAt(f, t);
   const em = thesis.months(f.emerge);
+  const noData = dataState === "none";
   return (
     <section className="view view-3">
       <ViewIntro kicker="STEP 03 · DRILL IN" title={"Why was " + f.name + " picked?"}>
@@ -351,11 +483,15 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
           />
           <Stat
             kicker="P(emerge)"
-            val={<span className="mono">{(thesis.curve(f, t) || 0).toFixed(2)}</span>}
+            val={<span className="mono">{noData ? "—" : (thesis.curve(f, t) || 0).toFixed(2)}</span>}
             tip={
-              <>
-                The combined score Σ at date T — the framework&apos;s estimate of <em>P(emerges within 24mo)</em>. Range [0,1].
-              </>
+              noData ? (
+                <>No prediction: no public signals have been collected for this founder yet, so the framework has nothing to score.</>
+              ) : (
+                <>
+                  The combined score Σ at date T — the framework&apos;s estimate of <em>P(emerges within 24mo)</em>. Range [0,1].
+                </>
+              )
             }
           />
         </div>
@@ -375,7 +511,7 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
             </span>
             <span className="muted">click a node to inspect</span>
           </div>
-          <EgoNetwork founderId={founderId} hop={hop} setHop={setHop} />
+          <EgoNetworkReal founderId={founderId} />
         </div>
         <div className="founder-panel signals-panel">
           <div className="panel-head">

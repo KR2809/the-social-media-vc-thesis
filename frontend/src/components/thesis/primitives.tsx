@@ -11,7 +11,7 @@ export function fmtScore(x: number | null | undefined): string {
   return x == null ? "—" : x.toFixed(2);
 }
 export function fmtMoney(x: number): string {
-  return "$" + x.toLocaleString("en-US");
+  return "$" + Math.round(x).toLocaleString("en-US");
 }
 
 export function OutcomeChip({ outcome }: { outcome: Outcome }) {

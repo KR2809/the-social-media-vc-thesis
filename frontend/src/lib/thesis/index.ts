@@ -1,6 +1,7 @@
 export * from "./types";
 export { syntheticSource } from "./synthetic";
 export { loadRealSource } from "./real";
+export { fetchBacktest, monthsToISODate } from "./backtest";
 
 import { syntheticSource } from "./synthetic";
 import { loadRealSource } from "./real";

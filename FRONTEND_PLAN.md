@@ -163,13 +163,20 @@ Replace synthetic fields one-by-one with real adapters.
 Acceptance: `thesis.source === "real"` (or `"hybrid"` if any field is
 still synthetic) and the banner on the landing page reflects it.
 
-### Phase D — Polish (~1 session)
-- [ ] D.1 Replace the placeholder landing page with the real demo home
-  (View 1 by default, deep-linkable via `/?view=2&t=...`).
-- [ ] D.2 OG image + favicon.
-- [ ] D.3 Deploy target — pick Vercel vs. GitHub Pages (static export);
-  document in `frontend/README.md`. EDHEC compliance check on hosting.
-- [ ] D.4 Print stylesheet for thesis appendix screenshots.
+### Phase D — Polish (DONE 2026-05-29, branch feature/frontend-phase-d)
+- [x] D.1 Landing page IS the demo (`page.tsx` → `<App/>`, View 1 default,
+  deep-linkable via `/?view=2&t=...`). Plus a NEW 5-step onboarding/landing
+  guide modal (`OnboardingGuide.tsx`) shown on first visit, re-openable via
+  the TopBar "?" button. Step 1 matches the Claude Design share-link
+  landing guide; steps 2–5 scaffolded pending the remaining design frames.
+- [x] D.2 OG image (`opengraph-image.tsx`, 1200×630 branded card; also the
+  Twitter card) + favicon (already present). openGraph/twitter/themeColor
+  metadata in `layout.tsx`.
+- [x] D.3 Deploy target = **Vercel** (Root Directory = `frontend`).
+  `vercel.json` + README deploy section + env vars
+  (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SITE_URL`) + EDHEC note.
+- [x] D.4 Print stylesheet (`@media print` in `demo.css`) — light surfaces,
+  hides interactive chrome, avoids card page-breaks, for appendix figures.
 
 ---
 

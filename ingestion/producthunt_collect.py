@@ -303,23 +303,14 @@ def _iter_made_posts(username: str, token: str):
 
 
 def _iter_made_comments(username: str, token: str):
-    cursor: str | None = None
-    while True:
-        data = _gql(
-            _MADE_COMMENTS_QUERY, {"username": username, "after": cursor}, token
-        )
-        user = data.get("user")
-        if not user:
-            return
-        conn = user.get("madeComments") or {}
-        for edge in conn.get("edges", []):
-            yield edge["node"]
-        page_info = conn.get("pageInfo") or {}
-        if not page_info.get("hasNextPage"):
-            return
-        cursor = page_info.get("endCursor")
-        if not cursor:
-            return
+    # NOTE (2026-05-29): the Product Hunt v2 GraphQL API removed the
+    # `madeComments` field from the `User` type — it now raises
+    # "Field 'madeComments' doesn't exist on type 'User'". We keep the
+    # query constant for documentation but no longer call it; comments are
+    # a minor signal vs `madePosts` (the founder's actual launches), so we
+    # skip them rather than break the whole collector. Yields nothing.
+    return
+    yield  # pragma: no cover - makes this a generator without calling the API
 
 
 def _parse_ts(iso: str | None) -> datetime | None:
@@ -445,9 +436,14 @@ def _collect_producthunt_inner(
                 continue
             if start <= ev.timestamp.date() < end:
                 events.append(ev)
-    except requests.RequestException as exc:
-        logger.warning("PH madePosts iteration failed: %s", exc)
+    except (requests.RequestException, RuntimeError) as exc:
+        # RuntimeError covers GraphQL-level errors raised by _gql (e.g. a
+        # future PH schema change). Fail-soft so one founder's miss doesn't
+        # abort the cohort sweep.
+        logger.warning("PH madePosts iteration failed for %s: %s", username, exc)
 
+    # PH removed the `madeComments` field (see _iter_made_comments); the
+    # generator yields nothing, so this loop is a no-op kept for structure.
     try:
         for comment in _iter_made_comments(username, token):
             n_comments_seen += 1
@@ -456,8 +452,8 @@ def _collect_producthunt_inner(
                 continue
             if start <= ev.timestamp.date() < end:
                 events.append(ev)
-    except requests.RequestException as exc:
-        logger.warning("PH madeComments iteration failed: %s", exc)
+    except (requests.RequestException, RuntimeError) as exc:
+        logger.warning("PH madeComments iteration failed for %s: %s", username, exc)
 
     # De-dup defensively on signal_id.
     by_id: dict[str, SignalEvent] = {}

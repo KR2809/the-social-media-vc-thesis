@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 
@@ -28,10 +28,39 @@ const serif = Source_Serif_4({
   variable: "--font-serif",
 });
 
+// metadataBase lets Next resolve the generated OG image to an absolute URL.
+// Override per-environment via NEXT_PUBLIC_SITE_URL (Vercel project URL).
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
+
+const title = "From Social Signals to Pre-Seed Allocation — Thesis Demo";
+const description =
+  "A systematic framework for pre-seed venture capital, built from free public social-media signals. Replay any date, score the picks against naïve baselines, and drill into the evidence. Kristian Ratkov · EDHEC MSc Finance.";
+
 export const metadata: Metadata = {
-  title: "From Social Signals to Pre-Seed Allocation — Thesis Demo",
-  description:
-    "Working artefact for thesis defence. Kristian Ratkov, supervised by George Tovstiga, EDHEC MSc Finance.",
+  metadataBase: new URL(siteUrl),
+  title,
+  description,
+  applicationName: "Thesis Demo",
+  authors: [{ name: "Kristian Ratkov" }],
+  openGraph: {
+    type: "website",
+    title,
+    description,
+    siteName: "From Social Signals to Pre-Seed Allocation",
+    locale: "en_GB",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FAFAF8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0B0F1C" },
+  ],
 };
 
 // Inline before-interactive script that resolves the theme synchronously

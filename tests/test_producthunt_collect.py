@@ -107,7 +107,10 @@ def test_success_path(tmp_path: Path) -> None:
         )
 
     events = parquet_to_signal_events(out)
-    assert len(events) == 2
+    # PH removed the `madeComments` field from the User type (2026-05-29),
+    # so _iter_made_comments is now a no-op — only the in-window post
+    # survives. The 2010 post is out of the [2014-06, 2014-07) window.
+    assert len(events) == 1
     by_id = {e.signal_id: e for e in events}
 
     post = by_id["ph_post_p1"]
@@ -121,11 +124,8 @@ def test_success_path(tmp_path: Path) -> None:
     assert "Find a remote job" in post.raw_text
     assert "biggest remote-job board" in post.raw_text
 
-    com = by_id["ph_comment_c1"]
-    assert com.metadata["type"] == "comment"
-    assert com.engagement["likes"] is None
-    assert com.metadata["post_url"] == "https://www.producthunt.com/posts/another"
-    assert com.raw_text == "great launch"
+    # Comments are no longer ingested (PH API field removed).
+    assert "ph_comment_c1" not in by_id
 
 
 def test_empty_user_returns_empty_parquet(tmp_path: Path) -> None:

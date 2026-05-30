@@ -13,9 +13,11 @@ import { Footer } from "./primitives";
 import { View1Replay } from "./View1Replay";
 import { View2Outcome } from "./View2Outcome";
 import { View3Founder } from "./View3Founder";
+import { OnboardingGuide, shouldShowOnboarding } from "./OnboardingGuide";
+import { KnowledgeGraphView } from "./KnowledgeGraphView";
 
 type Theme = "light" | "dark";
-type View = 1 | 2 | 3;
+type View = 1 | 2 | 3 | 4; // 4 = full-cohort Knowledge Graph
 
 const MIN = 0;
 // Month-parsing is data-independent, so we read it off the synthetic source
@@ -31,6 +33,7 @@ function parseT(s: string | null): number {
 function parseView(s: string | null): View {
   if (s === "2") return 2;
   if (s === "3") return 3;
+  if (s === "4") return 4;
   return 1;
 }
 function parseK(s: string | null): number {
@@ -73,6 +76,17 @@ export function App() {
   );
   const [revealed, setRevealed] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // Show the walkthrough automatically on first visit (localStorage-gated).
+  // Effect-only so SSR markup never includes the modal (avoids hydration
+  // mismatch); shouldShowOnboarding() is a no-op on the server.
+  useEffect(() => {
+    if (shouldShowOnboarding()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setGuideOpen(true);
+    }
+  }, []);
 
   // Theme: SSR-safe. The pre-paint inline <script> in layout.tsx writes
   // data-theme on <html> from localStorage / system preference. We read it
@@ -175,6 +189,7 @@ export function App() {
       else if (e.key === "1") setView(1);
       else if (e.key === "2") setView(2);
       else if (e.key === "3" && focusedId) setView(3);
+      else if (e.key === "4" || e.key === "g" || e.key === "G") setView(4);
       else if (e.key === "ArrowLeft") setT(Math.max(MIN, t - 3));
       else if (e.key === "ArrowRight") setT(Math.min(MAX, t + 3));
     }
@@ -198,6 +213,9 @@ export function App() {
         settingsOpen={settingsOpen}
         setSettingsOpen={setSettingsOpen}
         mounted={mounted}
+        onOpenGuide={() => setGuideOpen(true)}
+        onOpenGraph={() => setView(4)}
+        graphActive={view === 4}
       />
       <DateSlider value={t} onChange={setT} min={MIN} max={MAX} />
       <ViewNav
@@ -244,8 +262,10 @@ export function App() {
             gotoView={setView}
           />
         )}
+        {view === 4 && <KnowledgeGraphView />}
       </div>
       <Footer />
+      <OnboardingGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
     </div>
     </ThesisProvider>
   );
