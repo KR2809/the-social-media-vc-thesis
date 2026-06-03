@@ -1941,3 +1941,40 @@ data-layer + live-HTML level.
 
 **Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
 ---
+
+---
+## 2026-05-30 (cont.) — Mobile UI optimization (merged + deployed)
+
+**Goal:** make the dense desktop demo fully usable on phones (375–430px) — no
+horizontal overflow, legible graphs, ≥44px touch targets. Planned + approved.
+
+**What I did (branch feature/mobile-ui, 4 commits, merged to main):**
+1. **Viewport meta** (`layout.tsx`): explicit width=device-width/initialScale=1
+   (no maximumScale → keep pinch-zoom).
+2. **`useElementWidth` hook** (new): ResizeObserver via a **callback ref** so it
+   works even when the measured node (a graph canvas) mounts after async data —
+   the original useEffect version measured null and fell back to 760px. Width
+   quantized to 8px to avoid sim thrash.
+3. **Responsive graphs**: KnowledgeGraphView + View3 ego measure their container
+   and pick an aspect-aware size — near-square/taller on phones (V4 352×387,
+   V3 328×344 at 375px), wide on desktop (1232×912). Both legible, verified.
+4. **Fluid CIBar** (`primitives.tsx`): was fixed-px (overflowed View 2 at 449px);
+   now percentage-positioned, width 100% capped at the design px.
+5. **Phone CSS** (`demo.css`, new @media ≤560 + ≤430): portfolio rows → stacked
+   cards (CSS-only, no JSX); ViewNav 3-across stacked num+label; TopBar wraps
+   with 44px icon buttons; precision/hero stats single column; KG stats/legend
+   wrap; today-label right-aligned (was spilling 3px); slider `touch-action:none`
+   + bigger thumb; legibility bumps; ≥44px touch targets.
+
+**Verification (gstack /browse):** all 4 views at 375 & 430 → no horizontal
+overflow (`scrollWidth <= innerWidth` true). Graphs near-square + legible.
+Desktop unregressed (1280px: graph scales wide, CIBar caps at 420). Build +
+eslint + tsc + smoke (46) all green. **Deployed to Vercel prod**, aliased to
+thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
+375px on the production URL.
+
+**Files changed:** `frontend/src/app/{layout.tsx,demo.css}`,
+`frontend/src/components/thesis/{useElementWidth.ts,KnowledgeGraphView,View3Founder,primitives}.tsx`.
+
+**Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
+---
