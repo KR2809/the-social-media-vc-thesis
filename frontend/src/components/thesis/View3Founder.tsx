@@ -5,6 +5,7 @@ import { useThesis } from "@/lib/thesis/context";
 import type { TaxonomyCode } from "@/lib/thesis";
 import { fetchEgoKG, type KGResult } from "@/lib/thesis/kg";
 import { ForceGraph, type GraphNode } from "./ForceGraph";
+import { useElementWidth } from "./useElementWidth";
 import { InfoTip } from "./InfoTip";
 import { Avatar, EpistemeBar, OutcomeChip, ViewIntro } from "./primitives";
 
@@ -57,6 +58,11 @@ function NoData({ what }: { what: string }) {
 function EgoNetworkReal({ founderId }: { founderId: string }) {
   const [kg, setKg] = useState<KGResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [egoRef, measuredW] = useElementWidth<HTMLDivElement>();
+  // Responsive ego canvas: squarer on phones so the hub-and-spoke stays
+  // legible; the desktop 400×340 aspect (~0.85) above 560px.
+  const gw = measuredW || 400;
+  const gh = gw < 560 ? Math.round(gw * 1.05) : Math.round(gw * 0.85);
   useEffect(() => {
     let alive = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -103,7 +109,7 @@ function EgoNetworkReal({ founderId }: { founderId: string }) {
   }
 
   return (
-    <div className="ego-wrap">
+    <div className="ego-wrap" ref={egoRef}>
       <div className="ego-controls">
         <div className="ego-legend">
           <span><span className="dot" style={{ background: "var(--accent-deep)" }} /> founder</span>
@@ -116,8 +122,8 @@ function EgoNetworkReal({ founderId }: { founderId: string }) {
       <ForceGraph
         nodes={kg.nodes}
         edges={kg.edges}
-        width={400}
-        height={340}
+        width={gw}
+        height={gh}
         nodeColor={(k: string) => EGO_KIND_COLOR[k] ?? "var(--ink-1)"}
         nodeRadius={(n: GraphNode) =>
           n.kind === "founder" ? 16 : n.kind === "signal" ? 6 : n.kind === "platform" ? 7 : 5}

@@ -109,24 +109,27 @@ export function CIBar({
   width?: number;
   primary?: boolean;
 }) {
-  const px = (v: number) => v * width;
+  // Positions are fractions [0,1] → render as percentages so the bar is fully
+  // fluid (fills its container, capped at the design width). This avoids
+  // overflowing narrow/mobile containers while keeping the desktop size.
+  const pct = (v: number) => `${v * 100}%`;
   return (
-    <div className="ci-bar" style={{ width }}>
+    <div className="ci-bar" style={{ width: "100%", maxWidth: width }}>
       <div className="ci-axis" />
       <div
         className="ci-range"
         style={{
-          left: px(lo),
-          width: px(hi - lo),
+          left: pct(lo),
+          width: pct(hi - lo),
           background: primary ? "var(--accent)" : "var(--ink-3)",
         }}
       />
       <div
         className="ci-mean"
-        style={{ left: px(value), background: primary ? "var(--accent-deep)" : "var(--ink-1)" }}
+        style={{ left: pct(value), background: primary ? "var(--accent-deep)" : "var(--ink-1)" }}
       />
-      <div className="ci-tick" style={{ left: px(lo) }} />
-      <div className="ci-tick" style={{ left: px(hi) }} />
+      <div className="ci-tick" style={{ left: pct(lo) }} />
+      <div className="ci-tick" style={{ left: pct(hi) }} />
     </div>
   );
 }

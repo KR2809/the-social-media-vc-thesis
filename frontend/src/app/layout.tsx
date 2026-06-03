@@ -57,6 +57,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
+  // Explicit mobile viewport. No maximumScale/userScalable — preserve
+  // pinch-zoom (accessibility + useful for the dense graphs).
+  width: "device-width",
+  initialScale: 1,
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#FAFAF8" },
     { media: "(prefers-color-scheme: dark)", color: "#0B0F1C" },
