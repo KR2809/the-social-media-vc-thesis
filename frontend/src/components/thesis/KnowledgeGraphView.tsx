@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchCohortKG, type KGResult } from "@/lib/thesis/kg";
 import { RadialClusterGraph } from "./RadialClusterGraph";
+import { useElementWidth } from "./useElementWidth";
 import { InfoTip } from "./InfoTip";
 import { EpistemeBar, ViewIntro } from "./primitives";
 
@@ -20,6 +21,12 @@ function kgColor(kind: string): string {
 export function KnowledgeGraphView() {
   const [kg, setKg] = useState<KGResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [canvasRef, measuredW] = useElementWidth<HTMLDivElement>();
+  // Responsive canvas: near-square/taller on phones so nodes stay readable;
+  // the desktop 760×560 aspect (~0.74) above 560px. Falls back to 760 until
+  // the first measure (the SVG rescales via viewBox when the real width lands).
+  const gw = measuredW || 760;
+  const gh = gw < 560 ? Math.round(gw * 1.1) : Math.round(gw * 0.74);
   useEffect(() => {
     let alive = true;
     fetchCohortKG()
@@ -64,12 +71,12 @@ export function KnowledgeGraphView() {
               <span><span className="dot" style={{ background: "var(--accent)" }} /> theme</span>
             </span>
           </div>
-          <div className="kg-canvas">
+          <div className="kg-canvas" ref={canvasRef}>
             <RadialClusterGraph
               nodes={kg.nodes}
               edges={kg.edges}
-              width={760}
-              height={560}
+              width={gw}
+              height={gh}
               nodeColor={kgColor}
             />
           </div>
