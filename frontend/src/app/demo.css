@@ -446,6 +446,9 @@ body {
   user-select: none;
   border-radius: var(--r-md);
   border: 1px solid var(--hairline);
+  /* Horizontal drag is owned by the slider; don't let vertical page scroll
+     steal the gesture on touch devices. */
+  touch-action: none;
 }
 .slider-fill {
   position: absolute;
@@ -963,7 +966,9 @@ body {
 .precision-stat .stat-val { font-size: 14px; color: var(--ink-1); font-weight: 500; }
 
 /* CI bar */
-.ci-bar { position: relative; height: 20px; }
+/* width is an inline px style from CIBar; cap it so it never overflows a
+   narrow container (e.g. the precision headline's 420px bar on a phone). */
+.ci-bar { position: relative; height: 20px; max-width: 100%; }
 .ci-axis {
   position: absolute; left: 0; right: 0; top: 50%;
   height: 1px; background: var(--hairline-2);
@@ -1274,6 +1279,95 @@ body {
   /* width is JS-computed + viewport-clamped in InfoTip; just cap it on mobile */
   .info-tip-popup { max-width: calc(100vw - 24px); }
   .settings-popover { right: 12px; left: 12px; width: auto; }
+}
+
+/* ===================================================================
+   PHONE (≤560px): the views below 900px still shared the 900px rules and
+   cramped/overflowed on a phone. This block makes every view legible +
+   interactive with no horizontal overflow and ≥44px touch targets.
+   =================================================================== */
+@media (max-width: 560px) {
+  .app-body { padding: 10px 10px 8px; }
+
+  /* --- TopBar: title row, then a full-width icon-button row --- */
+  .topbar { padding: 10px 12px; gap: 8px; row-gap: 6px; }
+  .topbar-left { flex: 1 1 100%; }
+  .topbar-right { flex: 1 1 100%; justify-content: flex-end; gap: 6px; }
+  .thesis-title { font-size: 15px; }
+  .thesis-sub { font-size: 10.5px; }
+  .icon-btn { width: 44px; height: 44px; }
+
+  /* --- DateSlider: bigger thumb + readable value --- */
+  .slider-wrap { padding: 10px 12px 14px; }
+  .thumb-inner { width: 24px; height: 24px; }
+  /* the "TODAY" marker sits at the far-right; centering spills it past the
+     viewport — right-align it on mobile so it stays on-screen */
+  .today-label { left: auto; right: 0; transform: none; }
+
+  /* --- ViewNav: 3 steps fit across 375px (stacked num+label, no overflow) --- */
+  .view-nav { overflow-x: visible; }
+  .view-btn {
+    min-width: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+  .view-num-connector { display: none; }
+  .view-label { font-size: 12.5px; }
+  .view-hint { display: none; }
+
+  /* --- View 1 portfolio: rows become stacked cards --- */
+  .portfolio-head { display: none; }
+  .founder-row {
+    display: block;
+    position: relative;
+    padding: 12px 14px 14px;
+  }
+  .col-rank { position: absolute; top: 12px; right: 14px; flex-direction: row; gap: 4px; }
+  .col-id { margin-bottom: 6px; }
+  .col-id .name { font-size: 12px; }
+  /* re-show scores (hidden at 900px) as a compact strip: Σ + sparkline only */
+  .founder-row .col-scores { display: flex; align-items: center; gap: 14px; margin-top: 4px; }
+  .founder-row .col-scores .score-pair:not(.primary) { display: none; }
+  /* re-show allocation + outcome (hidden at 900px) as a footer strip */
+  .founder-row .col-alloc { display: inline-block; margin-top: 8px; margin-right: 14px; font-size: 12px; }
+  .founder-row .col-outcome { display: inline-block; margin-top: 8px; }
+
+  /* --- View 2: precision stats single column; smaller headline --- */
+  .precision-card { padding: 14px; }
+  .precision-right { flex-direction: column; gap: 10px; align-items: stretch; }
+  .precision-stat { flex-direction: row; justify-content: space-between; align-items: baseline; }
+  .big-frac, .big-pct { font-size: 38px; }
+  .frac-sep, .big-frac-denom { font-size: 26px; }
+
+  /* --- View 3: founder hero stats single column --- */
+  .founder-hero { padding: 14px; }
+  .hero-stats { grid-template-columns: 1fr; gap: 12px; }
+  .hero-name { font-size: 20px; }
+
+  /* --- View 4 / KG: stats wrap, legend on its own line, aspect drives height --- */
+  .kg-stats { gap: 10px 18px; }
+  .kg-legend { margin-left: 0; flex-basis: 100%; }
+  .kg-canvas { min-height: 0; }
+
+  /* --- legibility + touch targets --- */
+  .view-intro-body, .signal-text { font-size: 13.5px; }
+  .icon-btn, .link-btn, .seg button, .reveal-btn { min-height: 44px; }
+
+  /* --- onboarding: reclaim width, shorter illustration --- */
+  .og-scrim { padding: 12px; }
+  .og-illo { padding: 16px; }
+  .og-illo-svg { max-height: 110px; }
+}
+
+@media (max-width: 430px) {
+  .thesis-title { font-size: 14px; }
+  .view-label { font-size: 12px; }
+  .view-num-circle { width: 24px; height: 24px; }
+  .big-frac, .big-pct { font-size: 32px; }
 }
 
 /* ===================================================================
