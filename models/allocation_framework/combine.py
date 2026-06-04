@@ -65,6 +65,7 @@ def tier1_topic_score_at(
     delta_4w, acceleration, score) where `score` is a normalised 0–1
     composite of the four metrics.
     """
+    trends_path = Path(trends_path)
     if not trends_path.exists():
         return pd.DataFrame(
             columns=[
@@ -134,12 +135,17 @@ def tier2_founder_score_at(
     time — only re-aggregation of already-scored signals).
     """
     cfg = cfg or TierConfig()
+    scored_path = Path(scored_path)
     if not scored_path.exists():
         return pd.DataFrame(columns=["person_id", "score"])
 
     df = pq.read_table(scored_path).to_pandas()
     if len(df) == 0:
         return pd.DataFrame(columns=["person_id", "score"])
+    # Defensive dedup: a duplicated signal_id would double-count a person's
+    # strength in the rollup. Keep the last (newest) scored copy.
+    if "signal_id" in df.columns:
+        df = df.drop_duplicates(subset=["signal_id"], keep="last")
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df = df[df["timestamp"] <= pd.Timestamp(date_t, tz="UTC")]
     if len(df) == 0:
@@ -179,6 +185,7 @@ def _person_topic_pairs(
     scored_path: Path,
 ) -> pd.DataFrame:
     """For each (person, topic), the per-pair signal strength at time T."""
+    scored_path = Path(scored_path)
     if not scored_path.exists():
         return pd.DataFrame(columns=["person_id", "topic", "pair_strength"])
     df = pq.read_table(scored_path).to_pandas()
