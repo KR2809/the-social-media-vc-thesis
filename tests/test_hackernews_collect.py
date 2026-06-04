@@ -233,3 +233,36 @@ def test_show_hn_and_ask_hn_flags(tmp_path: Path) -> None:
 # Reference pytest so importing it doesn't get flagged as unused — required
 # implicitly by pytest collection but ruff sees it as dead.
 _ = pytest
+
+
+def test_max_items_caps_submitted_ids(tmp_path: Path) -> None:
+    """max_items resolves only the newest-N submitted IDs (HN returns newest-first)."""
+    # 1000 submitted IDs; only the first 5 should be fetched when capped.
+    submitted = list(range(1000))
+    fetched: list[int] = []
+
+    def fake_fetch_item(iid: int):
+        fetched.append(iid)
+        return {
+            "id": iid,
+            "type": "story",
+            "by": "power",
+            "title": f"post {iid}",
+            "time": _epoch(2022, 6, 15),
+            "score": 1,
+            "descendants": 0,
+        }
+
+    with patch.object(
+        hackernews_collect, "_fetch_user_submitted", return_value=submitted
+    ), patch.object(hackernews_collect, "_fetch_item", side_effect=fake_fetch_item):
+        hackernews_collect.collect_hackernews(
+            username="power",
+            start=date(2022, 1, 1),
+            end=date(2023, 1, 1),
+            out_dir=tmp_path,
+            max_items=5,
+        )
+
+    assert len(fetched) == 5
+    assert set(fetched) == set(range(5))

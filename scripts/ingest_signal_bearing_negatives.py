@@ -50,6 +50,11 @@ _LABELS = Path("data/processed/outcome_labels.csv")
 DEFAULT_N_HANDLES = 15
 DEFAULT_MAX_SIGNALS_PER_HANDLE = 40
 DEFAULT_START = date(2015, 1, 1)
+# Cap on HN submitted-IDs resolved per handle. HN returns IDs newest-first;
+# this bounds the fetch for power-users with tens of thousands of items
+# (which would otherwise hang the ingest). 300 newest is ample to find
+# recent in-window activity for the cap.
+_HN_FETCH_CAP = 300
 # Emergence-review heuristic: a handle with this many high-strength signals
 # is suspiciously founder-like and should be eyeballed, not auto-negatived.
 EMERGENCE_REVIEW_SIGNAL_FLOOR = 200
@@ -146,8 +151,13 @@ def ingest_negatives(
             logger.info("skip %s (%s already labelled)", h, pid)
             continue
         try:
+            # Cap power-users: HN returns IDs newest-first, so the newest
+            # _HN_FETCH_CAP items are plenty to find recent in-window activity
+            # without resolving tens of thousands of items for prolific
+            # commenters (poor 'in-niche founder' negatives anyway).
             path = collect_hackernews(
-                username=h, start=start, end=end, out_dir=raw_dir
+                username=h, start=start, end=end, out_dir=raw_dir,
+                max_items=_HN_FETCH_CAP,
             )
         except Exception:
             logger.exception("HN collect failed for %s — skipping", h)
