@@ -203,3 +203,64 @@ def test_i6_write_rows_dedups(tmp_path: Path) -> None:
     _write_rows([_scored_row("hn_1")], out)  # same id again
     n = pq.read_table(out, columns=["signal_id"]).num_rows
     assert n == 1, f"expected 1 row after dedup, got {n}"
+
+
+# ---------------------------------------------------------------------------
+# I7 — eval must produce CIs and a sane n (regression: stale n=6 / NaN CIs)
+# ---------------------------------------------------------------------------
+
+
+def test_i7_eval_with_ci_populates_intervals(tmp_path: Path) -> None:
+    """evaluate_both_with_ci attaches non-null CIs and uses the full join n."""
+    import numpy as np
+
+    from models.evaluation.eval import evaluate_both_with_ci
+
+    rng = np.random.default_rng(0)
+    n = 20  # enough rows for the bootstrap histogram internals
+    pids = [f"p{i}" for i in range(n)]
+    emerged = [1] * (n // 2) + [0] * (n - n // 2)
+    # Separable-ish features: positives higher strength + signal counts.
+    strength = [0.6 + 0.3 * rng.random() if e else 0.1 + 0.3 * rng.random() for e in emerged]
+    nsig = [8 + int(5 * rng.random()) if e else 1 + int(4 * rng.random()) for e in emerged]
+    feat = pd.DataFrame({
+        "person_id": pids, "n_signals": nsig,
+        "n_platforms": [2 if e else 1 for e in emerged],
+        "active_days": [s * 100 for s in strength],
+        "mean_signal_strength": strength,
+        "max_signal_strength": [min(1.0, s + 0.1) for s in strength],
+        "s1_mean": strength, "s2_mean": [0.5] * n, "s3_mean": strength, "s4_mean": [0.4] * n,
+        "bip_signals": [int(s * 5) for s in strength],
+        "explicit_goal_signals": [int(s * 3) for s in strength],
+        "recruitment_signals": [1 if e else 0 for e in emerged],
+    })
+    labels = pd.DataFrame({"person_id": pids, "emerged": emerged})
+    fpath = tmp_path / "pf.parquet"
+    feat.to_parquet(fpath, index=False)
+    kpath = tmp_path / "kg.parquet"
+    feat[["person_id"]].assign(kg_degree=0.0).to_parquet(kpath, index=False)
+    lpath = tmp_path / "labels.csv"
+    labels.to_csv(lpath, index=False)
+
+    base, kg = evaluate_both_with_ci(fpath, kpath, lpath, n_iter=300)
+    assert base.n == n, f"expected n={n}, got {base.n}"  # full join, not a CV fold
+    for m in (base, kg):
+        assert m.roc_auc_ci_lo is not None and not np.isnan(m.roc_auc_ci_lo)
+        assert m.roc_auc_ci_hi is not None and not np.isnan(m.roc_auc_ci_hi)
+        assert m.roc_auc_ci_lo <= m.roc_auc <= m.roc_auc_ci_hi + 1e-9
+
+
+@pytest.mark.skipif(
+    not (REPO / "data/processed/eval_metrics.csv").exists(),
+    reason="eval_metrics.csv not present",
+)
+def test_i7_real_eval_csv_has_cis_and_sane_n() -> None:
+    """Regression guard: the persisted eval CSV must have CIs + n matching the
+    label∩features join (catches the stale n=6 / NaN-CI artefact)."""
+    import numpy as np
+
+    m = pd.read_csv(REPO / "data/processed/eval_metrics.csv")
+    assert (m["n"] >= 10).all(), f"eval n suspiciously small: {m['n'].tolist()}"
+    for col in ("roc_auc_ci_lo", "roc_auc_ci_hi", "pr_auc_ci_lo", "pr_auc_ci_hi"):
+        assert col in m.columns
+        assert not m[col].isna().any() and not np.isinf(m[col]).any(), f"{col} not populated"

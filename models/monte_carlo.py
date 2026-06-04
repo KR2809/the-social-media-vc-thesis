@@ -54,7 +54,15 @@ _EPISTEMIC = (
 
 
 def _summary(traces: np.ndarray, ci_pct: float = 0.95) -> dict[str, float]:
-    """Standard summary dict for continuous-valued traces."""
+    """Standard summary dict for continuous-valued traces.
+
+    Robust to NaN/inf in `traces`: a bootstrap resample can produce an
+    undefined metric (e.g. ROC-AUC on a single-class fold → NaN). Such values
+    are dropped before histogram/percentile computation so the CI is still
+    well-defined over the valid resamples instead of crashing np.histogram.
+    """
+    traces = np.asarray(traces, dtype=float)
+    traces = traces[np.isfinite(traces)]
     if len(traces) == 0:
         return {
             "mean": 0.0, "median": 0.0, "lower_ci": 0.0, "upper_ci": 0.0,
@@ -62,10 +70,17 @@ def _summary(traces: np.ndarray, ci_pct: float = 0.95) -> dict[str, float]:
         }
     lo = (1 - ci_pct) / 2 * 100
     hi = (1 + ci_pct) / 2 * 100
-    # Approximate mode via 50-bin histogram centre.
-    hist, edges = np.histogram(traces, bins=min(50, max(5, len(traces) // 20)))
-    mode_idx = int(np.argmax(hist))
-    mode_approx = float(0.5 * (edges[mode_idx] + edges[mode_idx + 1]))
+    # Approximate mode via histogram centre. Guard degenerate / near-constant
+    # ranges (e.g. nearly all bootstrap metrics identical) where numpy refuses
+    # to build finite-sized bins — fall back to the median.
+    try:
+        if traces.min() == traces.max():
+            raise ValueError("degenerate range")
+        hist, edges = np.histogram(traces, bins=min(50, max(5, len(traces) // 20)))
+        mode_idx = int(np.argmax(hist))
+        mode_approx = float(0.5 * (edges[mode_idx] + edges[mode_idx + 1]))
+    except ValueError:
+        mode_approx = float(np.median(traces))
     return {
         "mean": float(np.mean(traces)),
         "median": float(np.median(traces)),
