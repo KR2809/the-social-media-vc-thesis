@@ -30,11 +30,14 @@ def test_health(client):
     assert body["data_source"] in {"local", "supabase"}
 
 
-def test_cohort_returns_20_members(client):
+def test_cohort_returns_all_members(client):
     r = client.get("/api/cohort")
     assert r.status_code == 200
     body = r.json()
-    assert body["n"] == 20
+    # Size-agnostic: the endpoint should return at least the iter-15 cohort.
+    # (Was hardcoded 20; cohort expanded to 36 on 2026-06-04.)
+    assert body["n"] >= 20
+    assert body["n"] == len(body["members"])
     assert isinstance(body["members"], list)
     assert {"person_id", "display_name", "venture", "niche"} <= set(body["members"][0])
 

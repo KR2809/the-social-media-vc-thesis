@@ -72,10 +72,41 @@ def test_load_cohort_stops_at_next_table(tmp_path: Path) -> None:
     assert all(m.x_handle for m in members)
 
 
-def test_load_cohort_real_file_parses_20() -> None:
-    """The actual workspace cohort file should parse to 20 verified founders."""
+def test_load_cohort_real_file_parses_expanded() -> None:
+    """The workspace cohort file parses to the iter-15 expanded cohort (36).
+
+    Originally 20; expanded to 36 named founders on 2026-06-04 (expanded
+    backtest run). Every founder must carry a resolvable X handle and a
+    non-empty founding_date (Phase A acceptance criterion).
+    """
     members = load_cohort()
-    assert len(members) == 20
+    assert len(members) == 36
     # First and last sanity checks.
     assert members[0].founder_name == "Pieter Levels"
-    assert members[-1].number == 20
+    assert members[-1].number == 36
+    # Every founder has a resolvable handle.
+    assert all(m.x_handle for m in members)
+    # No duplicate handles.
+    handles = [m.x_handle.lower() for m in members]
+    assert len(handles) == len(set(handles))
+    # Every founder has a dated founding event.
+    assert all(m.founding_date for m in members)
+
+
+def test_load_cohort_parses_dated_columns(tmp_path: Path) -> None:
+    """Header-name resolution picks up Founding date / Emergence date columns."""
+    md = tmp_path / "cohort.md"
+    md.write_text(
+        "# Cohort\n\n"
+        "| # | Founder | X handle | Venture | Niche | Emergence (mo/yr) "
+        "| Founding date | Emergence date | Pre | Outcome | Data score | Notes |\n"
+        "|---|---|---|---|---|---|---|---|---|---|---|---|\n"
+        "| 1 | Pieter Levels | @levelsio | Nomad List | SaaS | 2015 "
+        "| 2014 | 2015 | mid-2010s | $5M | 5 | archetype |\n"
+    )
+    members = load_cohort(md_path=md, override_path=tmp_path / "missing.json")
+    assert len(members) == 1
+    assert members[0].founding_date == "2014"
+    assert members[0].emergence_date == "2015"
+    assert members[0].emergence_quarter == "2015"
+    assert members[0].data_score == 5
