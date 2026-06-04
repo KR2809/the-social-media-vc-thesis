@@ -2014,3 +2014,16 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Files changed:** scripts/score_parallel.py (new), PROGRESS.md, DECISION_LOG.md, regenerated THESIS_DIR outputs (eval_report, backtest_results, figures, RESULTS_FOR_THESIS, first_pickup_dates, processed CSVs).
 **Cost incurred:** $19.76 / $30 cap (API console balance now $0).
 ---
+
+---
+## 2026-06-04 — KG reframing write-up + frontend adjustment plan
+
+**What I did:** (1) Wrote `THESIS_DIR/11_THESIS_DOC/KG_AND_FINDINGS_WRITEUP.md` — drafting input for Chapter VI (honest findings framing: lead with discrimination 0.967 + lead-time +12mo; report KG-null and framework<baseline straight) and Chapter VIII (Future Work: Activating the KG). (2) Wrote `FRONTEND_ADJUSTMENT_PLAN.md` — comprehensive plan covering clarity, data-wiring verification, and KG legibility.
+**Key finding (verification of "is it hooked up"):** NO — the deployed Vercel app shows SYNTHETIC mock data. The real n=139 outputs are correct in data/processed + via FastAPI, but production falls back to mock because loadRealSource() needs a live API the static site doesn't have, and nothing reads the Phase-H frontend_timeline.json. Fix = static thesis_data.json bundle (plan §1, BLOCKER). Also KnowledgeGraphView shows stale "4,235 nodes/178k edges" (real: 6,283/370k).
+**KG insight (for thesis):** KG is inert because the graph is a star (no person-to-person edges) and its features re-describe flat features. Root cause = free data lacks interaction edges (Reddit blocked, X social graph paid). Reframed as latent value: proximity-to-prior-emergence, topic-cascade position, brokerage — all need relational data. "The KG isn't wrong, it's starved."
+**Decisions made:** Recommend static-JSON path for prod (no infra, examiner-proof); recommend showing the honest nulls in the UI.
+**Blockers:** None for docs. Frontend wiring is the next build task (not started). API credits still exhausted.
+**Next steps:** Kris to fold KG write-up into thesis; decide on frontend plan open questions (§7); then implement frontend plan §1→§4.
+**Files changed:** THESIS_DIR/11_THESIS_DOC/KG_AND_FINDINGS_WRITEUP.md (new), FRONTEND_ADJUSTMENT_PLAN.md (new), DECISION_LOG.md, STATUS_UPDATES.md.
+**Cost incurred:** $0 this step (no LLM/API calls).
+---
