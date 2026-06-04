@@ -1978,3 +1978,27 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 
 **Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
 ---
+
+---
+## 2026-06-04 09:40 — Expanded backtest run (Phases A–C + G/I code)
+
+**What I did:** Expanded cohort 20→36 founders with dated founding/emergence events + sourced URLs (Phase A); ran full ingestion sweep (Phase B, 21/36 founders have signals, 2490 cohort signals); harvested 1511 in-niche negative candidates + launched signal-bearing-negative ingest (Phase C); built discovery_timeline.py "time machine", tier1_only baseline, robustness+MonteCarlo orchestrator (Phase G code), and export_for_thesis.py (Phase I code).
+**Decisions made:** Cohort capped at 36 (Kris choice). Reddit OAuth unavailable → built unauth public-JSON path, but Reddit now edge-blocks it (403) — documented, cohort Reddit stays from prior OAuth files. X/Twitter thin (snscrape dead, Wayback throttles) — no paid API per Kris; documented as a limitation. Budget: Haiku-only, $20 ledger ceiling.
+**Blockers:** None hard. Negatives-ingest + Wayback-backfill running in background; scoring chain (D→E→F→G→H) resumes when ingest completes.
+**Next steps:** clean → score (Haiku $20) → person/KG features → eval w/ CIs → run timeline+backtest+robustness+MC → frontend JSON → export to THESIS_DIR → final tests + PROGRESS/DECISION_LOG. (CC, autonomous.)
+**Files changed:** ingestion/cohort.py, ingestion/reddit_public_collect.py, ingestion/sweep.py, ingestion/hackernews_collect.py, analysis/discovery_timeline.py, models/allocation_framework/backtest.py, scoring/score_signals.py, scripts/{harvest_negatives_by_niche,backfill_twitter_new_founders,ingest_signal_bearing_negatives,run_phase_g,export_for_thesis}.py, tests/*, THESIS_DIR/04_RETROSPECTIVE_CASES/{cohort_verified,cohort_sources,cohort_balance}.md, DECISION_LOG.md.
+**Cost incurred:** ~$9.66 ledger so far (no new scoring yet this run; D pending).
+---
+
+---
+## 2026-06-04 23:00 — Expanded backtest COMPLETE (canonical n=36) + integrity audit
+
+**What I did:** Stopped scoring at $19.13 (8.8s/signal made full scoring a multi-hour grind — Kris chose to stop and run downstream on partial data). Ran full E→J pipeline on 3,220 scored signals. Two integrity-audit rounds caught + fixed 4 real bugs. Produced all canonical outputs into THESIS_DIR.
+**Results (canonical, supersede n=27/n=25):** n=36 (21 pos, 15 neg). Baseline ROC-AUC 0.870 [0.741,0.962], PR-AUC 0.923; KG-aug 0.854 — KG Δ −0.016 (honest null). Multi-date backtest: two_tier mean p@5 = 0.500 does NOT beat signal_volume (0.733)/recency (0.716) — honest negative result. Time machine: 6/12 picked-up positives have true pre-emergence lead (median +15mo, max +43mo). MC K=20: 0.44 [0.25,0.65].
+**Decisions made:** Stop scoring (budget+time); raise ceiling to $30 hard cap earlier; report negative/null results straight (no tuning). Vercel project renamed thesis-demo → social-media-vc-thesis.
+**Bugs fixed (audit):** 99 duplicate scored signals double-counting rollups; str-path crashes in combine.py + baseline_model.py; stale n=6 eval CSV with NaN CIs (wired evaluate_with_ci); Monte Carlo histogram crash on small-n bootstraps. All guarded by tests/test_integrity.py (11 tests). 291 pass, 1 skip, ruff clean.
+**Blockers:** None. Reddit OAuth + unauth both unavailable (documented); X via Wayback only (snscrape dead).
+**Next steps:** Kris review. Optional: deploy frontend to activate new Vercel URL; get Reddit creds for a richer re-run; score remaining negatives if budget/time allows.
+**Files changed:** ingestion/{cohort,reddit_public_collect,sweep,hackernews_collect}.py, analysis/{discovery_timeline,person_features}.py, models/{allocation_framework/{combine,backtest},evaluation/eval,baselines/baseline_model,monte_carlo}.py, scoring/score_signals.py, scripts/{harvest_negatives_by_niche,backfill_twitter_new_founders,ingest_signal_bearing_negatives,score_budget_aware,run_phase_g,export_for_thesis,export_frontend_timeline,run_downstream}.py, tests/* (incl. test_integrity.py), FRONTEND_SPEC.md, THESIS_DIR outputs.
+**Cost incurred:** $19.13 / $30 cap.
+---
