@@ -22,7 +22,7 @@ Output:
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
 
@@ -144,11 +144,22 @@ def run_backtest(
             combined["person_id"].drop_duplicates().tolist() if len(combined) else []
         )
 
-        # Strategy B-D: baselines.
+        # Strategy B-E: baselines.
         all_persons = ranking_combined or labels["person_id"].astype(str).tolist()
         rank_random = _baseline_random(all_persons, seed=int(date_t.timestamp()))
         rank_volume = _baseline_signal_volume(scored_path, date_t)
         rank_recency = _baseline_recency(scored_path, date_t)
+        # tier1_only baseline: pure topic-momentum ranking (alpha=1.0), i.e.
+        # the framework with Tier-2 (founder emergence) switched off.
+        tier1_cfg = replace(cfg, alpha=1.0)
+        tier1_combined = combined_ranking(
+            date_t, cfg=tier1_cfg, scored_path=scored_path, trends_path=trends_path,
+        )
+        rank_tier1 = (
+            tier1_combined["person_id"].drop_duplicates().tolist()
+            if len(tier1_combined)
+            else []
+        )
 
         for k in k_values:
             for name, ranking in [
@@ -156,6 +167,7 @@ def run_backtest(
                 ("random", rank_random),
                 ("signal_volume", rank_volume),
                 ("recency", rank_recency),
+                ("tier1_only", rank_tier1),
             ]:
                 p_at_k = _precision_at_k(ranking, positives, k)
                 rows.append(
@@ -176,7 +188,7 @@ def run_backtest(
     _write_md_report(df, out_md)
     print(
         f"backtest | {len(df)} rows across {len(backtest_dates)} dates × "
-        f"{len(k_values)} k-values × 4 strategies | written to {out_csv}"
+        f"{len(k_values)} k-values × 5 strategies | written to {out_csv}"
     )
     return df
 

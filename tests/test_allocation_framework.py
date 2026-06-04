@@ -193,5 +193,7 @@ def test_run_backtest_writes_csv_and_report(tmp_path):
         out_md=out_md,
     )
     assert out_csv.exists() and out_md.exists()
-    assert len(df) == 8  # 1 date × 2 k-values × 4 strategies
-    assert set(df["strategy"]) == {"two_tier", "random", "signal_volume", "recency"}
+    assert len(df) == 10  # 1 date × 2 k-values × 5 strategies
+    assert set(df["strategy"]) == {
+        "two_tier", "random", "signal_volume", "recency", "tier1_only"
+    }
