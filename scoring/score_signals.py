@@ -365,11 +365,13 @@ def score_signals(
     model: str = DEFAULT_MODEL,
     limit: int | None = None,
     flush_every: int = 25,
+    budget_usd: float = MONTHLY_BUDGET_USD,
 ) -> Path:
     """Score every un-scored signal in `signals_path` and append to `out_path`.
 
-    Returns the output path. Honours the monthly budget and skips
-    already-scored signal_ids.
+    Returns the output path. Honours the budget (default = the hard monthly
+    cap `MONTHLY_BUDGET_USD`; pass a lower `budget_usd` to enforce a tighter
+    per-run ceiling) and skips already-scored signal_ids.
     """
     system_prompt = load_prompt(prompt_path)
     signals_table = pq.read_table(signals_path)
@@ -395,8 +397,8 @@ def score_signals(
     for i, sig in enumerate(to_score, start=1):
         # Budget guard.
         cur = starting_cost + session_cost
-        if cur >= MONTHLY_BUDGET_USD:
-            logger.error("budget reached: $%.4f >= $%.2f, aborting", cur, MONTHLY_BUDGET_USD)
+        if cur >= budget_usd:
+            logger.error("budget reached: $%.4f >= $%.2f, aborting", cur, budget_usd)
             break
 
         t0 = time.time()
