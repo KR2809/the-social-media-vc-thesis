@@ -2002,3 +2002,15 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Files changed:** ingestion/{cohort,reddit_public_collect,sweep,hackernews_collect}.py, analysis/{discovery_timeline,person_features}.py, models/{allocation_framework/{combine,backtest},evaluation/eval,baselines/baseline_model,monte_carlo}.py, scoring/score_signals.py, scripts/{harvest_negatives_by_niche,backfill_twitter_new_founders,ingest_signal_bearing_negatives,score_budget_aware,run_phase_g,export_for_thesis,export_frontend_timeline,run_downstream}.py, tests/* (incl. test_integrity.py), FRONTEND_SPEC.md, THESIS_DIR outputs.
 **Cost incurred:** $19.13 / $30 cap.
 ---
+
+---
+## 2026-06-04 23:45 — Parallel negative scoring → n=139 (much stronger result)
+
+**What I did:** Built scripts/score_parallel.py (ThreadPoolExecutor, thread-safe budget guard, breadth-first negatives). Ran 1 signal/negative across ~242 negatives; API credit balance ran out after ~103 ok (graceful stop, ~$0.63 spent). Negative coverage 15→118, eval n 36→139. Re-ran full downstream + regenerated all THESIS_DIR outputs.
+**Results (NEW canonical, n=139):** Baseline ROC-AUC 0.967 [0.913,0.996] (was 0.870), PR-AUC 0.905. KG-aug 0.965 → KG Δ −0.002 (robust null). Backtest unchanged: two_tier p@5 0.500 still loses to signal_volume 0.733 (robust negative result). Time-machine median lead +2mo (was −4); 8 positives with true pre-emergence pickup (median +12mo, max +44mo).
+**Decisions made:** Spend the last ~$1 of API balance on breadth-first negatives (Kris). Confirmed credit balance now exhausted ("credit balance too low" 400s).
+**Blockers:** API credits exhausted — no more scoring possible until Kris tops up.
+**Next steps:** Kris review of stronger findings. Reframe thesis: lead with the discrimination result (0.967, tight CI) + time-machine (+12mo lead on 8 cases); report the framework-vs-baseline null honestly. Optional future: top up credits → score deeper negatives; get Reddit OAuth.
+**Files changed:** scripts/score_parallel.py (new), PROGRESS.md, DECISION_LOG.md, regenerated THESIS_DIR outputs (eval_report, backtest_results, figures, RESULTS_FOR_THESIS, first_pickup_dates, processed CSVs).
+**Cost incurred:** $19.76 / $30 cap (API console balance now $0).
+---

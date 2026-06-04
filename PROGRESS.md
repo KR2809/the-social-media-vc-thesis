@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-06-04 (expanded-backtest run, iter-15)
 **Branch:** `feature/expanded-backtest` (active; merge target = `main`)
-**Tests:** 291 pass, 1 skip · **Ruff:** clean · **Cost incurred:** $19.13 / $30 monthly cap
+**Tests:** 291 pass, 1 skip · **Ruff:** clean · **Cost incurred:** $19.76 / $30 monthly cap (API console balance now exhausted)
 
 ---
 
@@ -12,28 +12,33 @@ This run is the **single source of truth**. It supersedes the old eval (n=27)
 and the prior PROGRESS (n=25). The 2026-05-31 locked-prediction record is
 untouched (fixed historical artefact); this is the post-lock *expanded backtest*.
 
-**Final n = 36** (21 positives + 15 negatives that have scored signals; cohort
-expanded 20→36 named founders, 273 negatives ingested but only the earliest 15
-scored before scoring was stopped at the $19.13 ledger to avoid an 8.8s/signal
-multi-hour grind).
+**Final n = 139** (21 positives + 118 negatives that have scored signals; cohort
+expanded 20→36 named founders, 273 negatives ingested. A first sequential pass
+scored positives + the earliest 15 negatives; a second PARALLEL pass
+(`scripts/score_parallel.py`, breadth-first 1 signal/negative) lifted negative
+coverage 15→118 before the API console credit balance ran out — graceful
+stop, no overspend.)
 
 | Metric | Flat baseline | KG-augmented |
 |---|---|---|
-| ROC-AUC | **0.870** [0.741, 0.962] | 0.854 [0.716, 0.957] |
-| PR-AUC | **0.923** [0.824, 0.980] | 0.917 [0.810, 0.979] |
-| n / n_pos | 36 / 21 | 36 / 21 |
+| ROC-AUC | **0.967** [0.913, 0.996] | 0.965 [0.909, 0.996] |
+| PR-AUC | **0.905** [0.795, 0.981] | 0.907 [0.797, 0.981] |
+| n / n_pos | 139 / 21 | 139 / 21 |
 
-- **KG Δ ROC-AUC = −0.016** — honest null; the knowledge graph does NOT help at
-  this n, CIs fully overlap.
+- **KG Δ ROC-AUC = −0.002** — honest null; the knowledge graph does NOT help,
+  CIs fully overlap. (Was −0.016 at n=36; the KG-null result is robust.)
+- **n=36→139 strengthened the headline:** ROC-AUC 0.870→**0.967**, and the CI
+  tightened from ±0.11 to ±0.04 (low bound 0.74→**0.91**). The discrimination
+  result is now firmly above chance with a narrow interval.
 - **Multi-date backtest (102 monthly dates × 5 strategies):** mean precision@5 —
-  signal_volume **0.733**, recency 0.716, tier1_only 0.635, **two_tier 0.500**,
-  random 0.498. **HONEST NEGATIVE RESULT: the two-tier framework does NOT beat
-  the naive signal-volume / recency baselines** on this data. Reported straight.
-- **Pickup lead time (time machine):** of 12 picked-up positives, **6 have a
-  genuine pre-emergence pickup (median +15mo, max +43mo)** — e.g. marclou,
-  lennysan, arvidkahl. The other 6 were flagged *after* emergence because free
-  sources (HN/Wayback) don't reach back to early-2010s emergences (nathanbarry
-  2013, levelsio 2015). Overall median −4mo. Split reported honestly.
+  signal_volume **0.733**, recency 0.714, tier1_only 0.635, **two_tier 0.500**,
+  random 0.478. **HONEST NEGATIVE RESULT (robust across both runs): the two-tier
+  framework does NOT beat the naive signal-volume / recency baselines.** Straight.
+- **Pickup lead time (time machine):** overall median **+2 months** (was −4 at
+  n=36 — now positive). Of the picked-up positives, **8 have a genuine
+  pre-emergence pickup (median +12mo, max +44mo)** — e.g. marclou, lennysan,
+  arvidkahl. The remainder were flagged at/after emergence because free sources
+  (HN/Wayback) don't reach back to early-2010s emergences. Split reported honestly.
 - **Robustness:** best cell α=1.0 (pure topic-momentum), K=5, 12mo → p@K 0.600.
 - **Monte Carlo (framework demo):** K=20 mean emergence rate 0.44 [0.25, 0.65].
 - **Data integrity:** an audit caught + fixed 4 bugs (99 duplicate scored signals
