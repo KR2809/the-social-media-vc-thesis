@@ -43,13 +43,21 @@ def _has(*vars: str) -> bool:
 
 
 def _platforms_available() -> dict[str, bool]:
-    """Return which platform collectors can run right now."""
+    """Return which platform collectors can run right now.
+
+    Reddit has two modes: OAuth/PRAW (needs CLIENT_ID/SECRET) and an
+    unauthenticated public-JSON fallback (needs only a User-Agent, which we
+    default if absent). So `reddit` is effectively always available; the
+    `reddit_oauth` flag records which path will be taken.
+    """
     load_dotenv(override=True)
+    reddit_oauth = _has("REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET")
     return {
         "twitter": True,  # Wayback path needs no credentials
         "hackernews": True,  # no auth
         "youtube": _has("YOUTUBE_API_KEY"),
-        "reddit": _has("REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET", "REDDIT_USER_AGENT"),
+        "reddit": True,  # public-JSON fallback needs no credentials
+        "reddit_oauth": reddit_oauth,
         "producthunt": _has("PRODUCTHUNT_DEV_TOKEN"),
     }
 
@@ -64,6 +72,17 @@ def _safe_collect(label: str, fn, *args, **kwargs) -> Path | None:
             "[%s] collector raised %s: %s", label, type(exc).__name__, exc
         )
         return None
+
+
+# Circuit breaker: once the unauthenticated Reddit endpoint returns an
+# infrastructure block (403) we stop hammering it for the rest of the sweep.
+# Reddit blocks unauthenticated JSON access at the edge (2024+), so retrying
+# 36× wastes time and produces nothing. Recorded once, honestly.
+_reddit_public_blocked = False
+
+
+def _reddit_public_is_blocked(exc: BaseException) -> bool:
+    return "403" in str(exc) or "Blocked" in str(exc)
 
 
 def sweep_member(
@@ -93,17 +112,47 @@ def sweep_member(
             end=end,
         )
 
-    # Reddit
+    # Reddit — OAuth/PRAW when credentials exist, else unauthenticated
+    # public-JSON fallback (no creds required, just a User-Agent).
     if platforms.get("reddit"):
-        from ingestion.reddit_collect import collect_reddit
+        if platforms.get("reddit_oauth"):
+            from ingestion.reddit_collect import collect_reddit
 
-        results["reddit"] = _safe_collect(
-            f"reddit:{member.reddit_username}",
-            collect_reddit,
-            username=member.reddit_username,
-            start=start,
-            end=end,
-        )
+            results["reddit"] = _safe_collect(
+                f"reddit:{member.reddit_username}",
+                collect_reddit,
+                username=member.reddit_username,
+                start=start,
+                end=end,
+            )
+        else:
+            global _reddit_public_blocked
+            if _reddit_public_blocked:
+                results["reddit"] = None
+            else:
+                from ingestion.reddit_public_collect import collect_reddit_public
+
+                try:
+                    results["reddit"] = collect_reddit_public(
+                        username=member.reddit_username, start=start, end=end
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    if _reddit_public_is_blocked(exc):
+                        _reddit_public_blocked = True
+                        logger.warning(
+                            "reddit-public endpoint BLOCKED (403) — Reddit blocks "
+                            "unauthenticated JSON at the edge. Disabling Reddit for "
+                            "the rest of this sweep. Populate REDDIT_CLIENT_ID/SECRET "
+                            "to use the OAuth path instead."
+                        )
+                    else:
+                        logger.warning(
+                            "[reddit-public:%s] raised %s: %s",
+                            member.reddit_username,
+                            type(exc).__name__,
+                            exc,
+                        )
+                    results["reddit"] = None
     else:
         results["reddit"] = None
 
