@@ -224,7 +224,7 @@ type FounderCard = {
 | F4 | View 2 — Outcome panel (precision@k headline + 4 baseline comparison cards + CI bars) | CC | 3–4h |
 | F5 | View 3 — Founder card (KG ego-network via react-flow + top-5 signals + outcome timeline + framework-narrative paragraph) | CC | 4–5h |
 | F6 | Wire frontend to FastAPI (replace mocks with real fetches); add loading / error states. Production build points at Supabase | CC | 2h |
-| F7 | Vercel deploy + custom domain (e.g. `signal-fund.vercel.app`) + analytics | CC | 1h |
+| F7 | Vercel deploy (`social-media-vc-thesis.vercel.app`, renamed from `thesis-demo` 2026-06-04) + analytics | CC | 1h |
 | F8 | Polish pass: typography, microcopy, accessibility, mobile fallback | CC + Kris | 2–3h |
 | **F9** | **Supabase keepalive cron** (the "last last" element per iter-13). Hourly Vercel cron or GitHub Actions ping to prevent pause-on-idle. ONLY built after F7 deploy + F8 verification | CC | 1h |
 
