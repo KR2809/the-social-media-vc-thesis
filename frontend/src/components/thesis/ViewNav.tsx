@@ -2,9 +2,7 @@
 
 import type { Founder } from "@/lib/thesis";
 
-// Includes 4 (the Knowledge Graph view) for prop compatibility with App,
-// though the stepper itself only renders steps 1–3.
-type View = 1 | 2 | 3 | 4;
+type View = 1 | 2 | 3;
 
 interface Props {
   view: View;
