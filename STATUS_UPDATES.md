@@ -2027,3 +2027,15 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Files changed:** THESIS_DIR/11_THESIS_DOC/KG_AND_FINDINGS_WRITEUP.md (new), FRONTEND_ADJUSTMENT_PLAN.md (new), DECISION_LOG.md, STATUS_UPDATES.md.
 **Cost incurred:** $0 this step (no LLM/API calls).
 ---
+
+---
+## 2026-06-05 — Frontend redesign implemented (KG removed, scoring-led story)
+
+**What I did:** Implemented the mockup-approved redesign on branch `feature/frontend-redesign`. (1) Removed the Knowledge Graph view from nav/TopBar/keybindings + deleted orphaned KnowledgeGraphView + RadialClusterGraph. (2) Built the Act 0 Hero landing (needle-in-haystack dot-grid + 3 headline stats: ROC-AUC 0.967, top-10 8/10 vs 3/10 random, +11mo median lead) in the existing light editorial style. (3) Reframed View2 Score to lead with the "8 of 10 vs 3 of 10" haystack comparison + ROC-AUC line. (4) Replaced View3 founder-card ego-network with a clean 2-panel layout (Top-5 signals + Outcome timeline). Headline numbers centralised in lib/thesis/headline.ts (traces to n=139 run CSVs).
+**Verification:** tsc 0 errors, lint clean, build succeeds. Verified each screen with live headless-Chrome screenshots against the running dev server.
+**Decisions made:** Kris: remove KG from UI (stays in thesis as future-work); keep the small decorative View1 rail mini-graph (cosmetic, not the analytical KG). Headline ROC-AUC + precision@10 (robust), not precision@3.
+**Blockers:** Data wiring is still the open BLOCKER — the app shows synthetic mock data in production; the Hero/Score numbers come from lib/thesis/headline.ts constants, not yet a static bundle. Next: build the static thesis_data.json bundle + static data source (FRONTEND_REDESIGN §6) so production shows real n=139 results.
+**Next steps:** (a) static data bundle + wiring; (b) deploy to social-media-vc-thesis.vercel.app; (c) Kris reviews live.
+**Files changed:** App.tsx, TopBar.tsx, ViewNav.tsx, Hero.tsx (new), headline.ts (new), View2Outcome.tsx, View3Founder.tsx, OnboardingGuide.tsx, demo.css; deleted KnowledgeGraphView.tsx + RadialClusterGraph.tsx.
+**Cost incurred:** $0 (no LLM/API calls; frontend only).
+---
