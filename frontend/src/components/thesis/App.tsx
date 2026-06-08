@@ -14,6 +14,7 @@ import { View1Replay } from "./View1Replay";
 import { View2Outcome } from "./View2Outcome";
 import { View3Founder } from "./View3Founder";
 import { OnboardingGuide, shouldShowOnboarding } from "./OnboardingGuide";
+import { Hero } from "./Hero";
 
 type Theme = "light" | "dark";
 type View = 1 | 2 | 3;
@@ -231,15 +232,26 @@ export function App() {
       />
       <div className="app-body">
         {view === 1 && (
-          <View1Replay
-            t={t}
-            K={K}
-            capital={capital}
-            focusedId={focusedId}
-            setFocused={setFocusedId}
-            gotoView={setView}
-            setRevealed={setRevealed}
-          />
+          <>
+            <Hero
+              onStart={() => {
+                document
+                  .getElementById("replay-board")
+                  ?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            />
+            <div id="replay-board">
+              <View1Replay
+                t={t}
+                K={K}
+                capital={capital}
+                focusedId={focusedId}
+                setFocused={setFocusedId}
+                gotoView={setView}
+                setRevealed={setRevealed}
+              />
+            </div>
+          </>
         )}
         {view === 2 && (
           <View2Outcome

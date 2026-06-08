@@ -289,6 +289,8 @@ export const GUIDE_STEPS: GuideStep[] = [
 export function shouldShowOnboarding(): boolean {
   if (typeof window === "undefined") return false;
   try {
+    // Escape hatch for screenshots / QA / embedded demos.
+    if (new URLSearchParams(window.location.search).has("noguide")) return false;
     return localStorage.getItem(STORAGE_KEY) == null;
   } catch {
     return false;
