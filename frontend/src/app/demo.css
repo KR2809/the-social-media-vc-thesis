@@ -1866,3 +1866,11 @@ body {
   .hc-cols { gap: 14px; }
   .hc-p { width: 17px; height: 17px; }
 }
+
+/* Founder card without the KG ego panel: two panels (signals + timeline). */
+.founder-grid-2col {
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 760px) {
+  .founder-grid-2col { grid-template-columns: 1fr; }
+}

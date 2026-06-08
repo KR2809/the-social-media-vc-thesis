@@ -3,18 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useThesis } from "@/lib/thesis/context";
 import type { TaxonomyCode } from "@/lib/thesis";
-import { fetchEgoKG, type KGResult } from "@/lib/thesis/kg";
-import { ForceGraph, type GraphNode } from "./ForceGraph";
-import { useElementWidth } from "./useElementWidth";
+import { fetchEgoKG } from "@/lib/thesis/kg";
 import { InfoTip } from "./InfoTip";
 import { Avatar, EpistemeBar, OutcomeChip, ViewIntro } from "./primitives";
-
-const EGO_KIND_COLOR: Record<string, string> = {
-  founder: "var(--accent-deep)",
-  signal: "var(--ink-1)",
-  topic: "var(--accent)",
-  platform: "var(--ink-3)",
-};
 
 // Shared check: does this founder have REAL collected signals? Uses the
 // cached /api/kg/ego fetch (reason: "no-data" when none). Returns:
@@ -52,206 +43,6 @@ function NoData({ what }: { what: string }) {
   );
 }
 
-// Real server-side ego-network: founder → signals → topics (+ platform),
-// from /api/kg/ego/{id}. Falls back to the client-side synthesis when the
-// API is unreachable so the card never blanks.
-function EgoNetworkReal({ founderId }: { founderId: string }) {
-  const [kg, setKg] = useState<KGResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [egoRef, measuredW] = useElementWidth<HTMLDivElement>();
-  // Responsive ego canvas: squarer on phones so the hub-and-spoke stays
-  // legible; the desktop 400×340 aspect (~0.85) above 560px.
-  const gw = measuredW || 400;
-  const gh = gw < 560 ? Math.round(gw * 1.05) : Math.round(gw * 0.85);
-  useEffect(() => {
-    let alive = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    fetchEgoKG(founderId, 14)
-      .then(r => alive && setKg(r))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-  }, [founderId]);
-
-  const real = kg && kg.source === "backend" && kg.nodes.length > 0;
-
-  // Founder genuinely has no collected public signals yet (e.g. X-native
-  // founders Wayback couldn't reach). Show an HONEST empty state rather than
-  // a synthetic graph dressed up as real — important for defence credibility.
-  if (kg && kg.reason === "no-data") {
-    return (
-      <div className="ego-wrap ego-empty">
-        <div className="ego-empty-inner">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="1.4">
-            <circle cx="7" cy="7" r="2.2" />
-            <circle cx="17" cy="8" r="2.2" />
-            <circle cx="12" cy="17" r="2.2" />
-            <line x1="8.6" y1="8.2" x2="10.8" y2="15.2" strokeDasharray="2 2" />
-            <line x1="15.3" y1="9.4" x2="13.1" y2="15.3" strokeDasharray="2 2" />
-          </svg>
-          <p className="ego-empty-title">No public signals collected yet</p>
-          <p className="ego-empty-sub muted">
-            This founder is in the cohort, but no free-source signals (HN / Reddit / Product Hunt /
-            archived X) have been collected and scored for them yet — so there&apos;s no real graph to
-            draw. The framework only ever shows real, observed data here.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!real) {
-    // API unreachable (not a data gap) — fall back to the synthetic
-    // fixed-layout ego graph so the card doesn't blank during an outage.
-    return <EgoNetworkSynthetic founderId={founderId} loading={loading} />;
-  }
-
-  return (
-    <div className="ego-wrap" ref={egoRef}>
-      <div className="ego-controls">
-        <div className="ego-legend">
-          <span><span className="dot" style={{ background: "var(--accent-deep)" }} /> founder</span>
-          <span><span className="dot" style={{ background: "var(--ink-1)" }} /> signal</span>
-          <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
-          <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
-        </div>
-        <span className="ego-hint muted">drag · hover · scroll to zoom</span>
-      </div>
-      <ForceGraph
-        nodes={kg.nodes}
-        edges={kg.edges}
-        width={gw}
-        height={gh}
-        nodeColor={(k: string) => EGO_KIND_COLOR[k] ?? "var(--ink-1)"}
-        nodeRadius={(n: GraphNode) =>
-          n.kind === "founder" ? 16 : n.kind === "signal" ? 6 : n.kind === "platform" ? 7 : 5}
-        labelFor={(n: GraphNode) => (n.kind === "founder" || n.kind === "platform" ? n.label : null)}
-        highlightId={`Person:${founderId}`}
-      />
-    </div>
-  );
-}
-
-function EgoNetworkSynthetic({
-  founderId,
-  loading,
-}: {
-  founderId: string;
-  loading?: boolean;
-}) {
-  const thesis = useThesis();
-  const [hop, setHop] = useState<1 | 2>(1);
-  const data = useMemo(() => thesis.egoFor(founderId), [founderId, thesis]);
-  const W = 380;
-  const H = 320;
-  const positions = useMemo(() => {
-    const pos: Record<string, { x: number; y: number }> = {};
-    pos["F"] = { x: W / 2, y: H / 2 };
-    const signals = data.nodes.filter(n => n.kind === "signal");
-    signals.forEach((n, i) => {
-      const a = -Math.PI / 2 + (i / Math.max(signals.length - 1, 1)) * Math.PI;
-      pos[n.id] = { x: W / 2 + Math.cos(a) * 80, y: H / 2 + Math.sin(a) * 80 };
-    });
-    const topics = data.nodes.filter(n => n.kind === "topic");
-    topics.forEach((n, i) => {
-      pos[n.id] = { x: W - 50, y: 60 + i * 70 };
-    });
-    const platforms = data.nodes.filter(n => n.kind === "platform");
-    platforms.forEach((n, i) => {
-      pos[n.id] = { x: 40, y: 60 + i * 80 };
-    });
-    return pos;
-  }, [data]);
-
-  const nodeColor = (kind: string) =>
-    ({
-      founder: "var(--accent-deep)",
-      signal: "var(--ink-1)",
-      topic: "var(--accent)",
-      platform: "var(--ink-3)",
-    }[kind] || "var(--ink-1)");
-
-  return (
-    <div className="ego-wrap">
-      <div className="ego-controls">
-        <div className="ego-legend">
-          <span><span className="dot" style={{ background: "var(--accent-deep)" }} /> founder</span>
-          <span><span className="dot" style={{ background: "var(--ink-1)" }} /> signal</span>
-          <span><span className="dot" style={{ background: "var(--accent)" }} /> topic</span>
-          <span><span className="dot" style={{ background: "var(--ink-3)" }} /> platform</span>
-        </div>
-        {loading ? (
-          <span className="ego-hint muted">loading real graph…</span>
-        ) : (
-          <div className="seg sm">
-            <button className={hop === 1 ? "on" : ""} onClick={() => setHop(1)}>1-hop</button>
-            <button className={hop === 2 ? "on" : ""} onClick={() => setHop(2)}>2-hop</button>
-          </div>
-        )}
-      </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="ego-svg">
-        <defs>
-          <marker id="arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L6,3 L0,6 Z" fill="var(--ink-3)" />
-          </marker>
-        </defs>
-        {data.edges.map((e, i) => {
-          const a = positions[e.a];
-          const b = positions[e.b];
-          if (!a || !b) return null;
-          return (
-            <line
-              key={i}
-              x1={a.x}
-              y1={a.y}
-              x2={b.x}
-              y2={b.y}
-              stroke="var(--accent)"
-              strokeOpacity={0.2 + e.w * 0.5}
-              strokeWidth={0.6 + e.w * 1.6}
-            />
-          );
-        })}
-        {hop === 2 &&
-          [0, 1, 2, 3].map(i => {
-            const a = (i / 4) * Math.PI * 2;
-            return (
-              <circle
-                key={"g" + i}
-                cx={W / 2 + Math.cos(a) * 150}
-                cy={H / 2 + Math.sin(a) * 130}
-                r="6"
-                fill="var(--ink-3)"
-                opacity="0.15"
-              />
-            );
-          })}
-        {data.nodes.map(n => {
-          const p = positions[n.id];
-          if (!p) return null;
-          const r = n.kind === "founder" ? 18 : n.kind === "signal" ? 10 : 8;
-          return (
-            <g key={n.id} transform={`translate(${p.x}, ${p.y})`}>
-              <circle r={r + 3} fill="var(--bg)" stroke={nodeColor(n.kind)} strokeWidth="1" />
-              <circle r={r} fill={nodeColor(n.kind)} opacity={n.kind === "founder" ? 1 : 0.85} />
-              {n.kind === "founder" ? (
-                <text y="4" textAnchor="middle" fontFamily="var(--serif)" fontSize="11" fill="var(--bg)" fontWeight="600">
-                  F
-                </text>
-              ) : (
-                <text y={r + 12} textAnchor="middle" fontFamily="var(--mono)" fontSize="9" fill="var(--ink-2)">
-                  {n.label}
-                </text>
-              )}
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
 
 function TaxChip({ dim, cat, score }: { dim: string; cat: TaxonomyCode; score: number }) {
   const thesis = useThesis();
@@ -459,7 +250,7 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
   return (
     <section className="view view-3">
       <ViewIntro kicker="STEP 03 · DRILL IN" title={"Why was " + f.name + " picked?"}>
-        Trace the framework&apos;s per-founder evidence at <strong>{thesis.fmtMonth(t)}</strong> — the knowledge-graph neighbourhood, the five highest-weight signals, and the outcome timeline. Every signal links back to a source post.
+        Trace the framework&apos;s per-founder evidence at <strong>{thesis.fmtMonth(t)}</strong> — the five highest-weight signals the model saw, and the outcome timeline from first signal to emergence. Every signal links back to a source post.
       </ViewIntro>
 
       <div className="founder-hero">
@@ -506,19 +297,7 @@ export function View3Founder({ founderId, t, gotoView }: Props) {
         </button>
       </div>
 
-      <div className="founder-grid">
-        <div className="founder-panel ego-panel">
-          <div className="panel-head">
-            <span className="kicker">
-              KG ego-network
-              <InfoTip width={320}>
-                The founder (F) and her 1-hop neighbours in the knowledge graph: <strong>signals</strong> she&apos;s posted, <strong>topics</strong> they touch, and the <strong>platforms</strong> they live on. Edge weight ≈ co-occurrence strength. T2 features come from this subgraph.
-              </InfoTip>
-            </span>
-            <span className="muted">click a node to inspect</span>
-          </div>
-          <EgoNetworkReal founderId={founderId} />
-        </div>
+      <div className="founder-grid founder-grid-2col">
         <div className="founder-panel signals-panel">
           <div className="panel-head">
             <span className="kicker">
