@@ -1978,3 +1978,64 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 
 **Cost incurred:** $0 (no LLM). Ledger unchanged **$12.70 / $30**.
 ---
+
+---
+## 2026-06-04 09:40 — Expanded backtest run (Phases A–C + G/I code)
+
+**What I did:** Expanded cohort 20→36 founders with dated founding/emergence events + sourced URLs (Phase A); ran full ingestion sweep (Phase B, 21/36 founders have signals, 2490 cohort signals); harvested 1511 in-niche negative candidates + launched signal-bearing-negative ingest (Phase C); built discovery_timeline.py "time machine", tier1_only baseline, robustness+MonteCarlo orchestrator (Phase G code), and export_for_thesis.py (Phase I code).
+**Decisions made:** Cohort capped at 36 (Kris choice). Reddit OAuth unavailable → built unauth public-JSON path, but Reddit now edge-blocks it (403) — documented, cohort Reddit stays from prior OAuth files. X/Twitter thin (snscrape dead, Wayback throttles) — no paid API per Kris; documented as a limitation. Budget: Haiku-only, $20 ledger ceiling.
+**Blockers:** None hard. Negatives-ingest + Wayback-backfill running in background; scoring chain (D→E→F→G→H) resumes when ingest completes.
+**Next steps:** clean → score (Haiku $20) → person/KG features → eval w/ CIs → run timeline+backtest+robustness+MC → frontend JSON → export to THESIS_DIR → final tests + PROGRESS/DECISION_LOG. (CC, autonomous.)
+**Files changed:** ingestion/cohort.py, ingestion/reddit_public_collect.py, ingestion/sweep.py, ingestion/hackernews_collect.py, analysis/discovery_timeline.py, models/allocation_framework/backtest.py, scoring/score_signals.py, scripts/{harvest_negatives_by_niche,backfill_twitter_new_founders,ingest_signal_bearing_negatives,run_phase_g,export_for_thesis}.py, tests/*, THESIS_DIR/04_RETROSPECTIVE_CASES/{cohort_verified,cohort_sources,cohort_balance}.md, DECISION_LOG.md.
+**Cost incurred:** ~$9.66 ledger so far (no new scoring yet this run; D pending).
+---
+
+---
+## 2026-06-04 23:00 — Expanded backtest COMPLETE (canonical n=36) + integrity audit
+
+**What I did:** Stopped scoring at $19.13 (8.8s/signal made full scoring a multi-hour grind — Kris chose to stop and run downstream on partial data). Ran full E→J pipeline on 3,220 scored signals. Two integrity-audit rounds caught + fixed 4 real bugs. Produced all canonical outputs into THESIS_DIR.
+**Results (canonical, supersede n=27/n=25):** n=36 (21 pos, 15 neg). Baseline ROC-AUC 0.870 [0.741,0.962], PR-AUC 0.923; KG-aug 0.854 — KG Δ −0.016 (honest null). Multi-date backtest: two_tier mean p@5 = 0.500 does NOT beat signal_volume (0.733)/recency (0.716) — honest negative result. Time machine: 6/12 picked-up positives have true pre-emergence lead (median +15mo, max +43mo). MC K=20: 0.44 [0.25,0.65].
+**Decisions made:** Stop scoring (budget+time); raise ceiling to $30 hard cap earlier; report negative/null results straight (no tuning). Vercel project renamed thesis-demo → social-media-vc-thesis.
+**Bugs fixed (audit):** 99 duplicate scored signals double-counting rollups; str-path crashes in combine.py + baseline_model.py; stale n=6 eval CSV with NaN CIs (wired evaluate_with_ci); Monte Carlo histogram crash on small-n bootstraps. All guarded by tests/test_integrity.py (11 tests). 291 pass, 1 skip, ruff clean.
+**Blockers:** None. Reddit OAuth + unauth both unavailable (documented); X via Wayback only (snscrape dead).
+**Next steps:** Kris review. Optional: deploy frontend to activate new Vercel URL; get Reddit creds for a richer re-run; score remaining negatives if budget/time allows.
+**Files changed:** ingestion/{cohort,reddit_public_collect,sweep,hackernews_collect}.py, analysis/{discovery_timeline,person_features}.py, models/{allocation_framework/{combine,backtest},evaluation/eval,baselines/baseline_model,monte_carlo}.py, scoring/score_signals.py, scripts/{harvest_negatives_by_niche,backfill_twitter_new_founders,ingest_signal_bearing_negatives,score_budget_aware,run_phase_g,export_for_thesis,export_frontend_timeline,run_downstream}.py, tests/* (incl. test_integrity.py), FRONTEND_SPEC.md, THESIS_DIR outputs.
+**Cost incurred:** $19.13 / $30 cap.
+---
+
+---
+## 2026-06-04 23:45 — Parallel negative scoring → n=139 (much stronger result)
+
+**What I did:** Built scripts/score_parallel.py (ThreadPoolExecutor, thread-safe budget guard, breadth-first negatives). Ran 1 signal/negative across ~242 negatives; API credit balance ran out after ~103 ok (graceful stop, ~$0.63 spent). Negative coverage 15→118, eval n 36→139. Re-ran full downstream + regenerated all THESIS_DIR outputs.
+**Results (NEW canonical, n=139):** Baseline ROC-AUC 0.967 [0.913,0.996] (was 0.870), PR-AUC 0.905. KG-aug 0.965 → KG Δ −0.002 (robust null). Backtest unchanged: two_tier p@5 0.500 still loses to signal_volume 0.733 (robust negative result). Time-machine median lead +2mo (was −4); 8 positives with true pre-emergence pickup (median +12mo, max +44mo).
+**Decisions made:** Spend the last ~$1 of API balance on breadth-first negatives (Kris). Confirmed credit balance now exhausted ("credit balance too low" 400s).
+**Blockers:** API credits exhausted — no more scoring possible until Kris tops up.
+**Next steps:** Kris review of stronger findings. Reframe thesis: lead with the discrimination result (0.967, tight CI) + time-machine (+12mo lead on 8 cases); report the framework-vs-baseline null honestly. Optional future: top up credits → score deeper negatives; get Reddit OAuth.
+**Files changed:** scripts/score_parallel.py (new), PROGRESS.md, DECISION_LOG.md, regenerated THESIS_DIR outputs (eval_report, backtest_results, figures, RESULTS_FOR_THESIS, first_pickup_dates, processed CSVs).
+**Cost incurred:** $19.76 / $30 cap (API console balance now $0).
+---
+
+---
+## 2026-06-04 — KG reframing write-up + frontend adjustment plan
+
+**What I did:** (1) Wrote `THESIS_DIR/11_THESIS_DOC/KG_AND_FINDINGS_WRITEUP.md` — drafting input for Chapter VI (honest findings framing: lead with discrimination 0.967 + lead-time +12mo; report KG-null and framework<baseline straight) and Chapter VIII (Future Work: Activating the KG). (2) Wrote `FRONTEND_ADJUSTMENT_PLAN.md` — comprehensive plan covering clarity, data-wiring verification, and KG legibility.
+**Key finding (verification of "is it hooked up"):** NO — the deployed Vercel app shows SYNTHETIC mock data. The real n=139 outputs are correct in data/processed + via FastAPI, but production falls back to mock because loadRealSource() needs a live API the static site doesn't have, and nothing reads the Phase-H frontend_timeline.json. Fix = static thesis_data.json bundle (plan §1, BLOCKER). Also KnowledgeGraphView shows stale "4,235 nodes/178k edges" (real: 6,283/370k).
+**KG insight (for thesis):** KG is inert because the graph is a star (no person-to-person edges) and its features re-describe flat features. Root cause = free data lacks interaction edges (Reddit blocked, X social graph paid). Reframed as latent value: proximity-to-prior-emergence, topic-cascade position, brokerage — all need relational data. "The KG isn't wrong, it's starved."
+**Decisions made:** Recommend static-JSON path for prod (no infra, examiner-proof); recommend showing the honest nulls in the UI.
+**Blockers:** None for docs. Frontend wiring is the next build task (not started). API credits still exhausted.
+**Next steps:** Kris to fold KG write-up into thesis; decide on frontend plan open questions (§7); then implement frontend plan §1→§4.
+**Files changed:** THESIS_DIR/11_THESIS_DOC/KG_AND_FINDINGS_WRITEUP.md (new), FRONTEND_ADJUSTMENT_PLAN.md (new), DECISION_LOG.md, STATUS_UPDATES.md.
+**Cost incurred:** $0 this step (no LLM/API calls).
+---
+
+---
+## 2026-06-05 — Frontend redesign implemented (KG removed, scoring-led story)
+
+**What I did:** Implemented the mockup-approved redesign on branch `feature/frontend-redesign`. (1) Removed the Knowledge Graph view from nav/TopBar/keybindings + deleted orphaned KnowledgeGraphView + RadialClusterGraph. (2) Built the Act 0 Hero landing (needle-in-haystack dot-grid + 3 headline stats: ROC-AUC 0.967, top-10 8/10 vs 3/10 random, +11mo median lead) in the existing light editorial style. (3) Reframed View2 Score to lead with the "8 of 10 vs 3 of 10" haystack comparison + ROC-AUC line. (4) Replaced View3 founder-card ego-network with a clean 2-panel layout (Top-5 signals + Outcome timeline). Headline numbers centralised in lib/thesis/headline.ts (traces to n=139 run CSVs).
+**Verification:** tsc 0 errors, lint clean, build succeeds. Verified each screen with live headless-Chrome screenshots against the running dev server.
+**Decisions made:** Kris: remove KG from UI (stays in thesis as future-work); keep the small decorative View1 rail mini-graph (cosmetic, not the analytical KG). Headline ROC-AUC + precision@10 (robust), not precision@3.
+**Blockers:** Data wiring is still the open BLOCKER — the app shows synthetic mock data in production; the Hero/Score numbers come from lib/thesis/headline.ts constants, not yet a static bundle. Next: build the static thesis_data.json bundle + static data source (FRONTEND_REDESIGN §6) so production shows real n=139 results.
+**Next steps:** (a) static data bundle + wiring; (b) deploy to social-media-vc-thesis.vercel.app; (c) Kris reviews live.
+**Files changed:** App.tsx, TopBar.tsx, ViewNav.tsx, Hero.tsx (new), headline.ts (new), View2Outcome.tsx, View3Founder.tsx, OnboardingGuide.tsx, demo.css; deleted KnowledgeGraphView.tsx + RadialClusterGraph.tsx.
+**Cost incurred:** $0 (no LLM/API calls; frontend only).
+---

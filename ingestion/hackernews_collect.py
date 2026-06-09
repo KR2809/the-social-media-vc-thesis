@@ -151,19 +151,25 @@ def collect_hackernews(
     start: date,
     end: date,
     out_dir: Path = Path("data/raw/hackernews"),
+    max_items: int | None = None,
 ) -> Path:
     """Collect a user's HN stories + comments in [start, end). Returns path.
 
-    The user endpoint returns ALL submitted IDs (oldest to newest, but HN
-    actually returns newest-first). We resolve them in parallel and
-    client-side-filter by the in-window date.
+    The user endpoint returns ALL submitted IDs (HN returns them
+    newest-first). We resolve them in parallel and client-side-filter by
+    the in-window date.
+
+    `max_items` caps how many of the (newest-first) submitted IDs are
+    resolved. This bounds the fetch for power-users with tens of thousands
+    of items (e.g. prolific HN commenters harvested as negatives), which
+    would otherwise trigger ~50k item fetches. None = no cap (default).
     """
     person_id = handle_to_person_id(username)
     collected_at = datetime.now(UTC)
 
     with raw_archive.handle_scope(username):
         return _collect_hackernews_inner(
-            username, person_id, start, end, collected_at, out_dir
+            username, person_id, start, end, collected_at, out_dir, max_items
         )
 
 
@@ -174,8 +180,15 @@ def _collect_hackernews_inner(
     end: date,
     collected_at: datetime,
     out_dir: Path,
+    max_items: int | None = None,
 ) -> Path:
     submitted = _fetch_user_submitted(username)
+    if max_items is not None and len(submitted) > max_items:
+        logger.info(
+            "HN user %s: capping %d submitted items to newest %d",
+            username, len(submitted), max_items,
+        )
+        submitted = submitted[:max_items]
     logger.info("HN user %s: %d submitted items", username, len(submitted))
 
     # contextvars do not propagate to ThreadPoolExecutor workers by

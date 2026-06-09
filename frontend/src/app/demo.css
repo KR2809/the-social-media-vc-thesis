@@ -1705,3 +1705,172 @@ body {
 }
 .nodata-title { font-size: 13px; font-weight: 600; color: var(--ink-1); margin: 0 0 6px; }
 .nodata-sub { font-size: 12px; line-height: 1.55; margin: 0; }
+
+/* ── Act 0 — Hero / landing band ─────────────────────────────────────────── */
+.hero {
+  padding: 40px 0 44px;
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: 8px;
+}
+.hero-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--hairline-2);
+  border-radius: 20px;
+  padding: 5px 12px;
+  margin-bottom: 20px;
+}
+.hero-headline {
+  font-family: var(--serif);
+  font-size: 38px;
+  line-height: 1.16;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink-1);
+  max-width: 880px;
+  margin: 10px 0 0;
+}
+.hero-headline em { color: var(--accent); font-style: italic; }
+.hero-sub {
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 760px;
+  margin-top: 16px;
+}
+.hero-sub strong, .hero-haycap strong { color: var(--ink-1); font-weight: 600; }
+.hero-haystack {
+  display: grid;
+  grid-template-columns: repeat(25, 1fr);
+  gap: 7px;
+  max-width: 720px;
+  margin: 30px 0 12px;
+}
+.hay-dot {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--hairline-2);
+}
+.hay-dot.hit {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.hero-haycap { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+.hay-cap-hit { color: var(--accent); font-weight: 600; }
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 36px;
+}
+.hero-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 22px 22px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.hero-card-q { position: absolute; top: 14px; right: 14px; }
+.hero-card .big-pct, .hero-card .big-frac { font-size: 46px; }
+.hero-card .big-frac-denom { font-size: 28px; }
+.hero-frac { display: flex; align-items: baseline; gap: 1px; }
+.hero-unit { font-size: 22px; color: var(--ink-3); font-weight: 400; }
+.hero-card-lab {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  margin-top: 10px;
+}
+.hero-foot {
+  font-size: 13px;
+  color: var(--ink-3);
+  margin-top: 30px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  max-width: 860px;
+  line-height: 1.5;
+}
+.hero-foot strong { color: var(--ink-2); font-weight: 600; }
+.hero-cta {
+  display: inline-block;
+  margin-top: 24px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 12px 24px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.hero-cta:hover { background: var(--accent-deep); }
+@media (max-width: 760px) {
+  .hero-headline { font-size: 28px; }
+  .hero-stats { grid-template-columns: 1fr; }
+  .hero-haystack { grid-template-columns: repeat(20, 1fr); }
+}
+
+/* ── Haystack comparison (Score view headline) ───────────────────────────── */
+.haystack-compare {
+  background: var(--bg-card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  padding: 22px 26px 24px;
+  margin: 4px 0 18px;
+  box-shadow: var(--shadow-sm);
+}
+.hc-title {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-1);
+  margin: 6px 0 0;
+  line-height: 1.25;
+}
+.hc-sub { font-size: 13.5px; color: var(--ink-2); margin-top: 8px; max-width: 720px; line-height: 1.45; }
+.hc-sub strong { color: var(--ink-1); font-weight: 600; }
+.hc-cols {
+  display: flex;
+  align-items: flex-end;
+  gap: 30px;
+  margin: 24px 0 6px;
+  max-width: 640px;
+}
+.hc-col { flex: 1; text-align: center; }
+.hc-who { font-size: 12px; color: var(--ink-3); display: block; margin-bottom: 10px; font-weight: 500; }
+.hc-people { display: flex; gap: 5px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+.hc-p { width: 22px; height: 22px; border-radius: 5px; background: var(--hairline-2); }
+.hc-p.ours { background: var(--accent); }
+.hc-p.rnd { background: var(--ink-3); }
+.hc-verdict { font-size: 19px; font-weight: 600; }
+.hc-verdict.ours { color: var(--accent); }
+.hc-verdict.rnd { color: var(--ink-3); }
+.hc-vs { align-self: center; color: var(--mu); font-weight: 600; font-size: 14px; padding-bottom: 22px; }
+.hc-roc {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--hairline);
+  line-height: 1.5;
+}
+.hc-roc strong { color: var(--ink-1); }
+@media (max-width: 600px) {
+  .hc-title { font-size: 19px; }
+  .hc-cols { gap: 14px; }
+  .hc-p { width: 17px; height: 17px; }
+}
+
+/* Founder card without the KG ego panel: two panels (signals + timeline). */
+.founder-grid-2col {
+  grid-template-columns: 1fr 1fr;
+}
+@media (max-width: 760px) {
+  .founder-grid-2col { grid-template-columns: 1fr; }
+}

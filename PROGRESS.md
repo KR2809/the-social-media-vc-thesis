@@ -1,7 +1,64 @@
 # PROGRESS.md — Build status for Cowork
 
+**Last updated:** 2026-06-04 (expanded-backtest run, iter-15)
+**Branch:** `feature/expanded-backtest` (active; merge target = `main`)
+**Tests:** 291 pass, 1 skip · **Ruff:** clean · **Cost incurred:** $19.76 / $30 monthly cap (API console balance now exhausted)
+
+---
+
+## ⭐ EXPANDED BACKTEST RUN (2026-06-04) — canonical results, supersedes n=27/n=25
+
+This run is the **single source of truth**. It supersedes the old eval (n=27)
+and the prior PROGRESS (n=25). The 2026-05-31 locked-prediction record is
+untouched (fixed historical artefact); this is the post-lock *expanded backtest*.
+
+**Final n = 139** (21 positives + 118 negatives that have scored signals; cohort
+expanded 20→36 named founders, 273 negatives ingested. A first sequential pass
+scored positives + the earliest 15 negatives; a second PARALLEL pass
+(`scripts/score_parallel.py`, breadth-first 1 signal/negative) lifted negative
+coverage 15→118 before the API console credit balance ran out — graceful
+stop, no overspend.)
+
+| Metric | Flat baseline | KG-augmented |
+|---|---|---|
+| ROC-AUC | **0.967** [0.913, 0.996] | 0.965 [0.909, 0.996] |
+| PR-AUC | **0.905** [0.795, 0.981] | 0.907 [0.797, 0.981] |
+| n / n_pos | 139 / 21 | 139 / 21 |
+
+- **KG Δ ROC-AUC = −0.002** — honest null; the knowledge graph does NOT help,
+  CIs fully overlap. (Was −0.016 at n=36; the KG-null result is robust.)
+- **n=36→139 strengthened the headline:** ROC-AUC 0.870→**0.967**, and the CI
+  tightened from ±0.11 to ±0.04 (low bound 0.74→**0.91**). The discrimination
+  result is now firmly above chance with a narrow interval.
+- **Multi-date backtest (102 monthly dates × 5 strategies):** mean precision@5 —
+  signal_volume **0.733**, recency 0.714, tier1_only 0.635, **two_tier 0.500**,
+  random 0.478. **HONEST NEGATIVE RESULT (robust across both runs): the two-tier
+  framework does NOT beat the naive signal-volume / recency baselines.** Straight.
+- **Pickup lead time (time machine):** overall median **+2 months** (was −4 at
+  n=36 — now positive). Of the picked-up positives, **8 have a genuine
+  pre-emergence pickup (median +12mo, max +44mo)** — e.g. marclou, lennysan,
+  arvidkahl. The remainder were flagged at/after emergence because free sources
+  (HN/Wayback) don't reach back to early-2010s emergences. Split reported honestly.
+- **Robustness:** best cell α=1.0 (pure topic-momentum), K=5, 12mo → p@K 0.600.
+- **Monte Carlo (framework demo):** K=20 mean emergence rate 0.44 [0.25, 0.65].
+- **Data integrity:** an audit caught + fixed 4 bugs (99 duplicate scored signals
+  double-counting rollups; str-path crashes in combine/baseline; stale n=6 eval
+  CSV with NaN CIs; Monte Carlo histogram crash on small-n bootstraps). All now
+  guarded by `tests/test_integrity.py` (11 invariant tests).
+- **Outputs in THESIS_DIR:** regenerated eval_report.md, backtest_results.md,
+  cohort_balance.md, cohort_verified.md (36), cohort_sources.md, first_pickup_dates.csv,
+  4 figures (160dpi EDHEC blue), 9 processed CSVs, RESULTS_FOR_THESIS.md.
+- **Known limitations (documented, not worked around):** Reddit OAuth unavailable
+  + Reddit now edge-blocks unauthenticated JSON → cohort Reddit coverage frozen;
+  X/Twitter recovered via Wayback (15/22 handles, e.g. gergelyorosz 1814 tweets)
+  but snscrape is dead; negatives thin (15 scored) → class imbalance.
+
+---
+
+### (historical) prior status header
+
 **Last updated:** 2026-05-27
-**Branch:** `feature/auto-discovery` (active development; merge target = `main`); PR #6 raw-archive merged 2026-05-27
+**Branch:** `feature/auto-discovery`; PR #6 raw-archive merged 2026-05-27
 **Tests:** 245 pass + 3 pre-existing API failures on baseline · **Ruff:** clean · **Cost incurred:** $5.45 / $30 monthly cap
 
 This file is the single source of truth Cowork should consult to understand what

@@ -346,7 +346,14 @@ def _result_to_row(signal: dict[str, Any], r: ScoreResult) -> dict[str, Any]:
 
 
 def _write_rows(rows: list[dict[str, Any]], out_path: Path) -> None:
-    """Append-only write: read existing, concat new, rewrite once."""
+    """Append write with signal_id dedup: read existing, concat new, dedup, rewrite.
+
+    Dedup on signal_id (keep LAST = newest scored_at) makes the flush
+    idempotent and prevents the duplicate-row accumulation that a
+    crash-and-restart between flush and the in-memory `already`-set update
+    could otherwise cause. Without this, overlapping runs double-count a
+    signal in every per-person rollup.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     new_table = pa.Table.from_pylist(rows, schema=_SCORED_SCHEMA)
     if out_path.exists():
@@ -354,7 +361,15 @@ def _write_rows(rows: list[dict[str, Any]], out_path: Path) -> None:
         tab = pa.concat_tables([old, new_table], promote_options="default")
     else:
         tab = new_table
-    pq.write_table(tab, out_path)
+    # Dedup on signal_id, keeping the last occurrence (newest scored_at).
+    df = tab.to_pandas()
+    before = len(df)
+    df = df.drop_duplicates(subset=["signal_id"], keep="last")
+    if len(df) < before:
+        logger.warning(
+            "deduped %d duplicate scored signal(s) on flush", before - len(df)
+        )
+    pq.write_table(pa.Table.from_pandas(df, schema=_SCORED_SCHEMA, preserve_index=False), out_path)
 
 
 def score_signals(
@@ -365,11 +380,13 @@ def score_signals(
     model: str = DEFAULT_MODEL,
     limit: int | None = None,
     flush_every: int = 25,
+    budget_usd: float = MONTHLY_BUDGET_USD,
 ) -> Path:
     """Score every un-scored signal in `signals_path` and append to `out_path`.
 
-    Returns the output path. Honours the monthly budget and skips
-    already-scored signal_ids.
+    Returns the output path. Honours the budget (default = the hard monthly
+    cap `MONTHLY_BUDGET_USD`; pass a lower `budget_usd` to enforce a tighter
+    per-run ceiling) and skips already-scored signal_ids.
     """
     system_prompt = load_prompt(prompt_path)
     signals_table = pq.read_table(signals_path)
@@ -395,8 +412,8 @@ def score_signals(
     for i, sig in enumerate(to_score, start=1):
         # Budget guard.
         cur = starting_cost + session_cost
-        if cur >= MONTHLY_BUDGET_USD:
-            logger.error("budget reached: $%.4f >= $%.2f, aborting", cur, MONTHLY_BUDGET_USD)
+        if cur >= budget_usd:
+            logger.error("budget reached: $%.4f >= $%.2f, aborting", cur, budget_usd)
             break
 
         t0 = time.time()

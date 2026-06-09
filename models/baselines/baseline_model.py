@@ -55,6 +55,7 @@ class TrainResult:
 
 
 def load_labels(labels_path: Path = _LABELS_DEFAULT) -> pd.DataFrame:
+    labels_path = Path(labels_path)
     if not labels_path.exists():
         raise FileNotFoundError(
             f"no outcome labels at {labels_path}. "

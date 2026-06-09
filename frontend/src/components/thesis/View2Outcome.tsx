@@ -6,6 +6,7 @@ import { fetchBacktest } from "@/lib/thesis";
 import type { BacktestResult, BacktestScore, BacktestStrategy, RankedPick } from "@/lib/thesis";
 import { InfoTip } from "./InfoTip";
 import { CIBar, EpistemeBar, fmtPct, ViewIntro } from "./primitives";
+import { HEADLINE, modelHitsPer10, randomHitsPer10 } from "@/lib/thesis/headline";
 import { YCOverlapPanel } from "./YCOverlapPanel";
 
 // ---------------------------------------------------------------------------
@@ -301,6 +302,65 @@ function RecallHeadline({ picks, t, K }: { picks: RankedPick[]; t: number; K: nu
 }
 
 // ---------------------------------------------------------------------------
+// Haystack comparison — the intuitive "8 of 10 vs 3 of 10" headline.
+// Uses the canonical run constants (precision@10), independent of the live
+// date slider, so it always states the study's strongest, most legible result.
+// ---------------------------------------------------------------------------
+
+function PeopleRow({ wins, total, kind }: { wins: number; total: number; kind: "ours" | "rnd" }) {
+  return (
+    <div className="hc-people">
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className={"hc-p" + (i < wins ? " " + kind : "")} />
+      ))}
+    </div>
+  );
+}
+
+function HaystackCompare() {
+  const k = HEADLINE.precAt10K;
+  return (
+    <div className="haystack-compare">
+      <div className="hc-head">
+        <span className="kicker">The bottom line</span>
+        <h3 className="hc-title">
+          Our top picks are founders ~{modelHitsPer10} out of {k}. Random
+          guessing? ~{randomHitsPer10} out of {k}.
+        </h3>
+        <p className="hc-sub">
+          <strong>Precision@{k}</strong> — of the {k} people the system ranks
+          highest, how many actually emerged. Random picking lands near the{" "}
+          {HEADLINE.baseRatePct}% base rate.
+          <InfoTip width={320}>
+            From the full multi-date backtest over the labelled pool (cohort +
+            negative peers). The strongest in-framework strategy at K={k}.
+          </InfoTip>
+        </p>
+      </div>
+      <div className="hc-cols">
+        <div className="hc-col">
+          <span className="hc-who">Pick {k} at random</span>
+          <PeopleRow wins={randomHitsPer10} total={k} kind="rnd" />
+          <span className="hc-verdict rnd mono">~{randomHitsPer10} / {k}</span>
+        </div>
+        <span className="hc-vs">vs</span>
+        <div className="hc-col">
+          <span className="hc-who">Our system&apos;s top {k}</span>
+          <PeopleRow wins={modelHitsPer10} total={k} kind="ours" />
+          <span className="hc-verdict ours mono">~{modelHitsPer10} / {k}</span>
+        </div>
+      </div>
+      <div className="hc-roc mono">
+        ROC-AUC <strong>{HEADLINE.rocAuc.toFixed(3)}</strong> [
+        {HEADLINE.rocAucCiLo.toFixed(3)}–{HEADLINE.rocAucCiHi.toFixed(3)}] —
+        given one founder and one non-founder, the model ranks the founder
+        higher 97% of the time.
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 interface Props {
   t: number;
@@ -348,6 +408,8 @@ export function View2Outcome({ t, K, picks }: Props) {
         three naïve baselines over the full labelled pool — <strong>cohort + negative peers</strong> — so the
         comparison is real, not a foregone conclusion.
       </ViewIntro>
+
+      <HaystackCompare />
 
       {canEval && <HowToRead baseRate={bt?.baseRate ?? 0} k={K} />}
 

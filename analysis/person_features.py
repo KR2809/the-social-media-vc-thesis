@@ -51,6 +51,7 @@ _S4_COLS = [
 
 
 def build_person_features(scored_path: Path = _SCORED_DEFAULT) -> pd.DataFrame:
+    scored_path = Path(scored_path)
     if not scored_path.exists():
         logger.warning("no scored signals at %s — returning empty frame", scored_path)
         return pd.DataFrame()
@@ -58,6 +59,11 @@ def build_person_features(scored_path: Path = _SCORED_DEFAULT) -> pd.DataFrame:
     df = pq.read_table(scored_path).to_pandas()
     if len(df) == 0:
         return pd.DataFrame()
+
+    # Defensive dedup: a duplicated signal_id would double-count in the
+    # per-person rollups (cadence, S-means, signal counts).
+    if "signal_id" in df.columns:
+        df = df.drop_duplicates(subset=["signal_id"], keep="last")
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
     df["s1_mean"] = df[_S1_COLS].mean(axis=1)

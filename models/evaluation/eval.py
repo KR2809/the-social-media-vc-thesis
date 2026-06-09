@@ -274,13 +274,38 @@ def write_report(
     return report_out
 
 
+def evaluate_both_with_ci(
+    flat_path: Path = _FLAT_DEFAULT,
+    kg_path: Path = _KG_DEFAULT,
+    labels_path: Path = _LABELS_DEFAULT,
+    n_iter: int = 1_000,
+) -> tuple[ModelMetrics, ModelMetrics]:
+    """evaluate_both, but with 95% bootstrap CIs attached to AUC + PR-AUC."""
+    flat = pd.read_parquet(flat_path)
+    labels = load_labels(labels_path)
+    baseline = evaluate_with_ci("baseline", flat, BASELINE_FEATURE_COLS, labels, n_iter=n_iter)
+
+    merged = merge_features(flat_path, kg_path)
+    kg_cols = list(
+        dict.fromkeys(
+            [*BASELINE_FEATURE_COLS, *[c for c in KG_FEATURE_COLS if c in merged.columns]]
+        )
+    )
+    kg_aug = evaluate_with_ci("kg_augmented", merged, kg_cols, labels, n_iter=n_iter)
+    return baseline, kg_aug
+
+
 def run_full_eval(
     flat_path: Path = _FLAT_DEFAULT,
     kg_path: Path = _KG_DEFAULT,
     labels_path: Path = _LABELS_DEFAULT,
     report_out: Path | None = None,
+    with_ci: bool = True,
 ) -> tuple[ModelMetrics, ModelMetrics]:
-    baseline, kg_aug = evaluate_both(flat_path, kg_path, labels_path)
+    if with_ci:
+        baseline, kg_aug = evaluate_both_with_ci(flat_path, kg_path, labels_path)
+    else:
+        baseline, kg_aug = evaluate_both(flat_path, kg_path, labels_path)
     flat = pd.read_parquet(flat_path)
     labels = load_labels(labels_path)
     zero_neg = detect_zero_feature_negatives(flat, labels)
