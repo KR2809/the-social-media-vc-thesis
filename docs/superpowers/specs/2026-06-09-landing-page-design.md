@@ -1,14 +1,40 @@
 # Design spec — "Spot the founder" landing page (2026-06-09)
 
-A single-scroll, YC-startup-style web page that explains, in 30 seconds to a
-stranger and in 10 minutes to an examiner, what Kristian's BBA thesis built and
-why it matters — anchored on one sentence and one interactive "wow."
+A single-scroll, YC-startup-style web page that explains — in plain words, in 30
+seconds to a friend and in 10 minutes to a supervisor — what this BBA-thesis
+prototype does and why it matters, anchored on one sentence and one interactive
+"wow" (the Time Machine, which plays back the real backtest). Primary audience:
+the supervisor + university (it gets graded); clarity is the top virtue.
 
 ## 1. Goal and audiences
 
 **The one sentence (the spine):**
-> "I built an AI that spots future startup founders from their public social
-> media — before they launch."
+> "An AI that spots future startup founders from their public social media —
+> before they launch."
+
+(Stated as a thing, in neutral product voice — not "*I* built…". Authorship and
+the "this is my BBA thesis prototype" framing live in the §6 footer.)
+
+### Locked decisions (2026-06-09, from Kris)
+
+1. **Headline keeps "AI"** — bold for the hook; precise wording ("scores public
+   signals with an LLM + a logistic model") appears lower, not in the H1.
+2. **Voice = neutral/product third-person** ("The system flags…", "It found…"),
+   NOT first-person. Personal/academic ownership → footer only.
+3. **First 5 seconds = clarity-first**: hero opens calm and legible (the one
+   sentence, large), THEN the scroll reveals the wow (motion, Time Machine).
+   No autoplay-in-your-face at the very top.
+4. **Real founder names — maximum wow.** Positives shown by name (Marc Lou,
+   Ben Tossell, Daniel Vassallo, Packy McCormick, …); they are public figures
+   already named in the thesis. Negatives stay anonymous (NEG_* codes, as the
+   thesis does). Never put a real name on the "did NOT emerge" board.
+5. **One page IS the whole site.** The old tabbed app is retired as the entry
+   point; its real interactivity (date-replay) is salvaged INTO the Time
+   Machine, which plays back the REAL backtest data — so the page is both the
+   "scroll to understand in simple words" story AND the "play with the real
+   data / what the thesis actually did" tool. No separate dashboard.
+6. **Public Vercel URL, shared cold** (`social-media-vc-thesis.vercel.app`) →
+   must stand 100% alone, zero assumed context, works on a phone.
 
 Three audiences, **in priority order**, served by progressive depth on ONE page
 (depth increases as you scroll; nobody is forced through complexity to reach the
