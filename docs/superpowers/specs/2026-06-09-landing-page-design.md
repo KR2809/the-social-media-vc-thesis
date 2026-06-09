@@ -10,14 +10,31 @@ why it matters — anchored on one sentence and one interactive "wow."
 > "I built an AI that spots future startup founders from their public social
 > media — before they launch."
 
-Three audiences, served by progressive depth on ONE page (depth increases as you
-scroll; nobody is forced through complexity to reach the point):
+Three audiences, **in priority order**, served by progressive depth on ONE page
+(depth increases as you scroll; nobody is forced through complexity to reach the
+point):
 
-| Audience | Scrolls to | The win |
-|---|---|---|
-| Friends | §1–2 (10 sec, phone) | "Wait, you can predict founders from their tweets?!" |
-| Dioro / VCs | §1–5 (2 min, skeptical) | "Real working sourcing tool — and he's honest about limits." |
-| Examiner / Kris explaining it | all + interactive + footer | The backtest, the CIs, the honest nulls, reproducible. |
+| Priority | Audience | Scrolls to | The win |
+|---|---|---|---|
+| **1** | **Supervisor + university (this gets graded)** | all + footer | "Finally — I can *follow* it. Clear, rigorous, honest about limits." |
+| 2 | Friends | §1–2 (10 sec, phone) | "Wait, you can predict founders from their tweets?!" |
+| 3 | Future employers / VCs (later) | §1–5 (2 min) | "Real working prototype — and he's a clear, honest builder." |
+
+**Clarity is the #1 virtue — because the supervisor's own review says so.** The
+next-to-final draft carries ~80 supervisor highlights, and they are almost
+entirely about *presentation*, not validity: "Confusing and difficult to make
+sense of — needs much clearer explanation of terms, acronyms, variables,"
+"so what's the significance of these scores?", "poor figure formatting,"
+"reformulate as an open question." He is NOT disputing the headline results
+(ROC-AUC 0.967, the lead time, the nulls). So the page's job is to be the
+**plain-English antidote** to exactly what he found confusing: no unexplained
+acronyms (never bare "S1–S6"), no raw equations, every concept named in words
+before any number. The page doubles as a teaching aid for the thesis itself.
+
+**Wear the academic framing openly.** This is *"the working prototype from my
+EDHEC BBA thesis,"* not a startup hiding its origins — the research gap, method,
+falsifiable proof-of-concept, and locked predictions are visible for the examiner
+(§6 footer matters more, not less).
 
 **Non-goal:** this is NOT a returns claim or a "these are the winners" tool. Per
 the thesis (Abstract; §VI.9; P1 interview), the honest framing is *"people worth
