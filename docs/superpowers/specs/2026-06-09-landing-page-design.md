@@ -66,9 +66,57 @@ falsifiable proof-of-concept, and locked predictions are visible for the examine
 the thesis (Abstract; §VI.9; P1 interview), the honest framing is *"people worth
 meeting earlier than others, not the winners."* Honesty is a feature on this page.
 
+### HARD RULE — zero math, zero jargon, parent-readable (locked 2026-06-09)
+
+The entire main flow (§1–§6) must be readable by someone with no technical or
+statistical background — "if I shared it with my parents, they'd get it." This is
+a HARD constraint, not a preference:
+
+- **No statistical terms** anywhere in the main flow: no "ROC-AUC", "AUC",
+  "precision@k", "PR-AUC", "confidence interval", "p-value", "lift", "n=",
+  "leave-one-out", "logistic regression", "Brier".
+- **No equations, no formulae, no Greek, no taxonomy codes** (never "S1–S4",
+  "Tier-1/Tier-2", "Σ", "α"). All of that stays in the THESIS PAPER only.
+- **Every number is translated to plain words** (table below). The wow is
+  *stronger* in plain words anyway.
+
+**Plain-language translation table (what the page actually says):**
+
+| Thesis term (NEVER on page) | Page wording |
+|---|---|
+| ROC-AUC 0.967 | "Shown a real founder and a random person, it picks the founder **97 times out of 100**." |
+| precision@10 = 0.78 | "Of its **top 10 picks, about 8 really became founders**." |
+| base rate ≈ 11.7% | "Only about **1 in 9** people in these circles ever become founders." |
+| lift@5 = 6.6× | "**About 6× better** than guessing." |
+| median lead +12 mo (max +44) | "It spotted them **roughly a year early** — and one of them **almost four years** early." |
+| n = 139 / LOO-CV | dropped (or, if needed: "tested across the whole group"). |
+| KG Δ −0.002 | "One fancier version of the idea **didn't actually help**, so it was dropped." |
+| framework < volume (0.50 vs 0.73) | "A **simpler rule** — just 'who's posting the most' — did the ranking job just as well." |
+| S1–S4 taxonomy | "what they make, what they say they're working on, and who they pull toward them." |
+| emergence composite (§IV.3.1) | "they hit real traction — a real audience, real revenue, or real funding." |
+
+### The one place rigour is allowed: "For the technical reader"
+
+A single, clearly-labelled, **collapsible** block near the bottom (after §5, before
+§6 footer) — "For the technical reader (the precise numbers)" — is the ONLY place
+the exact figures appear: ROC-AUC 0.967 [0.913–0.996], PR-AUC 0.905, lift@5 6.6×,
+precision@5 0.50 vs 0.73, n=139, leave-one-out CV. Collapsed by default; the
+parent-readable story above never depends on opening it. This serves the
+supervisor without polluting the main flow.
+
+### "Read the full thesis" link — graceful, hosting-TBD
+
+Paper hosting is not yet decided. The footer link degrades gracefully:
+- **Default:** "See the code & method → GitHub" (real, public, always works).
+- **If/when a paper URL exists:** add "Read the full thesis (PDF) →".
+- The page NEVER renders a broken/placeholder link. A single config flag
+  (`THESIS_PAPER_URL`, optional) controls whether the PDF link shows.
+
 ## 2. Claim-to-thesis traceability (every number on the page maps here)
 
 Every headline statement must trace to the thesis so the page and paper agree.
+(The page shows the PLAIN-LANGUAGE form per the table above; the thesis cell is
+the source of truth for the underlying value.)
 
 | Page claim | Exact value | Thesis source |
 |---|---|---|
