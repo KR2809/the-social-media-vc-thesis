@@ -2341,3 +2341,135 @@ body {
   font-style: italic;
   line-height: 1.55;
 }
+
+/* ── §5 THE PROOF ────────────────────────────────────────────────────────── */
+.lp-pf-compare {
+  display: flex;
+  align-items: flex-end;
+  gap: 34px;
+  margin: 40px 0 12px;
+  max-width: 640px;
+}
+.lp-pf-col { flex: 1; text-align: center; }
+.lp-pf-who {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 12px;
+}
+.lp-pf-people {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.lp-pf-p {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: var(--hairline-2);
+  transition: background 0.4s;
+}
+.lp-pf-p.ours { background: var(--accent); }
+.lp-pf-p.rnd { background: var(--mu); }
+.lp-pf-verdict { font-size: 17px; font-weight: 600; }
+.lp-pf-verdict.ours { color: var(--accent); }
+.lp-pf-verdict.rnd { color: var(--ink-3); }
+.lp-pf-vs { align-self: center; color: var(--mu); font-size: 12px; padding-bottom: 26px; }
+
+.lp-pf-honest {
+  margin-top: 56px;
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  padding: 26px 28px;
+  max-width: 720px;
+  box-shadow: var(--shadow-sm);
+}
+.lp-pf-honest-title {
+  font-family: var(--serif);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ink-1);
+  margin: 0 0 8px;
+}
+.lp-pf-honest-sub { font-size: 14.5px; color: var(--ink-2); margin: 0 0 14px; line-height: 1.55; }
+.lp-pf-honest-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lp-pf-honest-list li { font-size: 14.5px; line-height: 1.55; color: var(--ink-2); }
+.lp-pf-honest-list strong { color: var(--ink-1); }
+
+/* ── Technical reader (the ONE rigorous block) ───────────────────────────── */
+.lp-tech {
+  margin-top: 34px;
+  max-width: 720px;
+  border: 1px dashed var(--hairline-2);
+  border-radius: var(--r-md);
+  background: transparent;
+}
+.lp-tech-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-2);
+  list-style: none;
+}
+.lp-tech-summary::-webkit-details-marker { display: none; }
+.lp-tech-hint { font-size: 10px; color: var(--mu); }
+.lp-tech[open] .lp-tech-hint { display: none; }
+.lp-tech-body { padding: 4px 18px 18px; }
+.lp-tech-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.lp-tech-table td {
+  padding: 7px 10px 7px 0;
+  border-top: 1px solid var(--hairline);
+  color: var(--ink-2);
+  vertical-align: top;
+}
+.lp-tech-table td:first-child { color: var(--ink-3); white-space: nowrap; width: 200px; }
+.lp-tech-note { font-size: 11px; color: var(--mu); margin: 14px 0 0; line-height: 1.5; }
+
+/* ── §6 FOOTER ───────────────────────────────────────────────────────────── */
+.lp-footer { padding-bottom: 72px; }
+.lp-footer-rule { border-top: 1px solid var(--hairline-2); margin-bottom: 56px; }
+.lp-footer-title {
+  font-family: var(--serif);
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.3;
+  font-weight: 600;
+  color: var(--ink-1);
+  max-width: 760px;
+  margin: 0;
+}
+.lp-footer-title em { color: var(--accent); }
+.lp-footer-links {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.lp-footer-link {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-soft);
+  padding-bottom: 2px;
+}
+.lp-footer-link:hover { border-bottom-color: var(--accent); }
+.lp-footer-byline {
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin-top: 36px;
+}

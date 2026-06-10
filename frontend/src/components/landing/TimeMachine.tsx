@@ -91,8 +91,12 @@ export function TimeMachine() {
     const el = sectionRef.current;
     if (!el || !data || hasPlayed) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setIdx(data.dates.length - 1); // show the finished state, no animation
-      setHasPlayed(true);
+      // Show the finished state, no animation (deferred: avoids cascading
+      // sync renders inside the effect, per react-hooks/set-state-in-effect).
+      queueMicrotask(() => {
+        setIdx(data.dates.length - 1);
+        setHasPlayed(true);
+      });
       return;
     }
     const obs = new IntersectionObserver(
