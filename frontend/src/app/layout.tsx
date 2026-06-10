@@ -32,21 +32,21 @@ const serif = Source_Serif_4({
 // Override per-environment via NEXT_PUBLIC_SITE_URL (Vercel project URL).
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3001";
 
-const title = "From Social Signals to Pre-Seed Allocation — Thesis Demo";
+const title = "Founder Radar — an AI that spots founders before they launch";
 const description =
-  "A systematic framework for pre-seed venture capital, built from free public social-media signals. Replay any date, score the picks against naïve baselines, and drill into the evidence. Kristian Ratkov · EDHEC BSc Global Business.";
+  "An AI that spots future startup founders from their public posts — before they launch. Watch it replay the real test in the Time Machine: flagged a median of ~a year early, built only from free public data. Kristian Ratkov · EDHEC BBA thesis.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title,
   description,
-  applicationName: "Thesis Demo",
+  applicationName: "Founder Radar",
   authors: [{ name: "Kristian Ratkov" }],
   openGraph: {
     type: "website",
     title,
     description,
-    siteName: "From Social Signals to Pre-Seed Allocation",
+    siteName: "Founder Radar",
     locale: "en_GB",
   },
   twitter: {
