@@ -2049,3 +2049,13 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Next steps:** Kris reviews locally (cd frontend && npm run dev) or approves deploy; then verify live URL on phone.
 **Cost incurred:** $0 (no LLM/API).
 ---
+
+---
+## 2026-06-10 — DEPLOYED: founder-radar-ai.vercel.app (Founder Radar)
+
+**What I did:** Kris approved deploy + asked for a cooler URL. Rebranded to "Founder Radar" (tab/OG title: 'Founder Radar — an AI that spots founders before they launch'); renamed the Vercel project (founder-radar; same project ID). founder-radar.vercel.app was squatted by a third party, so claimed the available founder-radar-ai.vercel.app as the production alias. Found and removed the project's SSO deployment protection (was 'all_except_custom_domains' — blocked public access) via the Vercel API. Deployed to production (26s build, Ready).
+**Verification:** Live URL serves publicly: correct title, all section content probes pass, /frontend_timeline.json serves (448KB real data), hero verified visually in the browser. Old thesis-demo-five.vercel.app alias still points at the new deployment too.
+**The live URL to share: https://founder-radar-ai.vercel.app**
+**Next steps:** none blocking. Optional later: custom domain (e.g. founderradar.io) if Kris wants to own the name outright; 'score anyone' feasibility doc remains the deferred follow-up.
+**Cost incurred:** $0.
+---
