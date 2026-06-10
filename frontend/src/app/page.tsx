@@ -1,13 +1,12 @@
-import { App } from "@/components/thesis/App";
+import { LandingPage } from "@/components/landing/LandingPage";
 
-// Render App directly. App is a "use client" component reading
-// useSearchParams(); on Next.js 16 in development useSearchParams does NOT
-// suspend (per docs/api-reference/functions/use-search-params), so the
-// Suspense boundary was unnecessary AND triggered a streaming-SSR
-// hydration hang on this scaffold. We'll add Suspense back at Phase D
-// when we ship a prod build, once the underlying bug is also addressed.
+// The single-scroll landing page is the whole site (spec
+// docs/superpowers/specs/2026-06-09-landing-page-design.md). It reads one
+// static JSON from /public, so it cold-loads with no API. The old tabbed
+// App is retired as the entry point (its replay logic lives on inside the
+// Time Machine section).
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return <App />;
+  return <LandingPage />;
 }

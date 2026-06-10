@@ -2,28 +2,11 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "dashboard",
-      "runtimeExecutable": "/usr/local/bin/python3.11",
-      "runtimeArgs": [
-        "-c",
-        "import sys, os; root='/Users/k.ratkov/Documents/Coding/Thesis/the-social-media-vc-thesis'; sys.path.insert(0, root+'/.venv-preview/lib/python3.11/site-packages'); os.chdir(root); sys.argv=['streamlit','run','dashboard/app.py','--server.headless','true','--server.port','8501']; from streamlit.web.cli import main; main()"
-      ],
-      "port": 8501
-    },
-    {
-      "name": "frontend",
-      "runtimeExecutable": "/Users/k.ratkov/.nvm/versions/node/v22.19.0/bin/node",
-      "runtimeArgs": [
-        "/Users/k.ratkov/.nvm/versions/node/v22.19.0/lib/node_modules/npm/bin/npm-cli.js",
-        "--prefix",
-        "frontend",
-        "run",
-        "dev",
-        "--",
-        "--port",
-        "3001"
-      ],
-      "port": 3001
+      "name": "landing",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "frontend",
+      "port": 3000
     }
   ]
 }
