@@ -191,6 +191,16 @@ def build() -> dict:
         have = [c for c in cols if c in pq.read_schema(SCORED).names]
         scored = pq.read_table(SCORED, columns=have).to_pandas()
         scored["timestamp"] = pd.to_datetime(scored["timestamp"], utc=True)
+        # scored_signals does NOT carry the post text; join it from the
+        # unified signal_events parquet so the founder panel can show the
+        # real posts the model scored (no-fabrication: real text or none).
+        if "raw_text" not in scored.columns:
+            events_pq = REPO / "data" / "interim" / "signal_events.parquet"
+            if events_pq.exists():
+                ev = pq.read_table(
+                    events_pq, columns=["signal_id", "raw_text"]
+                ).to_pandas()
+                scored = scored.merge(ev, on="signal_id", how="left")
 
     positives: set[str] = set()
     if LABELS.exists():

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "generated_at": "2026-06-10T13:52:05",
-    "git_commit": "0dcd72d20ef09d710bf88df33e369783c16b63dc",
+    "generated_at": "2026-06-10T14:19:50",
+    "git_commit": "c4932679f1ad427ee537704ea6a329039fc4ba0a",
     "grid_start": "2014-02-01",
     "grid_end": "2026-06-01",
     "tracked_threshold": 0.2199,
@@ -207,7 +207,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-26",
           "strength": 0.48,
-          "text": ""
+          "text": "Healthcare has the strictest compliance requirements of any US industry. The most sensitive data. Twenty-five new state AI regulations introduced this year alone.<p>It also has the largest gap between AI deployment and AI governance of any "
         }
       ]
     },
@@ -235,7 +235,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-21",
           "strength": 0.35,
-          "text": ""
+          "text": "Peak unemployment for a software engineer. What did I do wrong?\n\nBack in 2019, I was a CS student in Iraq. I taught myself Node.js, React, and TypeScript. Then in 2020, the pandemic started, and honestly, it was perfect timing for me becaus"
         }
       ]
     },
@@ -889,35 +889,35 @@
           "platform": "twitter",
           "timestamp": "2019-06-15",
           "strength": 0.6,
-          "text": ""
+          "text": "A new & innovative motion graphics editor For the past months I've shared some teasers of a new web-based animation tool I've been building Today I'm finally sharing some more details on it, including the process, research, and its outcome "
         },
         {
           "signal_id": "twitter_1140685478397714433",
           "platform": "twitter",
           "timestamp": "2019-06-17",
           "strength": 0.52,
-          "text": ""
+          "text": "It's finally live: http:// spectryum.co lives IRL/ONLINE Shipping avail in Honduras ATM, but fret not, I've got plans to get this baby out in the world, just you wait. Six months ago this was merely an idea, now it's tangible in space. pic."
         },
         {
           "signal_id": "twitter_1141658664207564801",
           "platform": "twitter",
           "timestamp": "2019-06-20",
           "strength": 0.5,
-          "text": ""
+          "text": "I'm working from a terrace in N\u00eemes, South of France, it's warm and sunny, and I created a page to collate all my short neuroscience essays https:// nesslabs.com/neuroscience pic.twitter.com/VMk8PeDAIz"
         },
         {
           "signal_id": "twitter_1140267284071616513",
           "platform": "twitter",
           "timestamp": "2019-06-16",
           "strength": 0.35,
-          "text": ""
+          "text": "We did a tweet asking the @ makermag community on the best platforms to find remote jobs. Here's the article . Featuring: @ remote_ok by @ levelsio @ weworkremotely by @ matthewwholling @ remotecircle by @ CNTiernan & @ Joshua_Tiernan @ rem"
         },
         {
           "signal_id": "twitter_1140561693489025024",
           "platform": "twitter",
           "timestamp": "2019-06-17",
           "strength": 0.28,
-          "text": ""
+          "text": "How to start a podcast by Alex Edmonds @ supremerumham Me & Alex started Open Podcast Community together @ makermag : https:// makermag.com/2019/06/15/how -to-start-a-podcast/ \u2026 Podcasting is a great opportunity to reach a new audience, but"
         }
       ]
     },
@@ -1865,35 +1865,35 @@
           "platform": "hackernews",
           "timestamp": "2018-01-10",
           "strength": 0.4,
-          "text": ""
+          "text": "I run a SaaS business with almost all of the customers in the US from Germany, using a German stripe account. Credit card support is very limited, as any transaction will look like an international charge to the credit card vendor. This res"
         },
         {
           "signal_id": "hn_18839452",
           "platform": "hackernews",
           "timestamp": "2019-01-06",
           "strength": 0.35,
-          "text": ""
+          "text": "It&#x27;s less about how it handles exceptions but rather how the BEAM makes sure that things that break don&#x27;t crash the whole system.<p>The magic is in the supervisor pattern, explained here for erlang: <a href=\"http:&#x2F;&#x2F;erlan"
         },
         {
           "signal_id": "hn_20624325",
           "platform": "hackernews",
           "timestamp": "2019-08-06",
           "strength": 0.35,
-          "text": ""
+          "text": "It&#x27;s also important to note that the high-expectation customer is not the high-frequency complainer that you will have in your customer base. Don&#x27;t confuse the two, they are opposites.<p>In my experience with my own company, there"
         },
         {
           "signal_id": "hn_20630075",
           "platform": "hackernews",
           "timestamp": "2019-08-06",
           "strength": 0.3,
-          "text": ""
+          "text": "This is a very interesting insight.<p>If your product can both provide a great service AND educate you about how this service can be amplified by choosing the correct job to use it with, then you have a great service.<p>For me, customer edu"
         },
         {
           "signal_id": "hn_17188920",
           "platform": "hackernews",
           "timestamp": "2018-05-30",
           "strength": 0.3,
-          "text": ""
+          "text": "I have been looking into this (and pgpool2 and pgbouncer) and what I found most suprising was both the lack of workable Docker images and any hint of a SaaS solution for this problem.<p>Connection Pooling as a Service, why does this not exi"
         }
       ]
     },
@@ -2515,35 +2515,35 @@
           "platform": "hackernews",
           "timestamp": "2019-04-19",
           "strength": 0.65,
-          "text": ""
+          "text": "This may not qualify as SaaS but I built makerpad.co to show people how to build products&#x2F;businesses without code. Currently $27k over the last month. One person, not my full time gig.<p>Wtf am I talking about?! I\u2019m basically showing p"
         },
         {
           "signal_id": "hn_19712515",
           "platform": "hackernews",
           "timestamp": "2019-04-21",
           "strength": 0.55,
-          "text": ""
+          "text": "Makerpad.co - I teach people how to build projects without code. I\u2019m collaborating with companies now to help provide educational content on how to use the tools for a non-technical project or business. Last 4 weeks revenue is around 30k (f"
         },
         {
           "signal_id": "hn_19703318",
           "platform": "hackernews",
           "timestamp": "2019-04-19",
           "strength": 0.45,
-          "text": ""
+          "text": "No actually not the deals. Working with companies right now to get the best content hosted on makerpad to show off their platforms and how non technical makers can use those tools to power up their ideas&#x2F;businesses. Nothing is fully re"
         },
         {
           "signal_id": "hn_19538022",
           "platform": "hackernews",
           "timestamp": "2019-03-31",
           "strength": 0.3,
-          "text": ""
+          "text": "Show HN: Airbnb 'clone' built without code"
         },
         {
           "signal_id": "hn_19706019",
           "platform": "hackernews",
           "timestamp": "2019-04-20",
           "strength": 0.25,
-          "text": ""
+          "text": "I\u2019ve built up an audience around no code building and think I\u2019m one of the first people others think of in this space. I understand the audience as I\u2019m a non technical maker too."
         }
       ]
     },
@@ -2577,7 +2577,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-28",
           "strength": 0.4,
-          "text": ""
+          "text": "Show HN: Pretext powered portfolio recycling letters"
         }
       ]
     },
@@ -2605,7 +2605,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-12",
           "strength": 0.68,
-          "text": ""
+          "text": "Show HN: Display.dev, agent-native way to publish HTML or MD behind company auth\n\nLast week&#x27;s post from Thariq &quot;The Unreasonable Effectiveness of HTML&quot; went viral in X. He made a good point about HTML being the more expressiv"
         }
       ]
     },
@@ -2633,7 +2633,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-01",
           "strength": 0.4,
-          "text": ""
+          "text": "Fair criticism. I used Claude to help structure the writeup and it shows.\nThe scan, the data, and the findings are real. 130 lines of Python hitting\nthe Smithery registry API, bawbel scan on each server&#x27;s tool descriptions,\nresults com"
         }
       ]
     },
@@ -2673,7 +2673,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-03",
           "strength": 0.58,
-          "text": ""
+          "text": "Show HN: MoodJot \u2013 Mood tracker mobile app with community feed, built with KMP\n\nMoodJot is a mood tracking app I built solo using Kotlin Multiplatform and Compose Multiplatform. It ships on both iOS and Android from a single codebase.\nThe m"
         }
       ]
     },
@@ -2973,35 +2973,35 @@
           "platform": "twitter",
           "timestamp": "2023-06-15",
           "strength": 0.5,
-          "text": ""
+          "text": "Today I refunded $5982.00 to students of my Rank To Sell course.\n\nAfter a few weeks of price testing, I've significantly reduced the price of the Rank To Sell SEO course from $1000 down to $149.\n\nI received more emails about discounts than "
         },
         {
           "signal_id": "twitter_1668660589210787840",
           "platform": "twitter",
           "timestamp": "2023-06-13",
           "strength": 0.45,
-          "text": ""
+          "text": "Card testers are crazy! It could be a big con of building a cheap consumer-focused product.\n\nThis is what I did to minimize the attack:\n\n1. Create rules in @stripe Radar\n2. Listen to the charge.failed event in webhook\n3. If the reason of ch"
         },
         {
           "signal_id": "twitter_1666091821158789128",
           "platform": "twitter",
           "timestamp": "2023-06-06",
           "strength": 0.45,
-          "text": ""
+          "text": "Added over one million vectors in the Pinecone database for http:// PDF.ai in the past 7 days \ud83d\udd25 The speed is crazy, and so is my Pinecone bill \ud83e\udd2a"
         },
         {
           "signal_id": "twitter_1669344358053871617",
           "platform": "twitter",
           "timestamp": "2023-06-15",
           "strength": 0.42,
-          "text": ""
+          "text": "Finally http:// feather.so reached $5k MRR \ud83d\ude05 It took 13 months to get here since the launch.\n\n$4k -> $5k took the longest time than any of the milestones before...\n\n...mostly because I was focusing on http:// SiteGPT.ai for most of my time."
         },
         {
           "signal_id": "twitter_1666475125850673158",
           "platform": "twitter",
           "timestamp": "2023-06-07",
           "strength": 0.4,
-          "text": ""
+          "text": "Never underestimate the little $10 MRR (monthly recurring revenue)!\n\nIt equals $120 in ARR (annual recurring revenue).\n\nIf your business is valued at 10x its ARR. You just added $1,200 equity to your business.\n\nIf you can add $10 net MRR ev"
         }
       ]
     },
@@ -3029,7 +3029,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-24",
           "strength": 0.62,
-          "text": ""
+          "text": "Show HN: MailMark \u2013 Cold email tool where you own your domain and mailboxes\n\nHi, I&#x27;m Debasish from India \u2014 an electrical engineer working at a power plant, not a professional software developer. I&#x27;ve been building side projects si"
         }
       ]
     },
@@ -3069,7 +3069,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-05",
           "strength": 0.6,
-          "text": ""
+          "text": "Show HN: Stop LLMs from brute forcing (guessing) APIs\n\nMy AI agents keep brute forcing and guessing API interfaces even when specs and documentation are provided.\nEven with full API specs, a discovery endpoint, and up-to-date documentation,"
         }
       ]
     },
@@ -3871,35 +3871,35 @@
           "platform": "reddit",
           "timestamp": "2020-08-06",
           "strength": 0.52,
-          "text": ""
+          "text": "My Go-To Stoic Reflection Questions (and where I found them)\n\nMy 10 Go-To Reflection Questions (and Where I Found Them)\nFor 500 days in a row, I\u2019ve written 500 words of Morning Pages. If you\u2019ve never heard of Morning Pages, it\u2019s a fancy way"
         },
         {
           "signal_id": "reddit_comment_geuq6tp",
           "platform": "reddit",
           "timestamp": "2020-12-06",
           "strength": 0.5,
-          "text": ""
+          "text": "Ship 30 for 30: An accountability community to start writing in 2021.\n\n[ship30for30.com](https://ship30for30.com)"
         },
         {
           "signal_id": "reddit_sub_k7yhmw",
           "platform": "reddit",
           "timestamp": "2020-12-06",
           "strength": 0.42,
-          "text": ""
+          "text": "Ship 30 for 30: An accountability community to start writing in 2021"
         },
         {
           "signal_id": "reddit_sub_ijjm17",
           "platform": "reddit",
           "timestamp": "2020-08-30",
           "strength": 0.3,
-          "text": ""
+          "text": "My KPI Reflection for July and August"
         },
         {
           "signal_id": "reddit_sub_i16rbo",
           "platform": "reddit",
           "timestamp": "2020-07-31",
           "strength": 0.3,
-          "text": ""
+          "text": "My 10 Go-To Reflection Questions (and Where I Found Them)"
         }
       ]
     },
@@ -4409,35 +4409,35 @@
           "platform": "reddit",
           "timestamp": "2020-01-04",
           "strength": 0.5,
-          "text": ""
+          "text": "Amazon describes DynamoDB as a database, but it\u2019s best seen as a highly-durable data structure in the cloud. A partitioned B-tree data structure, to be precise.\n\nDynamoDB is much more similar to a Redis than it is to a MySQL. But, unlike Re"
         },
         {
           "signal_id": "reddit_sub_ekaaqc",
           "platform": "reddit",
           "timestamp": "2020-01-05",
           "strength": 0.4,
-          "text": ""
+          "text": "THE GOOD PARTS OF AWS \u2014 Brought to you by two ex-AWS engineers with 15 years of combined AWS experience. Almost everything we know about AWS, packed into a single short ebook."
         },
         {
           "signal_id": "reddit_comment_fcz8e1w",
           "platform": "reddit",
           "timestamp": "2020-01-03",
           "strength": 0.35,
-          "text": ""
+          "text": "Good question. This content took about 20 full-time days from 2 people to prepare, and I think that amount of effort crosses the line of what someone would expect for free. That said, if I didn't have a decent audience already, this would h"
         },
         {
           "signal_id": "reddit_sub_emlq3t",
           "platform": "reddit",
           "timestamp": "2020-01-10",
           "strength": 0.3,
-          "text": ""
+          "text": "THE GOOD PARTS OF AWS \u2014 Brought to you by two ex-AWS engineers with 15 years of combined AWS experience. Almost everything we know about AWS, packed into a single short ebook."
         },
         {
           "signal_id": "reddit_comment_fczujz4",
           "platform": "reddit",
           "timestamp": "2020-01-04",
           "strength": 0.3,
-          "text": ""
+          "text": "One of DynamoDB's strengths is that it supports immediately consistent reads. If you insert a record, and you get a successful response, then you're guaranteed to find it if you query for it (either via GetItem or Query). You could choose t"
         }
       ]
     },
@@ -4529,7 +4529,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-09",
           "strength": 0.72,
-          "text": ""
+          "text": "Show HN: HawkDoc \u2013 open-source Notion-style editor built on Lexical\n\nI was trying to use SuperDoc for a project and kept running into limitations. Customisation was harder than expected and the performance was not where I needed it. So I de"
         }
       ]
     },
@@ -4731,7 +4731,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-06",
           "strength": 0.58,
-          "text": ""
+          "text": "Show HN: MemberLane \u2013 Paid Communities on Telegram, Discord, and WhatsApp\n\nI wanted to monetize my own Discord community but every tool I tried had broken billing, bad UX, or terrible support.<p>MemberLane connects to Telegram, Discord, and"
         }
       ]
     },
@@ -5275,35 +5275,35 @@
           "platform": "hackernews",
           "timestamp": "2019-08-27",
           "strength": 0.52,
-          "text": ""
+          "text": "Been doing marketing for a while and only just discovered that &quot;Time to Interactive&quot; is a more important metric than &quot;First Meaningful Paint\u201d in Google&#x27;s eyes.<p>I see a lot of sites loading in 3rd party scripts such as "
         },
         {
           "signal_id": "hn_20612853",
           "platform": "hackernews",
           "timestamp": "2019-08-05",
           "strength": 0.5,
-          "text": ""
+          "text": "Author here. Ever since I knew of Hacker News, I&#x27;ve always been interested in the massive leverage it provide to both startups and individuals.<p>Choose the correct title and your startup can be projected to thousands. Write a thoughtf"
         },
         {
           "signal_id": "hn_20724997",
           "platform": "hackernews",
           "timestamp": "2019-08-17",
           "strength": 0.4,
-          "text": ""
+          "text": "ALways been interested by how Product Hunt works. Have launched there half a dozen times in the past and never got anywhere. Last week I launched my new startup [1] and was voted Product of the Day. Here&#x27;s a summary of what I learnt:<p"
         },
         {
           "signal_id": "hn_20624288",
           "platform": "hackernews",
           "timestamp": "2019-08-06",
           "strength": 0.4,
-          "text": ""
+          "text": "Hi Dang. I do think we&#x27;re arguing from the same side more than you might think.<p>Contrary to what you&#x27;re saying one of the main lessons in the case study is NOT to use a clever title. To quote, &quot;bleed out all the superfluous"
         },
         {
           "signal_id": "hn_20613783",
           "platform": "hackernews",
           "timestamp": "2019-08-05",
           "strength": 0.35,
-          "text": ""
+          "text": "Yeah, I couldn&#x27;t agree more. I do in fact make this point in the case study:<p>&quot;The point is that once you start hanging with your perfect audience, conventional marketing goes out the window. You don&#x27;t have to try so hard.<p"
         }
       ]
     },
@@ -5343,7 +5343,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-12",
           "strength": 0.6,
-          "text": ""
+          "text": "Show HN: Open-Source GTM Skills for Claude Code, Codex, and Cursor\n\nWe built an open-source library of 125 GTM (go-to-market) skills that plug into AI coding agents like Claude Code, Codex, and Cursor.<p>With these skills an AI agent can au"
         }
       ]
     },
@@ -5823,7 +5823,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-21",
           "strength": 0.52,
-          "text": ""
+          "text": "Hey YC F25, W26, X26 Founders\n\nI\u2019m putting together a case study this year on how startups go from founder-led sales \u2192 scalable GTM by fixing their positioning and messaging.<p>I\u2019m working with a small group of founders from this batch on a"
         }
       ]
     },
@@ -5883,7 +5883,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-29",
           "strength": 0.4,
-          "text": ""
+          "text": "Show HN: Open Vibe \u2013 free, open-source agent-led web dev course"
         }
       ]
     },
@@ -6113,7 +6113,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-08",
           "strength": 0.52,
-          "text": ""
+          "text": "Show HN: Slate \u2013 agentic pre-production studio for solo Youtubers\n\nI built slate as a personal tool to centralize my strategy, research, scripting, thumbnails and shots in one place. Started showing it to other youtubers and that made me wo"
         }
       ]
     },
@@ -6161,7 +6161,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-11",
           "strength": 0.4,
-          "text": ""
+          "text": "For those who don&#x27;t want to switch to AI browsers, I built a chrome extension that lets you chat with page, draft emails and messages, fix grammar, translate, summarize page, etc. \nYou can use models not just from OpenAI but also from "
         }
       ]
     },
@@ -6429,35 +6429,35 @@
           "platform": "twitter",
           "timestamp": "2023-01-01",
           "strength": 0.4,
-          "text": ""
+          "text": "I wanted to build some pre-launch curiosity...\n\nSo I updated my Twitter profile and shared the tweet below to tease at what was coming\n\nAnd I sent a timely email the day before the launch urging folks to \u201ccheck your inbox tomorrow\ufffd?\n\nCreate"
         },
         {
           "signal_id": "twitter_1609550344366718976",
           "platform": "twitter",
           "timestamp": "2023-01-01",
           "strength": 0.4,
-          "text": ""
+          "text": "5/ Urgency\n\nWe made it clear that only 50 early bird seats were available and we updated the number of remaining seats in the Google doc in real time\n\nVisitors could see that 90 other people were looking at that page when there were only 29"
         },
         {
           "signal_id": "twitter_1610058544165814278",
           "platform": "twitter",
           "timestamp": "2023-01-02",
           "strength": 0.4,
-          "text": ""
+          "text": "We officially launched the Un-ignorable Challenge today and it sold out in 6 minutes.\n\nBut years of effort went into the magic that happened in those 6 minutes.\n\nThere are no overnight success stories. \n\nDon\u2019t wish for it. Work for it."
         },
         {
           "signal_id": "twitter_1609550361131454464",
           "platform": "twitter",
           "timestamp": "2023-01-01",
           "strength": 0.35,
-          "text": ""
+          "text": "When someone signed up for the Un-ignorable Challenge, we asked them to post on social media to build more hype \n\nAnd when we sold out\u2014in just 57 minutes\u2014I posted a GIF sharing my shock and delight\n\nThis showcased demand and urged people to"
         },
         {
           "signal_id": "twitter_1615356856024662016",
           "platform": "twitter",
           "timestamp": "2023-01-17",
           "strength": 0.35,
-          "text": ""
+          "text": "8/ ANCHORING\n\nThe first piece of information we see often sets our expectations\n\nThat\u2019s why Snickers grew sales by 38% simply by changing the anchor from \u2018them\u2019 to \u201818\u2019 (cc: the @thebrainybiz podcast)\n\nThe lesson? \ud83d\udc49 Use anchors strategicall"
         }
       ]
     },
@@ -8109,35 +8109,35 @@
           "platform": "twitter",
           "timestamp": "2018-11-28",
           "strength": 0.5,
-          "text": ""
+          "text": "Got my MacBook back, so shipping again. Here's my first ship: http:// hoodmaps.com now lets you zoom out completely, and see what areas of a country are for tourists, rich, hipsters suits or normies. It uses the micro data, to abstract it u"
         },
         {
           "signal_id": "twitter_1067337579413028865",
           "platform": "twitter",
           "timestamp": "2018-11-27",
           "strength": 0.42,
-          "text": ""
+          "text": "I'm super excited to finally launch Doka.js! Doka.js is # JavaScript Image Editor for your Website. Flip, rotate, resize, client-side transforms, Doka handles it all. Live on @ ProductHunt : https://www. producthunt.com/posts/doka-js Use di"
         },
         {
           "signal_id": "twitter_1066961325677522950",
           "platform": "twitter",
           "timestamp": "2018-11-26",
           "strength": 0.4,
-          "text": ""
+          "text": "Last October, I tried this # digitalnomad thing! Thanks to @ NomadList , I choose Lisbon as my first destination Here is my feedback about the city and my new nomadic adventure! https://www. maxpou.fr/nomad-in-lisbon"
         },
         {
           "signal_id": "twitter_1067860977226403840",
           "platform": "twitter",
           "timestamp": "2018-11-28",
           "strength": 0.35,
-          "text": ""
+          "text": "Lots of folks asking us for numbers behind # 24hrstartup ...\n\nSo here they are:\n\n1/ REACH 118k pageviews 44k website visitors 70k viewers across Twitch streams 5M+ Twitter impressions (only counting tweets with hashtag)\n\nMore"
         },
         {
           "signal_id": "twitter_1062527537245372421",
           "platform": "twitter",
           "timestamp": "2018-11-14",
           "strength": 0.35,
-          "text": ""
+          "text": "My latest MVP (aka the Ugliest MVP I've ever shared):\n\nEasily create animated GIFs from emojis with Emojifs. https://www. emojifs.com / 99.9999% based on the awesome coding shared by @ levelsio here >>> https:// twitter.com/levelsio/statu s"
         }
       ]
     },
@@ -8177,7 +8177,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-14",
           "strength": 0.35,
-          "text": ""
+          "text": "Show HN: Keymatrix \u2013 Visual shortcut reference for mechanical keyboards\n\nI switch between several keyboards and got tired of looking up Fn combos and Bluetooth pairing sequences in PDFs. Built a visual reference \u2014 pick your keyboard, click "
         }
       ]
     },
@@ -8457,35 +8457,35 @@
           "platform": "hackernews",
           "timestamp": "2026-05-22",
           "strength": 0.55,
-          "text": ""
+          "text": "Show HN: Compose-to-Cloud Pulumi Providers for AWS, GCP, and Azure\n\nHi HN,<p>These are three FOSS Pulumi providers (defang-aws, defang-gcp, defang-azure) that take a Docker Compose-like project and provision it as real infrastructure to the"
         },
         {
           "signal_id": "hn_42194483",
           "platform": "hackernews",
           "timestamp": "2024-11-20",
           "strength": 0.52,
-          "text": ""
+          "text": "Show HN: deploying a website just to transfer a file\n\nHi HN!<p>My name is Lio. I&#x27;m the author of the article and CTO of Defang: a CLI tool to deploy Docker Compose projects to the cloud(s).<p>This story on how I deployed a website just"
         },
         {
           "signal_id": "hn_48258490",
           "platform": "hackernews",
           "timestamp": "2026-05-24",
           "strength": 0.5,
-          "text": ""
+          "text": "Show HN: Rendering Chinese text on a Commodore 64\n\nPOC to print simplified Chinese hanzi on a Commodore 64 using native text mode. Eventually I want to turn this into a full-fledged reader&#x2F;editor with Pinyin IME."
         },
         {
           "signal_id": "hn_42623140",
           "platform": "hackernews",
           "timestamp": "2025-01-07",
           "strength": 0.35,
-          "text": ""
+          "text": "Ask HN: What cloud development tool would you like to see?\n\nHi HN,<p>I&#x27;m a cloud developer, but often frustrated by the lack of modern tooling. It feels like every company&#x2F;hacker is creating their own tools or platforms to solve c"
         },
         {
           "signal_id": "hn_47054684",
           "platform": "hackernews",
           "timestamp": "2026-02-17",
           "strength": 0.3,
-          "text": ""
+          "text": "Curious if others have considered using Compose (or similar) as the source for declaring their cloud infrastructure. I\u2019ve seen efforts to use LLMs to turn Compose into Terraform, but I\u2019m not convinced code generation is a good substitute. I"
         }
       ]
     },
@@ -8513,7 +8513,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-25",
           "strength": 0.6,
-          "text": ""
+          "text": "Show HN: Peakedin \u2013 archiving LinkedIn's most unhinged posts as satire\n\nA few weeks ago I was scrolling LinkedIn (my fault, I know) and noticed the platform was full of posts that had absolutely no business being there.<p>So I built PeakedI"
         }
       ]
     },
@@ -8547,7 +8547,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-15",
           "strength": 0.52,
-          "text": ""
+          "text": "Hey HN!<p>I\u2019m building Reviewskits (<a href=\"https:&#x2F;&#x2F;reviewskits.com\" rel=\"nofollow\">https:&#x2F;&#x2F;reviewskits.com</a>).<p>Most startups today use 3+ different tools to manage user feedback: one for testimonials (Senja&#x2F;Te"
         }
       ]
     },
@@ -8587,7 +8587,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-07",
           "strength": 0.48,
-          "text": ""
+          "text": "Show HN: Paster \u2013 A keyboard-first clipboard manager for Vim users\n\nHi HN,\nI\u2019ve tried just about every clipboard manager for macOS, but I&#x27;ve always ran into the same two issues: either they were heavy Electron apps that felt sluggish, "
         }
       ]
     },
@@ -8615,7 +8615,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-19",
           "strength": 0.75,
-          "text": ""
+          "text": "Show HN: Superlog (YC P26) \u2013 Observability that installs itself and fixes bugs\n\nHey HN, we\u2019re Nico and Arseniy, co-founders of Superlog (<a href=\"https:&#x2F;&#x2F;superlog.sh\">https:&#x2F;&#x2F;superlog.sh</a>). We&#x27;re building a self-"
         }
       ]
     },
@@ -9093,35 +9093,35 @@
           "platform": "hackernews",
           "timestamp": "2024-01-17",
           "strength": 0.72,
-          "text": ""
+          "text": "My NextJS boilerplate made $200K in revenue in 4 months\n\nHey HN,<p>I&#x27;m a self-taught mediocre dev without a job.<p>I love building apps and launched 17 products in the last 2 years ( all of them: https:&#x2F;&#x2F;www.marclou.com&#x2F;"
         },
         {
           "signal_id": "hn_38710086",
           "platform": "hackernews",
           "timestamp": "2023-12-20",
           "strength": 0.52,
-          "text": ""
+          "text": "Weather is sh*t here but too but here are my 2 cents:<p>I got depressed after trying go-big-or-go-home entrepreneurship for 4 years.<p>In 2021, when I discovered cool kids like Pieter Levels building apps out of curiosity and making $ with "
         },
         {
           "signal_id": "hn_37333976",
           "platform": "hackernews",
           "timestamp": "2023-08-31",
           "strength": 0.52,
-          "text": ""
+          "text": "Show HN: A NextJS boilerplate to automate all the boring stuff\n\nHey HN,<p>I&#x27;m a solopreneur and I ship apps like a madman. 16 startups in the last 2 years.<p>I realized I was doing the same thing over and over: set up DNS records, conn"
         },
         {
           "signal_id": "hn_38709461",
           "platform": "hackernews",
           "timestamp": "2023-12-20",
           "strength": 0.5,
-          "text": ""
+          "text": "Hey HN,<p>I&#x27;m Marc and I ship like a madman. 17 products in the last 2 years.<p>So I made LogoFast: A simple &amp; free logo maker, with a touch of AI.<p>1. Pick an icon\n2. Add a background color\n3. Adjust padding, shadow, roundness.\n4"
         },
         {
           "signal_id": "hn_30886265",
           "platform": "hackernews",
           "timestamp": "2022-04-02",
           "strength": 0.48,
-          "text": ""
+          "text": "Hey HN, I&#x27;m Marc.<p>It&#x27;s unreal how game features like quests can get us to play for hours to earn some gold (WoW dailies anyone?)<p>What if we use these hacks to do things that are good for us, like working out or reading a book?"
         }
       ]
     },
@@ -9287,21 +9287,21 @@
           "platform": "hackernews",
           "timestamp": "2026-05-18",
           "strength": 0.7,
-          "text": ""
+          "text": "Show HN: InsForge \u2013 Open-source Heroku for coding agents\n\nHi HN, I&#x27;m Hang, cofounder of InsForge (YC P26). InsForge is an open-source Heroku for AI coding agents: a backend platform designed for coding agents to deploy, operate, and de"
         },
         {
           "signal_id": "hn_48182372",
           "platform": "hackernews",
           "timestamp": "2026-05-18",
           "strength": 0.3,
-          "text": ""
+          "text": "Here are few things we&#x27;re working on next around safety:<p>- Dynamic permissions for agents: agents get API keys with limited scope. Whenever they need to expand the permission, they will ask you for approval. And the expanded scope on"
         },
         {
           "signal_id": "hn_48187513",
           "platform": "hackernews",
           "timestamp": "2026-05-18",
           "strength": 0.05,
-          "text": ""
+          "text": "We&#x27;re open source so you can self host: <a href=\"https:&#x2F;&#x2F;github.com&#x2F;InsForge&#x2F;InsForge\" rel=\"nofollow\">https:&#x2F;&#x2F;github.com&#x2F;InsForge&#x2F;InsForge</a>"
         }
       ]
     },
@@ -9335,7 +9335,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-09",
           "strength": 0.42,
-          "text": ""
+          "text": "Show HN: Obsidian AI Copilot \u2013 Bring Claude Code, OpenCode, etc. into Obsidian\n\nFor anyone using Obsidian, thought I&#x27;d share an Open Source plugin that I built to really streamline my workflow, and so far it has worked very well for me"
         }
       ]
     },
@@ -9925,7 +9925,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-18",
           "strength": 0.52,
-          "text": ""
+          "text": "Show HN: Precise AI Motion Control for Kling 3.0\n\nHi HN,<p>Like many of you, I&#x27;ve been experimenting with generative video, but the &quot;camera lottery&quot; was driving me crazy. Even with the best models, getting a consistent 360-de"
         }
       ]
     },
@@ -9959,7 +9959,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-01",
           "strength": 0.58,
-          "text": ""
+          "text": "Show HN: Mkdnsite \u2013 Markdown-native web server for humans (HTML) and agents (md)\n\n# What?<p>Introducing mkdnsite (&quot;markdown site&quot;) - an open source Markdown-native web server that serves HTML to humans and raw Markdown to agents. "
         }
       ]
     },
@@ -11737,28 +11737,28 @@
           "platform": "twitter",
           "timestamp": "2020-11-29",
           "strength": 0.35,
-          "text": ""
+          "text": "I'm going to start a new SaaS and build in public starting tomorrow! I'll be sharing the whole process here!"
         },
         {
           "signal_id": "twitter_1306629218940276736",
           "platform": "twitter",
           "timestamp": "2020-09-17",
           "strength": 0.3,
-          "text": ""
+          "text": "Got my first $50/mo customer! \ud83c\udf89"
         },
         {
           "signal_id": "twitter_1327308301437071360",
           "platform": "twitter",
           "timestamp": "2020-11-13",
           "strength": 0.25,
-          "text": ""
+          "text": "I'm doing something kind of crazy! \ud83d\ude04 I will work 40 hours for free for a bootstrapped company/founder!\n\nI want to give someone a boost! \ud83d\ude80 https:// bootstrapboost.com"
         },
         {
           "signal_id": "twitter_1324780317245280256",
           "platform": "twitter",
           "timestamp": "2020-11-06",
           "strength": 0.2,
-          "text": ""
+          "text": "I can finally share that my first startup - CoffeePass - got acquired! \ud83d\ude4c Working on a video to share the story!"
         }
       ]
     },
@@ -11998,7 +11998,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-21",
           "strength": 0.55,
-          "text": ""
+          "text": "Show HN: I built a blogging platform (5 years in, struggling with distribution)\n\nA bit of context\u2026<p>I&#x27;ve been building <a href=\"https:&#x2F;&#x2F;blogmaker.app\" rel=\"nofollow\">https:&#x2F;&#x2F;blogmaker.app</a> since April 2021, 5 ye"
         }
       ]
     },
@@ -12026,7 +12026,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-26",
           "strength": 0.52,
-          "text": ""
+          "text": "Show HN: OpenFeed \u2013 private dev news in your new tab, with LinkedIn and X feeds\n\nFork of Hackertab (<a href=\"https:&#x2F;&#x2F;github.com&#x2F;medyo&#x2F;hackertab.dev\" rel=\"nofollow\">https:&#x2F;&#x2F;github.com&#x2F;medyo&#x2F;hackertab.d"
         }
       ]
     },
@@ -12510,14 +12510,14 @@
           "platform": "hackernews",
           "timestamp": "2020-01-31",
           "strength": 0.5,
-          "text": ""
+          "text": "Scenius is the idea, first put forth by Brian Eno, of communal genius. From the Ancient Greeks to the Scottish Enlightenment to Silicon Valley today, a few sceniuses are responsible for much of human progress.<p>Kevin Kelly wrote in 2008 th"
         },
         {
           "signal_id": "hn_22201980",
           "platform": "hackernews",
           "timestamp": "2020-01-31",
           "strength": 0.05,
-          "text": ""
+          "text": "Conjuring Scenius"
         }
       ]
     },
@@ -13473,35 +13473,35 @@
           "platform": "hackernews",
           "timestamp": "2014-01-23",
           "strength": 0.3,
-          "text": ""
+          "text": "They haven&#x27;t all announced we funded them yet, but another one that did today is Zidisha: <a href=\"http://techcrunch.com/2014/01/23/zidisha-launches-a-kickstarter-style-micro-lending-platform-for-low-income-entrepreneurs-in-developing-"
         },
         {
           "signal_id": "hn_7039270",
           "platform": "hackernews",
           "timestamp": "2014-01-10",
           "strength": 0.25,
-          "text": ""
+          "text": "<i>The second paragraph amounts to a sexist version of &quot;I&#x27;m not racist! I have black friends!&quot;</i><p>Actually by pointing out the degree to which women run things at YC it&#x27;s closer to saying &quot;I&#x27;m not racist!  I"
         },
         {
           "signal_id": "hn_7158345",
           "platform": "hackernews",
           "timestamp": "2014-01-31",
           "strength": 0.25,
-          "text": ""
+          "text": "The reactions of investors after Demo Day don&#x27;t change our opinions much.  We&#x27;ve just spent the last 3 months working closely with these companies."
         },
         {
           "signal_id": "hn_7049000",
           "platform": "hackernews",
           "timestamp": "2014-01-13",
           "strength": 0.2,
-          "text": ""
+          "text": "It&#x27;s not a single thing.  There are multiple places that use dynamically-generated links.  They make the source very simple.  I&#x27;ve gradually replaced them in the most common situations.  Replacing more is not in my top 10 prioriti"
         },
         {
           "signal_id": "hn_7074505",
           "platform": "hackernews",
           "timestamp": "2014-01-17",
           "strength": 0.2,
-          "text": ""
+          "text": "Our first advice is not even to talk to acquirers unless you want to sell the company now.  It&#x27;s remarkable how often founders who don&#x27;t actively want to sell will talk to acquirers anyway, just to see if they&#x27;ll make some of"
         }
       ]
     },
@@ -13561,7 +13561,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-08",
           "strength": 0.5,
-          "text": ""
+          "text": "A few technical decisions that might be worth discussing:<p>The two-pass split was non-obvious at first. The initial version sent \nscraped content directly to a generation prompt and got inconsistent, \ngeneric results. The problem was the m"
         }
       ]
     },
@@ -13615,7 +13615,7 @@
           "platform": "hackernews",
           "timestamp": "2026-04-07",
           "strength": 0.78,
-          "text": ""
+          "text": "Show HN: Rac-delta \u2013 open protocol for differential dir sync (Rust/Node SDKs)\n\nI built a platform for indie game developers (Raccreative Games) that includes a desktop launcher and a CLI upload tool. Developers push builds from their machin"
         }
       ]
     },
@@ -13751,7 +13751,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-05",
           "strength": 0.5,
-          "text": ""
+          "text": "Show HN: SafeAppeals \u2013 Cursor for Documents\n\nSafeAppeals is an AI-powered document workspace designed for legal professionals, researchers, injured workers, and anyone handling document-heavy workflows. Built with Electron and TypeScript, i"
         }
       ]
     },
@@ -13811,21 +13811,21 @@
           "platform": "hackernews",
           "timestamp": "2026-05-26",
           "strength": 0.72,
-          "text": ""
+          "text": "Why codex /goal fails on complex workflows: compaction amnesia and context rot\n\nHi HN,<p>When Openai released `&#x2F;goal` earlier this month, I was really excited to try it for long-horizon tasks. But after using it, it didn&#x27;t blow me"
         },
         {
           "signal_id": "hn_48249487",
           "platform": "hackernews",
           "timestamp": "2026-05-23",
           "strength": 0.3,
-          "text": ""
+          "text": "hi gabriel, the problem you are trying to solve is valid, but both claude-code and codex natively support local models ran through ollama. i&#x27;ve tried doing this before, and SLMs still fail to do basic tasks because they are put in a ha"
         },
         {
           "signal_id": "hn_48249638",
           "platform": "hackernews",
           "timestamp": "2026-05-23",
           "strength": 0.0,
-          "text": ""
+          "text": "how is this even allowed on this site what"
         }
       ]
     },
@@ -15053,35 +15053,35 @@
           "platform": "hackernews",
           "timestamp": "2026-03-19",
           "strength": 0.48,
-          "text": ""
+          "text": "Ask HN: Solo Senior Developers, Where do we find you?\n\nI need someone to partner with me to launch my application. I am a construction professional and have created a application that is in a untapped field. It is an amazing tool, completel"
         },
         {
           "signal_id": "hn_47446820",
           "platform": "hackernews",
           "timestamp": "2026-03-19",
           "strength": 0.35,
-          "text": ""
+          "text": "More context. What I have built goes for 1600 lifetime access on a desktop. I have successfully built an application for Android that does everything the field guys want.<p>It turns out...that&#x27;s may be the easiest part. Google has succ"
         },
         {
           "signal_id": "hn_47522043",
           "platform": "hackernews",
           "timestamp": "2026-03-25",
           "strength": 0.35,
-          "text": ""
+          "text": "Construction project manager takes on software development\n\nI have always loved to build for as long as I can remember. I am a carpenter by trade. Let me tell you... the satisfaction you get from being able to build something substantial an"
         },
         {
           "signal_id": "hn_47447760",
           "platform": "hackernews",
           "timestamp": "2026-03-19",
           "strength": 0.3,
-          "text": ""
+          "text": "I would love a chat with a seasoned senior developer that&#x27;s what I&#x27;m looking for. Someone who has expirence with a sucesssfull launch. I would pay for even a 30 minute chat and demo of my app.<p>I&#x27;m confident my product is wo"
         },
         {
           "signal_id": "hn_47521625",
           "platform": "hackernews",
           "timestamp": "2026-03-25",
           "strength": 0.3,
-          "text": ""
+          "text": "I am in this boat and am a couple weeks from launching. Everyone here is right the last 10 percent is very hard.<p>The thing is I&#x27;m not really sure your going to be able to distinguish how something was built unless the developer volun"
         }
       ]
     },
@@ -15451,35 +15451,35 @@
           "platform": "hackernews",
           "timestamp": "2026-02-06",
           "strength": 0.68,
-          "text": ""
+          "text": "Show HN: SpaceMolt \u2013 a realtime multiplayer game for AI to play\n\nHi folks,<p>Inspired by OpenClaw and Moltbook, I built SpaceMolt, a massively multiplayer online game built to work with your favorite AI chat or coding tool.<p>There\u2019s ships,"
         },
         {
           "signal_id": "hn_43481615",
           "platform": "hackernews",
           "timestamp": "2025-03-26",
           "strength": 0.65,
-          "text": ""
+          "text": "Hey folks, a few days ago I wondered: Given all this LLM availability, why can\u2019t I write shell scripts like this?<p><pre><code>  #!&#x2F;usr&#x2F;bin&#x2F;env llmscript\n  \n  Count all files in the current directory and its subdirectories\n  "
         },
         {
           "signal_id": "hn_46947114",
           "platform": "hackernews",
           "timestamp": "2026-02-09",
           "strength": 0.48,
-          "text": ""
+          "text": "Here&#x27;s a post on SpaceMolt, the first (I think) realtime multiplayer game for AI agents to play. It&#x27;s not just for OpenClaw -- any AI too can use it to play (Claude Code, Copilot, etc.). It&#x27;s kind of like Moltbook except &quo"
         },
         {
           "signal_id": "hn_33635665",
           "platform": "hackernews",
           "timestamp": "2022-11-17",
           "strength": 0.4,
-          "text": ""
+          "text": "I purposely wrote my home page (<a href=\"https:&#x2F;&#x2F;langworth.com\" rel=\"nofollow\">https:&#x2F;&#x2F;langworth.com</a>) with plain, vanilla JavaScript, which features both WebGL and plaintext clients for a server-side text adventure g"
         },
         {
           "signal_id": "hn_33084333",
           "platform": "hackernews",
           "timestamp": "2022-10-04",
           "strength": 0.4,
-          "text": ""
+          "text": "Somewhat related, I&#x27;ve been working on a tool to help do ad hoc work on CSV files. My current solution is embedding SQLite in the browser: <a href=\"https:&#x2F;&#x2F;csvhacker.statico.io&#x2F;\" rel=\"nofollow\">https:&#x2F;&#x2F;csvhacke"
         }
       ]
     },
@@ -15603,7 +15603,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-16",
           "strength": 0.72,
-          "text": ""
+          "text": "Show HN: I solved Claude Code's context drift with persistent Markdown files\n\nI&#x27;ve been using Claude Code to build SaaS products, and kept hitting the same wall: it writes brilliant code for 20 minutes, then forgets your database schem"
         }
       ]
     },
@@ -15901,7 +15901,7 @@
           "platform": "twitter",
           "timestamp": "2022-08-18",
           "strength": 0.7,
-          "text": ""
+          "text": "\ud83d\udccc Exactly 1 year ago, I quit my job to become a full-time indie hacker.\n\nIn the last 12 months: \ud83d\udc26 200 \u2192 47K followers \ud83d\udcb5 $0 \u2192 $10K MRR \ud83d\udc8c 0 \u2192 12 newsletter issues \ud83d\ude80 0 \u2192 3 products\n\nI'm sharing my learnings as much as I can on Twitter.\n\nLet's "
         }
       ]
     },
@@ -16169,35 +16169,35 @@
           "platform": "twitter",
           "timestamp": "2023-01-26",
           "strength": 0.52,
-          "text": ""
+          "text": "Recycle for 2x Engagement:\n\nAfter 4 years, I have over 2,000 pieces of unique content.\n\nSo, for my 2nd post (1p EST), I recycle.\n\nI go back 365 days and update a piece of content from last year.\n\nThere are 100k+ new followers who never saw "
         },
         {
           "signal_id": "twitter_1620536819128635392",
           "platform": "twitter",
           "timestamp": "2023-01-31",
           "strength": 0.45,
-          "text": ""
+          "text": "I follow almost zero best practices for selling information products:\n\n- Low-cost\n- Zero editing\n- Very short length\n- No email marketing\n\nAnd I still haven't found someone doing more revenue at higher margins.\n\nRemember to always challenge"
         },
         {
           "signal_id": "twitter_1618599571596214272",
           "platform": "twitter",
           "timestamp": "2023-01-26",
           "strength": 0.45,
-          "text": ""
+          "text": "Twitter hates LinkedIn.\n\nBut in 2022, it accounted for $1.2M of my revenue from 175M+ impressions.\n\nHere's how I use LinkedIn unlike anyone else:"
         },
         {
           "signal_id": "twitter_1618599671538106368",
           "platform": "twitter",
           "timestamp": "2023-01-26",
           "strength": 0.42,
-          "text": ""
+          "text": "The Trailer:\n\nThe next part of the content I create is the \"trailer.\"\n\nThe trailer is the opener and has 2 jobs:\n\n- Break the scroll pattern with the first line.\n- Make each line intriguing enough to get the reader to the next.\n\nHere's the "
         },
         {
           "signal_id": "twitter_1618599653397696512",
           "platform": "twitter",
           "timestamp": "2023-01-26",
           "strength": 0.4,
-          "text": ""
+          "text": "Write High-Performance Content:\n\nHigh-performance LinkedIn content has 3 different parts:\n\n- The Meat\n- The Trailer\n- The takeaway & CTC\n\nI use this to write a piece of content each morning at 8:15a EST.\n\nHere's how it works \u2193"
         }
       ]
     },
@@ -16237,7 +16237,7 @@
           "platform": "hackernews",
           "timestamp": "2026-03-05",
           "strength": 0.52,
-          "text": ""
+          "text": "Tell HN: We modeled the cost of boilerplate (it's ~80% of the budget)\n\nWe spent the last month modeling software budgets to figure out why velocity often feels so low even with senior teams. The short answer seems to be structural: about 80"
         }
       ]
     },
@@ -16583,7 +16583,7 @@
           "platform": "twitter",
           "timestamp": "2021-12-14",
           "strength": 0.4,
-          "text": ""
+          "text": "2021:\n- 1 job left\n- 6 products made\n- 806 satisfied paid users\n- 0 to $26k MRR\n- 4957+ new Twitter buddies\n\nThis year was soooo good.\n\nHigh expectations for 2022."
         }
       ]
     },
@@ -16857,7 +16857,7 @@
           "platform": "hackernews",
           "timestamp": "2026-05-31",
           "strength": 0.35,
-          "text": ""
+          "text": "Show HN: Graph-Based Firebase Alternative with Real-Time Sync"
         }
       ]
     },
@@ -17115,35 +17115,35 @@
           "platform": "twitter",
           "timestamp": "2023-06-26",
           "strength": 0.45,
-          "text": ""
+          "text": "Brutal reality of starting a new product from scratch. \n\nBannerbear gets 60-70 new subscribers a month now.\n\nBrowserbear? this month got 4 new subscribers \ud83e\udd74 June's conversion rate was good though. Now I just need more signups!"
         },
         {
           "signal_id": "twitter_1673920675105603590",
           "platform": "twitter",
           "timestamp": "2023-06-28",
           "strength": 0.45,
-          "text": ""
+          "text": "I run a bootstrapped SaaS business that makes $50,000+ MRR. Over the last 3 years I have learned that by far the most powerful tactics to grow your business are:\n\n1) Increasing signups\n2) Decreasing churn\n\nHere's why \ud83e\uddf5"
         },
         {
           "signal_id": "twitter_1670662337991438336",
           "platform": "twitter",
           "timestamp": "2023-06-19",
           "strength": 0.4,
-          "text": ""
+          "text": "\ud83c\udf89 \ud83d\udcb8 Achievement unlocked: First SaaS money made! \ud83d\ude80 \ud83d\udcc8 It's an amazing feeling to see this revenue graph reflecting the fruits of our labor. \ud83d\ude0d \ud83d\udcaa \ud83d\udcb0 P.S.: It will get us only 3,5 servings of \ud83c\udf5c , but hey: only a couple hundred more required for "
         },
         {
           "signal_id": "twitter_1669893547783516161",
           "platform": "twitter",
           "timestamp": "2023-06-17",
           "strength": 0.4,
-          "text": ""
+          "text": "One of the dumbest things I did as a bootstrapper in the early days was create an excel sheet of revenue \"projection\" to understand my runway.\n\nIt was predicated on revenue just \"appearing\" when I launched, like flicking on a switch. \n\nIt s"
         },
         {
           "signal_id": "twitter_1671415300770918402",
           "platform": "twitter",
           "timestamp": "2023-06-21",
           "strength": 0.4,
-          "text": ""
+          "text": "Today for the first time ever, Browserbear got more new customers than Bannerbear \ud83e\udd2f Too soon to say if it's because of the new videos (below) but I think it definitely helps..."
         }
       ]
     }

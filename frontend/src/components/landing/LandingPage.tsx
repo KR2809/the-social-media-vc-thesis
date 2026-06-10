@@ -3,6 +3,7 @@
 import { SectionHook } from "./SectionHook";
 import { SectionProblem } from "./SectionProblem";
 import { SectionIdea } from "./SectionIdea";
+import { TimeMachine } from "./TimeMachine";
 
 // Composition root for the single-scroll landing page (spec:
 // docs/superpowers/specs/2026-06-09-landing-page-design.md).
@@ -27,7 +28,7 @@ export function LandingPage() {
       <SectionHook />
       <SectionProblem />
       <SectionIdea />
-      <SectionStub id="time-machine" label="§4 TIME MACHINE" />
+      <TimeMachine />
       <SectionStub id="proof" label="§5 THE PROOF" />
       <SectionStub id="footer" label="§6 FOOTER" />
     </main>
