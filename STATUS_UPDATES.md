@@ -2039,3 +2039,13 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Files changed:** App.tsx, TopBar.tsx, ViewNav.tsx, Hero.tsx (new), headline.ts (new), View2Outcome.tsx, View3Founder.tsx, OnboardingGuide.tsx, demo.css; deleted KnowledgeGraphView.tsx + RadialClusterGraph.tsx.
 **Cost incurred:** $0 (no LLM/API calls; frontend only).
 ---
+
+---
+## 2026-06-10 — Landing page BUILT (12-task plan executed); deploy awaiting Kris
+
+**What I did:** Executed the full landing-page plan on main (11 commits): real-names+headline export; timeline.ts data layer (14 smoke tests); progressive-enhancement reveal hook; 6-section single-scroll page — Hook (plain-words hero), Problem (haystack, real 11.7% base rate), Idea (3 jargon-free signal cards), TIME MACHINE (real backtest replay: scrubber, auto-play, blue flag -> gold launch badge, lead chips +44/+28/+21/+12mo, founder panels showing the REAL posts the model saw, e.g. Ben Tossell's 2019 Makerpad HN posts), Proof (8-of-10 vs 3-of-10 + honest nulls panel) + collapsible technical-reader block (the only place precise figures appear), Footer (EDHEC framing, GitHub link, PDF link gated on URL). Old tabbed app retired; ' 2.*' file artifacts purged.
+**Verification:** tsc 0, lint 0, prod build clean, smoke suites 14+46 green, backend 291 passed. Desktop walkthrough + mobile (390px) verified via live browser; copy honesty pass (6.6x renders 'more than 6x', never rounded up).
+**Blockers:** Production deploy (vercel --prod) blocked pending Kris's explicit approval — it replaces the live site at social-media-vc-thesis.vercel.app. Everything else done and pushed (main @ 07e2d0c).
+**Next steps:** Kris reviews locally (cd frontend && npm run dev) or approves deploy; then verify live URL on phone.
+**Cost incurred:** $0 (no LLM/API).
+---
