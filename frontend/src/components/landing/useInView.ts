@@ -2,33 +2,38 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Reveal-once scroll hook. `inView` flips true when >=15% of the element is
-// visible, then stays true (we unobserve — sections reveal once, never re-hide).
-// prefers-reduced-motion users get inView=true immediately so no content is
-// gated behind animation for them.
-export function useInView<T extends HTMLElement>(
+// Progressive-enhancement scroll reveal.
+//
+// SSR / pre-hydration / no-JS: NO hiding class -> content fully visible
+// (screenshots, SEO and no-JS readers always see the page).
+// After hydration: elements still below the viewport get the `lp-reveal`
+// hidden state, then animate in (`lp-in`) when >=15% visible, once.
+// Elements already on screen at mount stay visible (no pop).
+// prefers-reduced-motion: never hidden, never animated.
+//
+// Returns [ref, className] — append className to the element's class list.
+export function useReveal<T extends HTMLElement>(
   threshold = 0.15,
-): [React.RefObject<T | null>, boolean] {
+): [React.RefObject<T | null>, string] {
   const ref = useRef<T | null>(null);
-  const [inView, setInView] = useState(false);
+  const [cls, setCls] = useState("");
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    if (
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    ) {
-      setInView(true);
-      return;
-    }
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
+    const rect = el.getBoundingClientRect();
+    const alreadyVisible = rect.top < window.innerHeight && rect.bottom > 0;
+    if (alreadyVisible) return; // on screen at mount -> leave it visible
+
+    setCls("lp-reveal"); // hide, then animate in on intersection
     const obs = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
           if (e.isIntersecting) {
-            setInView(true);
+            setCls("lp-reveal lp-in");
             obs.unobserve(e.target);
           }
         }
@@ -39,5 +44,5 @@ export function useInView<T extends HTMLElement>(
     return () => obs.disconnect();
   }, [threshold]);
 
-  return [ref, inView];
+  return [ref, cls];
 }

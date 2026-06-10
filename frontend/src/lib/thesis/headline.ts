@@ -24,6 +24,11 @@ export interface Headline {
   leadFounders: number; // founders flagged before emergence
   leadMedianMonths: number;
   leadMaxMonths: number;
+  // For the technical-reader block + the honest nulls (thesis §VI.3/§VI.6).
+  prAuc: number;
+  liftAt5: number;
+  frameworkPrecAt5: number; // the two-tier composite (honest null)
+  volumePrecAt5: number; // the simple volume heuristic that ties/beats it
 }
 
 // Source: data/processed/eval_metrics.csv (baseline row) +
@@ -41,8 +46,12 @@ export const HEADLINE: Headline = {
   precAt10Random: 0.28,
   precAt10K: 10,
   leadFounders: 8,
-  leadMedianMonths: 11,
+  leadMedianMonths: 12,
   leadMaxMonths: 44,
+  prAuc: 0.905,
+  liftAt5: 6.6,
+  frameworkPrecAt5: 0.5,
+  volumePrecAt5: 0.73,
 };
 
 // "~8" and "~3" out of 10 — rounded for the intuitive comparison.

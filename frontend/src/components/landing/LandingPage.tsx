@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { loadTimeline, type TimelineData } from "@/lib/thesis/timeline";
 import { SectionHook } from "./SectionHook";
+import { SectionProblem } from "./SectionProblem";
+import { SectionIdea } from "./SectionIdea";
 
 // Composition root for the single-scroll landing page (spec:
 // docs/superpowers/specs/2026-06-09-landing-page-design.md).
 //
-// Loads the static real-data bundle ONCE, then renders the six story
-// sections in order. Until each section component lands (plan T5-T10),
-// a labelled stub keeps the scroll skeleton honest and testable.
+// Architecture note: the page paints INSTANTLY — story sections take their
+// numbers from lib/thesis/headline.ts (the page's single number source,
+// traced to the run CSVs), so nothing gates on a network fetch. Only the
+// Time Machine needs the 122-founder bundle; it fetches
+// /frontend_timeline.json itself with a local loading state.
 
 function SectionStub({ id, label }: { id: string; label: string }) {
   return (
@@ -20,43 +22,11 @@ function SectionStub({ id, label }: { id: string; label: string }) {
 }
 
 export function LandingPage() {
-  const [data, setData] = useState<TimelineData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    loadTimeline()
-      .then((d) => alive && setData(d))
-      .catch((e) => alive && setError(String(e)));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  if (error) {
-    return (
-      <main className="lp lp-loading">
-        <p className="lp-error">
-          The data bundle failed to load. Please refresh — nothing is shown
-          from fallback or invented data.
-        </p>
-      </main>
-    );
-  }
-
-  if (!data) {
-    return (
-      <main className="lp lp-loading" aria-busy="true">
-        <div className="lp-shimmer" />
-      </main>
-    );
-  }
-
   return (
     <main className="lp">
-      <SectionHook headline={data.meta.headline} />
-      <SectionStub id="problem" label="§2 PROBLEM" />
-      <SectionStub id="idea" label="§3 THE IDEA" />
+      <SectionHook />
+      <SectionProblem />
+      <SectionIdea />
       <SectionStub id="time-machine" label="§4 TIME MACHINE" />
       <SectionStub id="proof" label="§5 THE PROOF" />
       <SectionStub id="footer" label="§6 FOOTER" />
