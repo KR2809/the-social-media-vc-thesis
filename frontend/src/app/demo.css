@@ -1932,3 +1932,73 @@ body {
   border-bottom: 1px dashed var(--hairline-2);
 }
 .lp-stub-label { color: var(--mu); font-size: 12px; letter-spacing: 0.14em; }
+
+/* ── §1 HOOK ─────────────────────────────────────────────────────────────── */
+.lp-hook {
+  min-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: 64px;
+}
+.lp-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 28px;
+}
+.lp-h1 {
+  font-family: var(--serif);
+  font-size: clamp(40px, 6.4vw, 76px);
+  line-height: 1.08;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--ink-1);
+  max-width: 980px;
+  margin: 0;
+}
+.lp-h1 em {
+  color: var(--accent);
+  font-style: italic;
+}
+.lp-hook-sub {
+  font-size: clamp(17px, 2vw, 21px);
+  line-height: 1.55;
+  color: var(--ink-2);
+  max-width: 680px;
+  margin-top: 32px;
+}
+.lp-hook-sub strong { color: var(--ink-1); font-weight: 600; }
+.lp-hook-trust {
+  font-size: 13.5px;
+  color: var(--ink-3);
+  margin-top: 18px;
+}
+.lp-scroll-cue {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 64px;
+  align-self: flex-start;
+  color: var(--ink-3);
+  text-decoration: none;
+}
+.lp-scroll-cue-text {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.lp-scroll-cue-arrow {
+  font-size: 18px;
+  animation: lp-bob 1.8s ease-in-out infinite;
+}
+@keyframes lp-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-scroll-cue-arrow { animation: none; }
+}

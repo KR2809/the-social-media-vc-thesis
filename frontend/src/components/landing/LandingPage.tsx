@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { loadTimeline, type TimelineData } from "@/lib/thesis/timeline";
+import { SectionHook } from "./SectionHook";
 
 // Composition root for the single-scroll landing page (spec:
 // docs/superpowers/specs/2026-06-09-landing-page-design.md).
@@ -53,7 +54,7 @@ export function LandingPage() {
 
   return (
     <main className="lp">
-      <SectionStub id="hook" label="§1 HOOK" />
+      <SectionHook headline={data.meta.headline} />
       <SectionStub id="problem" label="§2 PROBLEM" />
       <SectionStub id="idea" label="§3 THE IDEA" />
       <SectionStub id="time-machine" label="§4 TIME MACHINE" />
