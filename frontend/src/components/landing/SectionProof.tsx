@@ -35,7 +35,7 @@ export function SectionProof() {
       <p className="lp-body">
         Pick 10 people at random from the same circles and only about{" "}
         {randomHitsPer10} would. Across the whole test the system is{" "}
-        <strong>about {Math.round(HEADLINE.liftAt5)}× better than guessing</strong>{" "}
+        <strong>more than {Math.floor(HEADLINE.liftAt5)}× better than guessing</strong>{" "}
         — checked against the same people, the same dates, and only the
         information available at the time.
       </p>
@@ -66,12 +66,12 @@ export function SectionProof() {
         <ul className="lp-pf-honest-list">
           <li>
             A fancier &quot;who-knows-whom&quot; network version added{" "}
-            <strong>nothing</strong> — because free public data doesn&apos;t
+            <strong>nothing</strong>{" "}— because free public data doesn&apos;t
             reveal who actually follows or replies to whom. It was dropped.
           </li>
           <li>
             For pure ranking, a much simpler rule — &quot;who posts the
-            most&quot; — did <strong>just as well</strong> as the full scoring
+            most&quot; — did <strong>just as well</strong>{" "}as the full scoring
             system. The system&apos;s real edge is the <em>early flag</em>, not
             the top-of-list ordering.
           </li>

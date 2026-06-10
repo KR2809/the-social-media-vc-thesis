@@ -2361,13 +2361,12 @@ body {
 }
 .lp-pf-people {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
   margin-bottom: 12px;
-  flex-wrap: wrap;
 }
 .lp-pf-p {
-  width: 24px; height: 24px;
+  width: 22px; height: 22px;
   border-radius: 6px;
   background: var(--hairline-2);
   transition: background 0.4s;

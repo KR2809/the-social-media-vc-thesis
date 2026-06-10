@@ -41,10 +41,11 @@ export function SectionProblem() {
         Finding the next founder is a needle-in-a-haystack problem.
       </h2>
       <p className="lp-body">
-        Only about <strong>1 in {oneInN}</strong> people active in startup
+        Only about <strong>1 in {oneInN}</strong>{" "}
+        people active in startup
         circles ever becomes a real founder. Scrolling social media and hoping
         to spot them by hand doesn&apos;t scale. A few big investment firms
-        attack this with data — but only <em>after</em> companies exist. Nobody
+        attack this with data — but only <em>after</em>{" "}companies exist. Nobody
         had tried it earlier, at the moment it matters most:{" "}
         <strong>before the launch</strong>.
       </p>

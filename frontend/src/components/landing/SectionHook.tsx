@@ -24,7 +24,7 @@ export function SectionHook() {
       </h1>
       <p className="lp-hook-sub">
         Shown a real founder and a random person, it picks the founder{" "}
-        <strong>{pct} times out of 100</strong> — and it flags them{" "}
+        <strong>{pct} times out of 100</strong>{" "}— and it flags them{" "}
         <strong>{leadPhrase(HEADLINE.leadMedianMonths)}</strong>.
       </p>
       <p className="lp-hook-trust">

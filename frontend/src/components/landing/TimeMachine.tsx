@@ -208,7 +208,7 @@ export function TimeMachine() {
           </div>
 
           <div className="lp-tm-counts mono">
-            flagged so far: <strong>{flagged.length}</strong> · launched so
+            flagged so far: <strong>{flagged.length}</strong>{" "}· launched so
             far: <strong>{launched.length}</strong>
           </div>
 

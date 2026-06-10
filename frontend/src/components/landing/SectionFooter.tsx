@@ -23,7 +23,7 @@ export function SectionFooter() {
         &quot;Became a founder&quot; means something concrete here: within two
         years, the person reached a real audience, real revenue, or real
         funding with something they built themselves. The system&apos;s
-        predictions for the <em>future</em> were locked and time-stamped on 31
+        predictions for the <em>future</em>{" "}were locked and time-stamped on 31
         May 2026, before the outcomes are known — so it can be checked, not
         just believed. Everything — code, data pipeline, and every number on
         this page — is open and reproducible.
