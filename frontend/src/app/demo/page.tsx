@@ -1,9 +1,9 @@
-import { DemoPage } from "@/components/demo/DemoPage";
+import { LiveRead } from "@/components/demo/LiveRead";
 
-// The full interactive demo (spec: docs/superpowers/specs/2026-06-10-full-
-// demo-design.md). Static data only; each screen lazy-loads its bundle.
+// /demo — the live read: the study's lens pointed at any public profile.
+// (The earlier game-style screens were cut; this is the one demo.)
 export const dynamic = "force-dynamic";
 
 export default function Demo() {
-  return <DemoPage />;
+  return <LiveRead />;
 }

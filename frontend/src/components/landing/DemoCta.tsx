@@ -5,19 +5,17 @@
 
 export function DemoCta() {
   return (
-    <section className="lp-section lp-democta" aria-label="Try the full demo">
+    <section className="lp-section lp-democta" aria-label="Try the live demo">
       <div className="lp-democta-card">
-        <p className="lp-kicker mono">There&apos;s more to play with</p>
-        <h2 className="lp-democta-title">
-          Be the VC. Race the strategies. Score anyone.
-        </h2>
+        <p className="lp-kicker mono">The live demo</p>
+        <h2 className="lp-democta-title">Point it at a real person.</h2>
         <p className="lp-body">
-          The full demo lets you draft founders at any moment in history,
-          watch five picking strategies race, and point the system at a real
-          public profile — live.
+          The same lens the study used, aimed at the present: give it a public
+          handle on Hacker News, Reddit, or Bluesky and it reads their recent
+          posts and writes its honest read. Nothing is stored.
         </p>
         <a className="lp-democta-btn mono" href="/demo">
-          Try the full demo →
+          Run a live read →
         </a>
       </div>
     </section>

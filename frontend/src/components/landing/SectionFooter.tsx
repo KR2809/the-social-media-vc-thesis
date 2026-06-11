@@ -38,7 +38,7 @@ export function SectionFooter() {
           See the code &amp; method on GitHub →
         </a>
         <a className="lp-footer-link" href="/demo">
-          Play with the full demo →
+          Run a live read on anyone →
         </a>
         {THESIS_PAPER_URL && (
           <a

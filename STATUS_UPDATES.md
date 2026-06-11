@@ -2111,3 +2111,25 @@ ANTHROPIC_API_KEY env var on Vercel (fails closed politely until then).
 **Files changed:** frontend/src/app/demo.css
 **Cost incurred:** $0
 ---
+---
+## 2026-06-11 — Demo refocused on live scoring (games cut)
+
+**What I did:** Kris judged the game-style screens childish and not useful.
+Cut all five (hub, VC game, strategy race, fund sim, inside-the-score) and
+rebuilt /demo as one serious instrument: the Live Read — platform + handle →
+the system reads recent public posts and writes a scout's note (verdict
+sentence, three signal families, evidence posts with what it noticed). Added
+a labelled SAMPLE read assembled from the study's real records (Ben Tossell,
+flagged 44 months before Ben's Bites) so the page demonstrates the output
+even while the API budget is $0. Landing CTA reworded to "Run a live read →".
+**Decisions made:** API now also returns up to 3 evidence posts; readout is
+framed as a note, not a score-out-of-ten arcade card; entity/tag stripping
+extended (&#x2F;, stray <p>).
+**Blockers:** live mode still needs API credits + ANTHROPIC_API_KEY on Vercel.
+**Next steps:** deploy; Kris tops up credits when ready.
+**Files changed:** frontend/src/components/demo/* (LiveRead.tsx replaces 6
+files), frontend/src/app/api/score/route.ts, frontend/src/app/demo/page.tsx,
+frontend/src/lib/thesis/demoData.ts, frontend/src/app/demo.css,
+frontend/src/components/landing/{DemoCta,SectionFooter}.tsx
+**Cost incurred:** $0
+---
