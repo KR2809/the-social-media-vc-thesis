@@ -2992,7 +2992,19 @@ body {
   .dm-lane-pct { font-size: 10px; }
   .dm-inside-stage { grid-template-columns: 1fr 56px; gap: 12px; }
   .dm-meter { width: 20px; min-height: 160px; }
-  .dm-draft-bar { gap: 9px; padding: 10px 14px; font-size: 11.5px; }
+  /* draft bar: full-width compact single line (otherwise the buttons wrap
+     into a tall blob that hides the cards) */
+  .dm-draft-bar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 9px 12px;
+    font-size: 11px;
+    bottom: 10px;
+  }
+  .dm-draft-bar > * { white-space: nowrap; }
+  .dm-draft-bar .dm-ghost { font-size: 10.5px; padding: 8px 10px; }
+  .dm-draft-bar .dm-go { font-size: 10.5px; padding: 8px 11px; }
   .dm-ff { padding: 80px 0; }
 }
 @media (prefers-reduced-motion: reduce) {
