@@ -4,6 +4,7 @@ import { SectionHook } from "./SectionHook";
 import { SectionProblem } from "./SectionProblem";
 import { SectionIdea } from "./SectionIdea";
 import { TimeMachine } from "./TimeMachine";
+import { DemoCta } from "./DemoCta";
 import { SectionProof } from "./SectionProof";
 import { SectionFooter } from "./SectionFooter";
 
@@ -23,6 +24,7 @@ export function LandingPage() {
       <SectionProblem />
       <SectionIdea />
       <TimeMachine />
+      <DemoCta />
       <SectionProof />
       <SectionFooter />
     </main>
