@@ -2059,3 +2059,41 @@ thesis-demo-five.vercel.app; live mobile smoke confirmed all 4 views pass at
 **Next steps:** none blocking. Optional later: custom domain (e.g. founderradar.io) if Kris wants to own the name outright; 'score anyone' feasibility doc remains the deferred follow-up.
 **Cost incurred:** $0.
 ---
+---
+## 2026-06-11 — Full interactive demo built (/demo, 5 screens)
+
+**What I did:**
+- Built the complete /demo hub with five screens, all on real study data:
+  You Be the VC (draft game vs system vs luck), Strategy Race (animated
+  backtest lanes), Fund Simulator (Monte Carlo, loudly labelled projection),
+  Inside the Score (real posts + climbing score meter), and Score Anyone
+  (live HN/Reddit/Bluesky handle scoring via /api/score, paste fallback for X).
+- Added the "Try the full demo →" bridge on the landing page + footer link.
+- Verified everything in the browser end-to-end (game flow, reveal protocol,
+  race re-ranking, fund floors, feed stepping, API error paths, 3/hr rate
+  limit, mobile layout, dark mode). tsc + production build clean.
+
+**Decisions made:**
+- Fast-forward animation is wall-clock based so background-tab timer
+  throttling can't stall it.
+- All headline counts use floor() (never round a claim up); negatives stay
+  anonymous after reveal; the one projection screen carries a ⚠ label.
+- Score Anyone fails closed with a friendly "scorer is asleep" message while
+  the Anthropic balance is $0 — it goes live the moment credits are added
+  and ANTHROPIC_API_KEY is set on Vercel.
+
+**Blockers:** Permission system blocked three release actions (need Kris):
+git push to main, adding ANTHROPIC_API_KEY to Vercel production, and
+`vercel --prod` deploy.
+
+**Next steps:** Kris approves push + deploy; later, top up API credits and
+set the Vercel env var to switch Score Anyone live.
+
+**Files changed:** frontend/src/components/demo/* (5 screens + hub),
+frontend/src/app/demo/page.tsx, frontend/src/app/api/score/route.ts,
+frontend/src/lib/thesis/demoData.ts, frontend/src/app/demo.css,
+frontend/src/components/landing/{DemoCta,LandingPage,SectionFooter}.tsx
+
+**Cost incurred:** $0 (no LLM calls — the one live-scoring attempt failed
+closed on the empty balance, as designed).
+---
