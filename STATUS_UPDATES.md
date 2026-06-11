@@ -2097,3 +2097,17 @@ frontend/src/components/landing/{DemoCta,LandingPage,SectionFooter}.tsx
 **Cost incurred:** $0 (no LLM calls — the one live-scoring attempt failed
 closed on the empty balance, as designed).
 ---
+---
+## 2026-06-11 — Mobile fix + demo release deployed
+
+**What I did:** Fixed the mobile draft-bar (wrapped into a tall blob hiding
+the cards); verified all demo screens at phone width; pushed to main and
+deployed to production. Re-pointed founder-radar-ai.vercel.app at the new
+deployment (the alias was pinned to the old one).
+**Decisions made:** none beyond the CSS fix.
+**Blockers:** Score Anyone live mode still needs API credits + the
+ANTHROPIC_API_KEY env var on Vercel (fails closed politely until then).
+**Next steps:** Kris tops up credits and sets the Vercel env var when ready.
+**Files changed:** frontend/src/app/demo.css
+**Cost incurred:** $0
+---
