@@ -2377,6 +2377,14 @@ body {
 .lp-pf-verdict.ours { color: var(--accent); }
 .lp-pf-verdict.rnd { color: var(--ink-3); }
 .lp-pf-vs { align-self: center; color: var(--mu); font-size: 12px; padding-bottom: 26px; }
+/* phones: the two 10-icon columns can't sit side by side (they overflow the
+   viewport and the whole page pans sideways) — stack them */
+@media (max-width: 700px) {
+  .lp-pf-compare { flex-direction: column; align-items: stretch; gap: 18px; }
+  .lp-pf-people { flex-wrap: wrap; }
+  .lp-pf-vs { padding-bottom: 0; }
+  .lp-pf-p { width: 19px; height: 19px; }
+}
 
 .lp-pf-honest {
   margin-top: 56px;
